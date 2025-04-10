@@ -14,11 +14,12 @@ exports.handler = async (event) => {
   }
 
   try {
-    const { path, method, body, isAuth } = JSON.parse(event.body);
+    const { path, method, body, additionalHeaders } = JSON.parse(event.body);
     const baseURL = 'https://merchant-api.ifood.com.br';
 
     const requestHeaders = {
-      'Accept': 'application/json'
+      'Accept': 'application/json',
+      ...additionalHeaders
     };
 
     // Configurar headers específicos para autenticação ou outras requisições
