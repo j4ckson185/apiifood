@@ -717,56 +717,49 @@ function displayOrder(order) {
     console.log('Pedido exibido com sucesso:', order.id);
 }
 
-// Adiciona botões de ação baseado no status do pedido
 function addActionButtons(container, order) {
     console.log('Adicionando botões de ação para pedido:', order);
-    
+
     // Limpa botões existentes
     while (container.firstChild) {
         container.removeChild(container.firstChild);
     }
-    
-    // Sempre exibir pelo menos um botão, independente do status
-    
-    // Pedidos novos - sempre mostrar Confirmar e Cancelar
+
     const status = order.status || '';
-    
-    // Adiciona botão Confirmar para pedidos novos
-    if (status === 'PLACED' || status === '' || !status) {
-        const confirmButton = document.createElement('button');
-        confirmButton.className = 'action-button confirm';
-        confirmButton.textContent = 'Confirmar';
-        confirmButton.onclick = () => handleOrderAction(order.id, 'confirm');
-        container.appendChild(confirmButton);
-    }
-    
-    // Adiciona botão Despachar para qualquer pedido confirmado ou em preparação
-    if (status === 'CONFIRMED' || status === 'IN_PREPARATION') {
-        const dispatchButton = document.createElement('button');
-        dispatchButton.className = 'action-button dispatch';
-        dispatchButton.textContent = 'Despachar';
-        dispatchButton.onclick = () => handleOrderAction(order.id, 'dispatch');
-        container.appendChild(dispatchButton);
-    }
-    
-    // Sempre adiciona botão Cancelar (exceto para pedidos já cancelados)
-    if (status !== 'CANCELLED') {
-        const cancelButton = document.createElement('button');
-        cancelButton.className = 'action-button cancel';
-        cancelButton.textContent = 'Cancelar';
-        cancelButton.onclick = () => handleOrderAction(order.id, 'requestCancellation');
-        container.appendChild(cancelButton);
-    }
-    
-    // Se não houver botões, pelo menos mostra um botão de cancelar
-    if (container.childNodes.length === 0) {
-        const cancelButton = document.createElement('button');
-        cancelButton.className = 'action-button cancel';
-        cancelButton.textContent = 'Cancelar';
-        cancelButton.onclick = () => handleOrderAction(order.id, 'requestCancellation');
-        container.appendChild(cancelButton);
+    const isDelivery = order.orderType === 'DELIVERY' ||
+        (order.delivery && order.delivery.deliveryAddress);
+
+    const isTakeout = order.takeout && order.takeout.mode;
+
+    if (status === 'PLACED') {
+        // Pedido novo
+        container.appendChild(createButton('Confirmar', 'confirm', 'confirm', order.id));
+        container.appendChild(createButton('Cancelar', 'requestCancellation', 'cancel', order.id));
+    } else if (status === 'CONFIRMED' || status === 'IN_PREPARATION') {
+        // Confirmado ou em preparação
+        if (isDelivery) {
+            container.appendChild(createButton('Despachar', 'dispatch', 'dispatch', order.id));
+        } else if (isTakeout) {
+            container.appendChild(createButton('Avisar Pedido Pronto', 'readyToPickup', 'ready', order.id));
+        }
+        container.appendChild(createButton('Cancelar', 'requestCancellation', 'cancel', order.id));
+    } else if (status === 'READY_TO_PICKUP' || status === 'DISPATCHED') {
+        // Pronto ou despachado
+        container.appendChild(createButton('Cancelar', 'requestCancellation', 'cancel', order.id));
+    } else if (status === 'CANCELLED') {
+        const button = createButton('Pedido Cancelado', null, 'disabled', order.id);
+        button.disabled = true;
+        container.appendChild(button);
+    } else if (status === 'CONCLUDED') {
+        const button = createButton('Pedido Concluído', null, 'disabled', order.id);
+        button.disabled = true;
+        container.appendChild(button);
+    } else {
+        // Qualquer outro status
+        container.appendChild(createButton('Cancelar', 'requestCancellation', 'cancel', order.id));
     }
 }
+
 
 // Função auxiliar para criar botões
 function createButton(label, action, className, orderId) {
