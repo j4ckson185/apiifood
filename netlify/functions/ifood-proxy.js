@@ -14,20 +14,42 @@ exports.handler = async (event) => {
   }
 
   try {
-    const { path, method, body, headers } = JSON.parse(event.body);
+    const { path, method, body, headers = {}, isAuth } = JSON.parse(event.body);
     const baseURL = 'https://merchant-api.ifood.com.br';
 
-    console.log('Requisição para:', path);
-    console.log('Headers recebidos:', headers);
+    // Usa os headers enviados pela requisição
+    const requestHeaders = { ...headers };
 
-    const response = await fetch(`${baseURL}${path}`, {
-      method: method,
-      headers: headers, // Usando os headers recebidos
-      body: body ? JSON.stringify(body) : undefined
-    });
+    // Adiciona Authorization se existir
+    if (event.headers.authorization) {
+      requestHeaders.Authorization = event.headers.authorization;
+    }
 
+    console.log('Requisição para:', `${baseURL}${path}`);
+    console.log('Headers:', requestHeaders);
+    console.log('Body:', body);
+
+    const fetchOptions = {
+      method,
+      headers: requestHeaders
+    };
+
+    // Adiciona body se existir
+    if (body) {
+      if (isAuth) {
+        // Para autenticação, envia o body direto como string
+        fetchOptions.body = body;
+      } else {
+        // Para outras requisições, converte para JSON
+        fetchOptions.body = JSON.stringify(body);
+      }
+    }
+
+    const response = await fetch(`${baseURL}${path}`, fetchOptions);
     const data = await response.json();
-    console.log('Resposta:', data);
+
+    console.log('Status da resposta:', response.status);
+    console.log('Dados da resposta:', data);
 
     return {
       statusCode: response.status,
