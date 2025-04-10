@@ -702,8 +702,23 @@ function addActionButtons(container, order) {
         orderStatus = 'PLACED';
     }
     
-    // Se não encontramos o status na lista acima, verificamos se o status começa com algum dos prefixos conhecidos
-    let orderActions = actions[orderStatus] || [];
+const statusMap = {
+    'PLC': 'PLACED',
+    'CFM': 'CONFIRMED',
+    'PREP': 'IN_PREPARATION',
+    'RTP': 'READY_TO_PICKUP',
+    'DDCR': 'DISPATCHED',
+    'CONC': 'CONCLUDED',
+    'CANC': 'CANCELLED',
+    'CANR': 'CANCELLATION_REQUESTED'
+};
+
+const normalizedStatus = statusMap[orderStatus] || orderStatus;
+
+// SE O PEDIDO ESTIVER COMO CONFIRMADO, JÁ PULA PRA AÇÕES DE DESPACHAR
+const remappedStatus = normalizedStatus === 'CONFIRMED' ? 'READY_TO_PICKUP' : normalizedStatus;
+
+let orderActions = actions[remappedStatus] || [];
     
     if (orderActions.length === 0) {
         if (orderStatus && typeof orderStatus === 'string') {
