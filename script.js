@@ -313,19 +313,39 @@ function displayOrder(order) {
     // Preenche informações básicas
     orderElement.querySelector('.order-number').textContent = `#${order.id.substring(0, 8)}`;
     orderElement.querySelector('.order-status').textContent = getStatusText(order.status);
-    orderElement.querySelector('.customer-name').textContent = `Cliente: ${order.customer.name}`;
-    orderElement.querySelector('.customer-phone').textContent = `Tel: ${order.customer.phone || 'N/A'}`;
+    orderElement.querySelector('.customer-name').textContent = `Cliente: ${order.customer?.name || 'N/A'}`;
+    orderElement.querySelector('.customer-phone').textContent = `Tel: ${order.customer?.phone || 'N/A'}`;
 
     // Preenche itens do pedido
     const itemsList = orderElement.querySelector('.items-list');
-    order.items.forEach(item => {
+    if (order.items && Array.isArray(order.items)) {
+        order.items.forEach(item => {
+            const li = document.createElement('li');
+            const itemPrice = (item.price * item.quantity).toFixed(2);
+            li.textContent = `${item.quantity}x ${item.name} - R$ ${itemPrice}`;
+            itemsList.appendChild(li);
+        });
+    } else {
         const li = document.createElement('li');
-        li.textContent = `${item.quantity}x ${item.name} - R$ ${(item.price * item.quantity).toFixed(2)}`;
+        li.textContent = 'Nenhum item encontrado';
         itemsList.appendChild(li);
-    });
+    }
 
-    // Preenche total
-    orderElement.querySelector('.total-amount').textContent = `R$ ${order.total.toFixed(2)}`;
+    // Preenche total - verifica se total é um número antes de usar toFixed
+    const totalAmount = orderElement.querySelector('.total-amount');
+    if (typeof order.total === 'number') {
+        totalAmount.textContent = `R$ ${order.total.toFixed(2)}`;
+    } else if (order.total && typeof order.total.value === 'number') {
+        // Em alguns casos, total pode ser um objeto com propriedade value
+        totalAmount.textContent = `R$ ${order.total.value.toFixed(2)}`;
+    } else {
+        // Tenta calcular o total a partir dos itens
+        let calculatedTotal = 0;
+        if (order.items && Array.isArray(order.items)) {
+            calculatedTotal = order.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+        }
+        totalAmount.textContent = `R$ ${calculatedTotal.toFixed(2)}`;
+    }
 
     // Adiciona botões de ação
     const actionsContainer = orderElement.querySelector('.order-actions');
@@ -333,6 +353,8 @@ function displayOrder(order) {
 
     // Adiciona ao grid de pedidos
     document.getElementById('orders-grid').appendChild(orderElement);
+    
+    console.log('Pedido exibido com sucesso:', order.id);
 }
 
 // Adiciona botões de ação baseado no status do pedido
