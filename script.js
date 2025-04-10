@@ -3,15 +3,12 @@ const CONFIG = {
     merchantId: '2733980',
     merchantUUID: '3a9fc83b-ffc3-43e9-aeb6-36c9e827a143',
     clientId: 'e6415912-782e-4bd9-b6ea-af48c81ae323',
-    clientSecret: '137o75y57ug8fm55ubfoxlwjpl0xm25jxj18ne5mser23mbprj5nfncvfnr82utnzx73ij4h449o298370rjwpycppazsfyh2s0l',
-    baseURL: 'https://merchant-api.ifood.com.br'
+    clientSecret: '137o75y57ug8fm55ubfoxlwjpl0xm25jxj18ne5mser23mbprj5nfncvfnr82utnzx73ij4h449o298370rjwpycppazsfyh2s0l'
 };
 
 // Estado da aplicação
 let state = {
-    accessToken: null,
-    isPolling: false,
-    activeOrders: new Map()
+    accessToken: null
 };
 
 // Funções de utilidade
@@ -30,9 +27,9 @@ const showToast = (message, type = 'info') => {
 async function authenticate() {
     try {
         showLoading();
-        
+
         const formData = new URLSearchParams();
-        formData.append('grant_type', 'client_credentials');
+        formData.append('grantType', 'client_credentials');
         formData.append('clientId', CONFIG.clientId);
         formData.append('clientSecret', CONFIG.clientSecret);
 
@@ -58,7 +55,8 @@ async function authenticate() {
         
         if (state.accessToken) {
             showToast('Autenticado com sucesso!', 'success');
-            initializePolling();
+            // Após autenticação, buscar lojas
+            fetchMerchants();
         } else {
             throw new Error('Token não recebido');
         }
@@ -70,172 +68,39 @@ async function authenticate() {
     }
 }
 
-// Função para fazer requisições autenticadas
-async function makeRequest(path, method = 'GET', body = null) {
+// Função para buscar lojas
+async function fetchMerchants() {
     try {
-        const headers = {
-            'Content-Type': 'application/json'
-        };
-
-        if (state.accessToken) {
-            headers.Authorization = `Bearer ${state.accessToken}`;
-        }
-
+        showLoading();
         const response = await fetch('/.netlify/functions/ifood-proxy', {
             method: 'POST',
-            headers: headers,
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${state.accessToken}`
+            },
             body: JSON.stringify({
-                path,
-                method,
-                body
+                path: '/merchant/v1.0/merchants',
+                method: 'GET'
             })
         });
 
         if (!response.ok) {
-            throw new Error(`Erro na requisição: ${response.status}`);
+            throw new Error(`Erro ao buscar lojas: ${response.status}`);
         }
 
-        return await response.json();
+        const merchants = await response.json();
+        console.log('Lojas:', merchants);
+        showToast('Lojas carregadas com sucesso!', 'success');
     } catch (error) {
-        console.error('Erro na requisição:', error);
-        throw error;
-    }
-}
-
-// Funções de polling de eventos
-async function pollEvents() {
-    if (!state.isPolling) return;
-
-    try {
-        const events = await makeRequest('/events/1.0/events:polling');
-        
-        if (events && events.length > 0) {
-            for (const event of events) {
-                await processEvent(event);
-            }
-
-            // Acknowledge events
-            await makeRequest('/events/1.0/acknowledgment', 'POST', {
-                id: events.map(e => e.id)
-            });
-        }
-    } catch (error) {
-        console.error('Erro no polling:', error);
-    } finally {
-        if (state.isPolling) {
-            setTimeout(pollEvents, 30000); // 30 segundos
-        }
-    }
-}
-
-async function processEvent(event) {
-    if (!event || !event.orderId) return;
-
-    try {
-        const order = await makeRequest(`/order/v1.0/orders/${event.orderId}`);
-        displayOrder(order);
-    } catch (error) {
-        console.error('Erro ao processar evento:', error);
-    }
-}
-
-// Funções de manipulação de pedidos
-function displayOrder(order) {
-    const template = document.getElementById('order-modal-template');
-    const orderElement = template.content.cloneNode(true);
-    const orderCard = orderElement.querySelector('.order-card');
-    orderCard.dataset.orderId = order.id;
-
-    orderElement.querySelector('.order-number').textContent = `#${order.id.substring(0, 8)}`;
-    orderElement.querySelector('.order-status').textContent = getStatusText(order.status);
-    orderElement.querySelector('.customer-name').textContent = order.customer.name;
-    orderElement.querySelector('.customer-phone').textContent = order.customer.phone || 'N/A';
-
-    const itemsList = orderElement.querySelector('.items-list');
-    order.items.forEach(item => {
-        const li = document.createElement('li');
-        li.textContent = `${item.quantity}x ${item.name} - R$ ${(item.price * item.quantity).toFixed(2)}`;
-        itemsList.appendChild(li);
-    });
-
-    orderElement.querySelector('.total-amount').textContent = `R$ ${order.total.toFixed(2)}`;
-    
-    addActionButtons(orderElement.querySelector('.order-actions'), order);
-    
-    document.getElementById('orders-grid').appendChild(orderElement);
-}
-
-function addActionButtons(container, order) {
-    const actions = {
-        'PLACED': [
-            { label: 'Confirmar', action: 'confirm' },
-            { label: 'Cancelar', action: 'requestCancellation' }
-        ],
-        'CONFIRMED': [
-            { label: 'Iniciar Preparo', action: 'startPreparation' }
-        ],
-        'IN_PREPARATION': [
-            { label: 'Pronto para Retirada', action: 'readyToPickup' }
-        ],
-        'READY_TO_PICKUP': [
-            { label: 'Despachar', action: 'dispatch' }
-        ]
-    };
-
-    const orderActions = actions[order.status] || [];
-    
-    orderActions.forEach(({label, action}) => {
-        const button = document.createElement('button');
-        button.className = 'action-button';
-        button.textContent = label;
-        button.onclick = () => handleOrderAction(order.id, action);
-        container.appendChild(button);
-    });
-}
-
-async function handleOrderAction(orderId, action) {
-    try {
-        showLoading();
-        await makeRequest(`/order/v1.0/orders/${orderId}/${action}`, 'POST');
-        showToast('Ação realizada com sucesso!', 'success');
-    } catch (error) {
-        showToast('Erro ao realizar ação', 'error');
+        console.error('Erro ao buscar lojas:', error);
+        showToast(error.message, 'error');
     } finally {
         hideLoading();
     }
 }
 
-function getStatusText(status) {
-    const statusMap = {
-        'PLACED': 'Novo',
-        'CONFIRMED': 'Confirmado',
-        'IN_PREPARATION': 'Em Preparação',
-        'READY_TO_PICKUP': 'Pronto para Retirada',
-        'DISPATCHED': 'Despachado',
-        'CONCLUDED': 'Concluído',
-        'CANCELLED': 'Cancelado'
-    };
-    return statusMap[status] || status;
-}
-
-function initializePolling() {
-    state.isPolling = true;
-    pollEvents();
-}
-
 // Event Listeners
 document.getElementById('poll-orders').addEventListener('click', authenticate);
-document.getElementById('toggle-store').addEventListener('click', async () => {
-    try {
-        const status = await makeRequest(`/merchant/v1.0/merchants/${CONFIG.merchantId}/status`);
-        await makeRequest(`/merchant/v1.0/merchants/${CONFIG.merchantId}/status`, 'PUT', {
-            available: !status.available
-        });
-        showToast('Status da loja atualizado!', 'success');
-    } catch (error) {
-        showToast('Erro ao atualizar status da loja', 'error');
-    }
-});
 
 // Inicialização
 authenticate();
