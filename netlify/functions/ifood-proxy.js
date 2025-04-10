@@ -20,12 +20,13 @@ exports.handler = async (event) => {
 
     // Usa os headers enviados pela requisição
 const requestHeaders = {
-  ...headers,
-  Authorization: headers.Authorization || headers.authorization
+  'Content-Type': headers['Content-Type'] || 'application/json',
+  'Authorization': headers['Authorization'] || headers['authorization'],
+  'x-polling-merchants': headers['x-polling-merchants']
 };
 
     console.log('Requisição para:', `${baseURL}${path}`);
-    console.log('Headers:', requestHeaders);
+    console.log('📤 Enviando para iFood com headers:', requestHeaders);
     console.log('Body:', body);
     console.log('🔐 Authorization enviado para o iFood:', requestHeaders.Authorization);
 
