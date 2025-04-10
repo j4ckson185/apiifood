@@ -71,19 +71,22 @@ async function makeAuthorizedRequest(path, method = 'GET', body = null) {
         'Authorization': `Bearer ${state.accessToken}`
     };
 
-    if (path.includes('events:polling')) {
+    // Adiciona o header de merchant apenas para o polling
+    if (path === '/events/v1.0/events:polling') {
         headers['x-polling-merchants'] = CONFIG.merchantId;
     }
 
     try {
         const response = await fetch('/.netlify/functions/ifood-proxy', {
             method: 'POST',
-            headers,
+            headers: {
+                'Content-Type': 'application/json'
+            },
             body: JSON.stringify({
                 path,
                 method,
                 body,
-                additionalHeaders: headers
+                headers // Enviando os headers específicos para o proxy
             })
         });
 
@@ -91,7 +94,9 @@ async function makeAuthorizedRequest(path, method = 'GET', body = null) {
             throw new Error(`Erro na requisição: ${response.status}`);
         }
 
-        return await response.json();
+        const data = await response.json();
+        console.log('Resposta da requisição:', data);
+        return data;
     } catch (error) {
         console.error('Erro na requisição:', error);
         throw error;
@@ -104,9 +109,9 @@ async function pollEvents() {
 
     try {
         console.log('Iniciando polling...');
-        const events = await makeAuthorizedRequest('/events/v1.0/events:polling');
+        const events = await makeAuthorizedRequest('/events/v1.0/events:polling', 'GET', null);
         
-        if (events && events.length > 0) {
+        if (events && Array.isArray(events) && events.length > 0) {
             console.log('Eventos recebidos:', events);
             
             // Processa os eventos
@@ -116,17 +121,11 @@ async function pollEvents() {
 
             // Envia acknowledgment
             await makeAuthorizedRequest('/events/v1.0/events/acknowledgment', 'POST', {
-                ids: events.map(event => event.id)
+                id: events.map(event => event.id)
             });
         }
     } catch (error) {
-        if (error.message.includes('403')) {
-            console.error('Erro de permissão no polling:', error);
-            state.isPolling = false;
-            authenticate(); // Tenta autenticar novamente
-        } else {
-            console.error('Erro no polling:', error);
-        }
+        console.error('Erro no polling:', error);
     } finally {
         if (state.isPolling) {
             setTimeout(pollEvents, CONFIG.pollingInterval);
