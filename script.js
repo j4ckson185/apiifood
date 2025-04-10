@@ -94,6 +94,7 @@ if (path === '/events/v1.0/events:polling' || path === '/events/v1.0/events/ackn
     console.log('➡️ method:', method);
     console.log('➡️ headers:', headers);
     console.log('➡️ body:', payload.body);
+    console.log('🔁 Rota sendo requisitada:', path);
 
     try {
         const response = await fetch('/.netlify/functions/ifood-proxy', {
@@ -134,6 +135,8 @@ async function pollEvents() {
             for (const event of events) {
                 await handleEvent(event);
             }
+
+            console.log('📤 Enviando acknowledgment com eventos:', events.map(event => event.id));
 
             // Envia acknowledgment
 await makeAuthorizedRequest('/events/v1.0/events/acknowledgment', 'POST', {
