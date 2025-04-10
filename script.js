@@ -10,8 +10,7 @@ const CONFIG = {
 // Estado da aplicação
 let state = {
     accessToken: null,
-    isPolling: false,
-    orders: new Map()
+    isPolling: false
 };
 
 // Funções de utilidade
@@ -49,11 +48,12 @@ async function authenticate() {
             })
         });
 
+        const data = await response.json();
+
         if (!response.ok) {
             throw new Error(`Erro na autenticação: ${response.status}`);
         }
 
-        const data = await response.json();
         state.accessToken = data.accessToken;
         
         if (state.accessToken) {
@@ -73,20 +73,17 @@ async function authenticate() {
 // Função para fazer requisições autenticadas
 async function makeRequest(path, method = 'GET', body = null) {
     try {
-        console.log(`Fazendo requisição ${method} para ${path}`);
-        
-        if (!state.accessToken && !path.includes('/oauth/token')) {
-            throw new Error('Token não disponível');
+        const headers = {
+            'Content-Type': 'application/json'
+        };
+
+        if (state.accessToken) {
+            headers.Authorization = `Bearer ${state.accessToken}`;
         }
 
         const response = await fetch('/.netlify/functions/ifood-proxy', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                ...(state.accessToken && !path.includes('/oauth/token') ? {
-                    'Authorization': `Bearer ${state.accessToken}`
-                } : {})
-            },
+            headers: headers,
             body: JSON.stringify({
                 path,
                 method,
@@ -97,7 +94,6 @@ async function makeRequest(path, method = 'GET', body = null) {
         const data = await response.json();
 
         if (!response.ok) {
-            console.error('Erro na resposta:', data);
             throw new Error(`Erro na requisição: ${response.status}`);
         }
 
@@ -107,91 +103,57 @@ async function makeRequest(path, method = 'GET', body = null) {
         throw error;
     }
 }
-}
 
 // Polling de eventos
 async function pollEvents() {
-    if (!state.isPolling || !state.accessToken) return;
+    if (!state.isPolling) return;
 
     try {
-        console.log('Iniciando polling...');
-        const events = await makeRequest('/events/1.0/events:polling', 'GET');
+        const events = await makeRequest('/events/1.0/events:polling');
         
-        console.log('Resposta do polling:', events);
-        
-        if (Array.isArray(events) && events.length > 0) {
+        if (events && events.length > 0) {
             console.log('Eventos recebidos:', events);
             
             // Processa cada evento
             for (const event of events) {
-                if (event && event.orderId) {
-                    await processEvent(event);
+                if (event.code === 'PLACED') {
+                    await fetchOrderDetails(event.orderId);
                 }
             }
 
             // Confirma o recebimento dos eventos
-            try {
-                await makeRequest('/events/1.0/acknowledgment', 'POST', {
-                    id: events.map(e => e.id).filter(Boolean)
-                });
-            } catch (ackError) {
-                console.error('Erro no acknowledgment:', ackError);
-            }
-        } else {
-            console.log('Nenhum evento novo.');
+            await makeRequest('/events/1.0/acknowledgment', 'POST', {
+                id: events.map(e => e.id)
+            });
         }
     } catch (error) {
         console.error('Erro no polling:', error);
-        showToast('Erro ao buscar eventos. Tentando novamente...', 'error');
-        
-        // Se for erro de autenticação, tenta autenticar novamente
-        if (error.message.includes('401')) {
-            state.isPolling = false;
-            authenticate();
-            return;
-        }
     } finally {
         if (state.isPolling) {
-            console.log('Agendando próximo polling...');
             setTimeout(pollEvents, CONFIG.pollingInterval);
         }
     }
 }
 
-// Processa cada evento recebido
-async function processEvent(event) {
+// Busca detalhes do pedido
+async function fetchOrderDetails(orderId) {
     try {
-        switch (event.code) {
-            case 'PLACED':
-                const order = await makeRequest(`/order/v1.0/orders/${event.orderId}`);
-                displayOrder(order);
-                break;
-            case 'CONFIRMED':
-            case 'CANCELLED':
-            case 'READY_TO_PICKUP':
-            case 'DISPATCHED':
-                updateOrderStatus(event.orderId, event.code);
-                break;
-        }
+        const order = await makeRequest(`/order/v1.0/orders/${orderId}`);
+        displayOrder(order);
     } catch (error) {
-        console.error('Erro ao processar evento:', error);
+        console.error('Erro ao buscar pedido:', error);
+        showToast(`Erro ao buscar pedido ${orderId}`, 'error');
     }
 }
 
-// Exibe um pedido na interface
+// Exibe o pedido na interface
 function displayOrder(order) {
     const template = document.getElementById('order-modal-template');
     const orderElement = template.content.cloneNode(true);
-    const orderCard = orderElement.querySelector('.order-card');
-    
-    // Adiciona ID do pedido ao card
-    orderCard.dataset.orderId = order.id;
 
     // Preenche informações básicas
     orderElement.querySelector('.order-number').textContent = `#${order.id.substring(0, 8)}`;
     orderElement.querySelector('.order-status').textContent = getStatusText(order.status);
-
-    // Preenche informações do cliente
     orderElement.querySelector('.customer-name').textContent = `Cliente: ${order.customer.name}`;
     orderElement.querySelector('.customer-phone').textContent = `Tel: ${order.customer.phone || 'N/A'}`;
 
@@ -212,7 +174,6 @@ function displayOrder(order) {
 
     // Adiciona ao grid de pedidos
     document.getElementById('orders-grid').appendChild(orderElement);
-    state.orders.set(order.id, order);
 }
 
 // Adiciona botões de ação baseado no status do pedido
@@ -254,24 +215,6 @@ async function handleOrderAction(orderId, action) {
         showToast('Erro ao realizar ação', 'error');
     } finally {
         hideLoading();
-    }
-}
-
-// Atualiza o status de um pedido na interface
-function updateOrderStatus(orderId, newStatus) {
-    const orderCard = document.querySelector(`[data-order-id="${orderId}"]`);
-    if (orderCard) {
-        orderCard.querySelector('.order-status').textContent = getStatusText(newStatus);
-        
-        // Atualiza botões de ação
-        const actionsContainer = orderCard.querySelector('.order-actions');
-        actionsContainer.innerHTML = '';
-        
-        if (state.orders.has(orderId)) {
-            const order = state.orders.get(orderId);
-            order.status = newStatus;
-            addActionButtons(actionsContainer, order);
-        }
     }
 }
 
