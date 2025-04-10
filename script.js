@@ -61,6 +61,7 @@ async function authenticate() {
     try {
         showLoading();
         const authResponse = await makeRequest('/authentication/v1.0/oauth/token', 'POST', {
+            grant_type: 'client_credentials',
             client_id: CONFIG.clientId,
             client_secret: CONFIG.clientSecret
         });
