@@ -140,7 +140,7 @@ async function pollEvents() {
 
             // Envia acknowledgment
 await makeAuthorizedRequest('/events/v1.0/events/acknowledgment', 'POST', {
-    events: events.map(event => event.id)
+    events: [events[events.length - 1].id]
 });
         }
     } catch (error) {
