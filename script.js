@@ -78,23 +78,39 @@ async function makeAuthorizedRequest(path, method = 'GET', body = null) {
         'Authorization': `Bearer ${state.accessToken}`
     };
 
-if (path === '/events/v1.0/events:polling' || path === '/events/v1.0/events/acknowledgment') {
-    headers['x-polling-merchants'] = CONFIG.merchantUUID;
-}
+    // Adiciona o header x-polling-merchants apenas para os endpoints específicos
+    if (path === '/events/v1.0/events:polling' || path === '/events/v1.0/events/acknowledgment') {
+        headers['x-polling-merchants'] = CONFIG.merchantUUID;
+    }
+
+    // Preparação especial para o endpoint de acknowledgment
+    let processedBody = null;
+    if (method !== 'GET' && body) {
+        if (path === '/events/v1.0/events/acknowledgment') {
+            // Garantimos que o formato é exatamente { events: [ids] }
+            if (body.events && Array.isArray(body.events)) {
+                processedBody = JSON.stringify({ 
+                    events: body.events.filter(id => id && typeof id === 'string')
+                });
+            } else {
+                console.error('❌ Formato inválido para acknowledgment:', body);
+                throw new Error('Formato inválido para acknowledgment');
+            }
+        } else {
+            processedBody = JSON.stringify(body);
+        }
+    }
 
     const payload = {
         path,
         method,
         headers,
-        body: method !== 'GET' && body ? JSON.stringify(body) : null
+        body: processedBody
     };
 
-    console.log('🔍 Enviando requisição para proxy:');
-    console.log('➡️ path:', path);
-    console.log('➡️ method:', method);
-    console.log('➡️ headers:', headers);
-    console.log('➡️ body:', payload.body);
-    console.log('🔁 Rota sendo requisitada:', path);
+    console.log(`📤 Enviando requisição para ${path}:`);
+    console.log('🔐 Headers:', headers);
+    console.log('📦 Body:', processedBody);
 
     try {
         const response = await fetch('/.netlify/functions/ifood-proxy', {
@@ -106,15 +122,22 @@ if (path === '/events/v1.0/events:polling' || path === '/events/v1.0/events/ackn
         });
 
         const responseText = await response.text();
-        console.log('📨 Resposta bruta do proxy:', responseText);
+        console.log(`📥 Resposta bruta de ${path}:`, responseText);
 
         if (!response.ok) {
+            console.error(`❌ Erro ${response.status} ao chamar ${path}`);
             throw new Error(`Erro na requisição: ${response.status}`);
         }
 
-        return JSON.parse(responseText);
+        // Tenta parsear a resposta como JSON
+        try {
+            return responseText ? JSON.parse(responseText) : {};
+        } catch (e) {
+            console.warn('⚠️ Resposta não é um JSON válido:', responseText);
+            return { raw: responseText };
+        }
     } catch (error) {
-        console.error('❌ Erro na requisição:', error);
+        console.error(`❌ Erro ao chamar ${path}:`, error);
         throw error;
     }
 }
@@ -125,32 +148,78 @@ async function pollEvents() {
     if (!state.isPolling || !state.accessToken) return;
 
     try {
-        console.log('Iniciando polling...');
+        console.log('📊 Iniciando polling de eventos...');
         const events = await makeAuthorizedRequest('/events/v1.0/events:polling', 'GET', null);
         
         if (events && Array.isArray(events) && events.length > 0) {
-            console.log('Eventos recebidos:', events);
+            console.log('📬 Eventos recebidos:', events);
+            
+            // Extrai apenas os IDs dos eventos para acknowledgment
+            const eventIds = events.map(event => event.id);
+            console.log('🆔 IDs dos eventos para acknowledgment:', eventIds);
             
             // Processa os eventos
             for (const event of events) {
                 await handleEvent(event);
             }
 
-            // Log do payload exato para debug
-            const acknowledgmentPayload = {
-              events: events.map(event => event.id)
-            };
-            console.log('📤 Payload exato de acknowledgment:', acknowledgmentPayload);
-
-            // Envia acknowledgment para todos os eventos
-            await makeAuthorizedRequest('/events/v1.0/events/acknowledgment', 'POST', acknowledgmentPayload);
-            
-            console.log('✅ Acknowledgment enviado com sucesso');
+            if (eventIds.length > 0) {
+                console.log('📤 Enviando acknowledgment com payload:', { events: eventIds });
+                
+                try {
+                    // Envia acknowledgment com formato rigorosamente controlado
+                    const ackResponse = await makeAuthorizedRequest(
+                        '/events/v1.0/events/acknowledgment', 
+                        'POST', 
+                        { events: eventIds }
+                    );
+                    
+                    console.log('✅ Acknowledgment enviado com sucesso. Resposta:', ackResponse);
+                } catch (ackError) {
+                    console.error('❌ Erro no acknowledgment:', ackError);
+                    
+                    // Tentativa alternativa com formato modificado (última tentativa)
+                    console.log('🔄 Tentando formato alternativo para acknowledgment...');
+                    try {
+                        const ackResponse = await fetch('/.netlify/functions/ifood-proxy', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({
+                                path: '/events/v1.0/events/acknowledgment',
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'Authorization': `Bearer ${state.accessToken}`,
+                                    'x-polling-merchants': CONFIG.merchantUUID
+                                },
+                                body: JSON.stringify({ events: eventIds })
+                            })
+                        });
+                        
+                        const responseText = await ackResponse.text();
+                        console.log('📨 Resposta bruta da tentativa alternativa:', responseText);
+                    } catch (altError) {
+                        console.error('❌ Erro na tentativa alternativa:', altError);
+                    }
+                }
+            }
+        } else {
+            console.log('📭 Nenhum evento recebido neste polling');
         }
     } catch (error) {
-        console.error('Erro no polling:', error);
+        console.error('❌ Erro no polling:', error);
+        
+        // Verificar se o token expirou e renovar se necessário
+        if (error.message && error.message.includes('401')) {
+            console.log('🔑 Token possivelmente expirado. Tentando renovar...');
+            state.accessToken = null;
+            await authenticate();
+        }
     } finally {
         if (state.isPolling) {
+            console.log(`⏱️ Agendando próximo polling em ${CONFIG.pollingInterval/1000} segundos`);
             setTimeout(pollEvents, CONFIG.pollingInterval);
         }
     }
