@@ -489,13 +489,55 @@ function startPolling() {
 }
 
 // Event Listeners
-document.getElementById('poll-orders').addEventListener('click', () => {
-    if (!state.accessToken) {
-        authenticate();
-    } else {
-        startPolling();
-    }
+document.addEventListener('DOMContentLoaded', () => {
+    // Botão para atualizar pedidos
+    document.getElementById('poll-orders').addEventListener('click', async () => {
+        if (!state.accessToken) {
+            await authenticate();
+        }
+        
+        showLoading();
+        try {
+            await fetchActiveOrders();
+            startPolling();
+        } finally {
+            hideLoading();
+        }
+    });
+
+    // Botão para alternar status da loja
+    document.getElementById('toggle-store').addEventListener('click', async () => {
+        if (!state.accessToken) {
+            await authenticate();
+        } else {
+            await toggleStoreStatus();
+        }
+    });
+
+    // Inicialização
+    initialize();
 });
 
-// Inicialização
-authenticate();
+// Função de inicialização
+async function initialize() {
+    try {
+        showLoading();
+        
+        // Autenticação inicial
+        await authenticate();
+        
+        // Atualiza status da loja
+        await updateStoreStatus();
+        
+        // Carrega pedidos ativos iniciais
+        await fetchActiveOrders();
+        
+        // Inicia polling de eventos
+        startPolling();
+    } catch (error) {
+        console.error('Erro na inicialização:', error);
+        showToast('Erro ao inicializar aplicação', 'error');
+    } finally {
+        hideLoading();
+    }
+}
