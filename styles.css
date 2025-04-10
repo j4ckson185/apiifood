@@ -264,3 +264,87 @@ main {
     font-size: 0.9em;
     margin-top: 10px;
 }
+
+/* Adicione estes estilos ao seu arquivo styles.css */
+
+.action-button.prepare {
+    background-color: #1a73e8;
+    color: white;
+}
+
+.action-button.ready {
+    background-color: #34a853;
+    color: white;
+}
+
+.action-button.dispatch {
+    background-color: #4285f4;
+    color: white;
+}
+
+.action-button.disabled {
+    background-color: #cccccc;
+    color: #666666;
+    cursor: not-allowed;
+}
+
+/* Estilos para os diferentes status dos pedidos */
+.order-card.status-placed {
+    border-left: 4px solid #ff9800;
+}
+
+.order-card.status-confirmed {
+    border-left: 4px solid #1a73e8;
+}
+
+.order-card.status-in_preparation {
+    border-left: 4px solid #9c27b0;
+}
+
+.order-card.status-ready_to_pickup {
+    border-left: 4px solid #34a853;
+}
+
+.order-card.status-dispatched {
+    border-left: 4px solid #4285f4;
+}
+
+.order-card.status-cancelled {
+    border-left: 4px solid #dc3545;
+    opacity: 0.7;
+}
+
+.order-card.status-concluded {
+    border-left: 4px solid #28a745;
+    opacity: 0.7;
+}
+
+/* Estilos para melhorar a exibição dos detalhes do pedido */
+.customer-address, .order-type, .payment-info, .order-created-at {
+    margin-bottom: 1.5rem;
+}
+
+.options-list {
+    margin-left: 20px;
+    margin-top: 5px;
+    font-size: 0.9em;
+}
+
+.item-observations {
+    font-style: italic;
+    color: #666;
+}
+
+.total-details {
+    font-size: 0.9em;
+    margin-top: 10px;
+}
+
+/* Melhoria na exibição do status */
+.order-status {
+    font-weight: bold;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 0.9rem;
+    background-color: #f5f5f5;
+}
