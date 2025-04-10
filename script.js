@@ -257,51 +257,84 @@ async function handleEvent(event) {
     }
 }
 
-// Atualiza o status de um pedido na interface
-function updateOrderStatus(orderId, status) {
-    console.log(`Atualizando status do pedido ${orderId} para ${status}`);
-    
-    // Busca o card do pedido pelo ID parcial
-    const orderCards = document.querySelectorAll('.order-card');
-    const shortOrderId = orderId.substring(0, 8);
-    
-    let found = false;
-    
-    orderCards.forEach(card => {
-        const orderNumberElement = card.querySelector('.order-number');
-        if (orderNumberElement && orderNumberElement.textContent.includes(shortOrderId)) {
-            found = true;
+// Função para atualizar o status da loja
+async function updateStoreStatus() {
+    try {
+        console.log('Atualizando status da loja...');
+        
+        // Tenta obter o status da loja
+        try {
+            const storeStatus = await makeAuthorizedRequest(`/merchant/v1.0/merchants/${CONFIG.merchantUUID}/status`, 'GET');
+            const statusElement = document.getElementById('store-status');
             
-            // Atualiza o status
-            const statusElement = card.querySelector('.order-status');
-            if (statusElement) {
-                statusElement.textContent = getStatusText(status);
+            if (storeStatus && storeStatus.available) {
+                statusElement.textContent = 'Online';
+                statusElement.className = 'status-badge online';
+            } else {
+                statusElement.textContent = 'Offline';
+                statusElement.className = 'status-badge offline';
             }
+        } catch (error) {
+            console.error('Erro ao buscar status da loja:', error);
             
-            // Atualiza as ações disponíveis
-            const actionsContainer = card.querySelector('.order-actions');
-            if (actionsContainer) {
-                // Limpa ações existentes
-                while (actionsContainer.firstChild) {
-                    actionsContainer.removeChild(actionsContainer.firstChild);
-                }
+            // Se for erro de permissão (403), assumimos que a loja está online para fins de UI
+            const statusElement = document.getElementById('store-status');
+            
+            if (error.message && error.message.includes('403')) {
+                console.log('Sem permissão para verificar status. Assumindo loja online.');
+                statusElement.textContent = 'Online (assumido)';
+                statusElement.className = 'status-badge online';
                 
-                // Adiciona novas ações baseadas no status atualizado
-                addActionButtons(actionsContainer, { id: orderId, status });
+                // Desativa o botão de alternar loja
+                const toggleButton = document.getElementById('toggle-store');
+                if (toggleButton) {
+                    toggleButton.disabled = true;
+                    toggleButton.title = 'Sem permissão para alterar status';
+                }
+            } else {
+                statusElement.textContent = 'Status desconhecido';
+                statusElement.className = 'status-badge';
             }
         }
-    });
-    
-    if (!found) {
-        console.log(`Pedido ${orderId} não encontrado na interface. Buscando detalhes...`);
-        // Se o pedido não estiver na interface, buscamos seus detalhes
-        makeAuthorizedRequest(`/order/v1.0/orders/${orderId}`, 'GET')
-            .then(order => {
-                displayOrder(order);
-            })
-            .catch(error => {
-                console.error(`Erro ao buscar detalhes do pedido ${orderId}:`, error);
+    } catch (error) {
+        console.error('Erro geral ao atualizar status da loja:', error);
+    }
+}
+
+// Função para alternar o status da loja
+async function toggleStoreStatus() {
+    try {
+        showLoading();
+        
+        try {
+            const storeStatus = await makeAuthorizedRequest(`/merchant/v1.0/merchants/${CONFIG.merchantUUID}/status`, 'GET');
+            
+            // Inverte o status atual
+            const newStatus = !storeStatus.available;
+            
+            // Atualiza o status
+            await makeAuthorizedRequest(`/merchant/v1.0/merchants/${CONFIG.merchantUUID}/status`, 'PUT', {
+                available: newStatus
             });
+            
+            // Atualiza a interface
+            updateStoreStatus();
+            
+            showToast(`Loja ${newStatus ? 'ativada' : 'desativada'} com sucesso`, 'success');
+        } catch (error) {
+            console.error('Erro ao alternar status da loja:', error);
+            
+            if (error.message && error.message.includes('403')) {
+                showToast('Sem permissão para alterar o status da loja', 'error');
+            } else {
+                showToast('Erro ao alternar status da loja', 'error');
+            }
+        }
+    } catch (error) {
+        console.error('Erro geral ao alternar status da loja:', error);
+        showToast('Erro ao alternar status da loja', 'error');
+    } finally {
+        hideLoading();
     }
 }
 
@@ -311,18 +344,144 @@ function displayOrder(order) {
     const orderElement = template.content.cloneNode(true);
 
     // Preenche informações básicas
-    orderElement.querySelector('.order-number').textContent = `#${order.id.substring(0, 8)}`;
+    orderElement.querySelector('.order-number').textContent = `#${order.displayId || order.id.substring(0, 8)}`;
     orderElement.querySelector('.order-status').textContent = getStatusText(order.status);
+    
+    // Customer info
     orderElement.querySelector('.customer-name').textContent = `Cliente: ${order.customer?.name || 'N/A'}`;
-    orderElement.querySelector('.customer-phone').textContent = `Tel: ${order.customer?.phone || 'N/A'}`;
+    
+    // Formatação correta do telefone
+    let phoneText = 'Tel: N/A';
+    if (order.customer?.phone) {
+        if (typeof order.customer.phone === 'string') {
+            phoneText = `Tel: ${order.customer.phone}`;
+        } else if (order.customer.phone.number) {
+            phoneText = `Tel: ${order.customer.phone.number}`;
+        }
+    }
+    orderElement.querySelector('.customer-phone').textContent = phoneText;
+    
+    // Adiciona informações de endereço se for delivery
+    if (order.delivery && order.delivery.deliveryAddress) {
+        const addressDiv = document.createElement('div');
+        addressDiv.className = 'customer-address';
+        
+        const addressTitle = document.createElement('h3');
+        addressTitle.textContent = 'Endereço de Entrega';
+        addressDiv.appendChild(addressTitle);
+        
+        const address = order.delivery.deliveryAddress;
+        const addressText = document.createElement('p');
+        addressText.textContent = address.formattedAddress || 
+            `${address.streetName}, ${address.streetNumber}, ${address.complement || ''}, ${address.neighborhood}, ${address.city}`;
+        addressDiv.appendChild(addressText);
+        
+        // Adiciona referência se existir
+        if (address.reference) {
+            const referenceText = document.createElement('p');
+            referenceText.textContent = `Referência: ${address.reference}`;
+            addressDiv.appendChild(referenceText);
+        }
+        
+        // Insere após as informações do cliente
+        const customerInfo = orderElement.querySelector('.customer-info');
+        customerInfo.parentNode.insertBefore(addressDiv, customerInfo.nextSibling);
+    }
+    
+    // Adiciona informação do tipo de pedido
+    const orderTypeDiv = document.createElement('div');
+    orderTypeDiv.className = 'order-type';
+    const orderTypeTitle = document.createElement('h3');
+    orderTypeTitle.textContent = 'Tipo de Pedido';
+    orderTypeDiv.appendChild(orderTypeTitle);
+    
+    const orderTypeText = document.createElement('p');
+    let orderTypeDescription = 'Desconhecido';
+    
+    if (order.orderType === 'DELIVERY') {
+        orderTypeDescription = 'Entrega';
+    } else if (order.takeout && order.takeout.mode) {
+        orderTypeDescription = 'Para Retirar';
+    } else if (order.indoor) {
+        orderTypeDescription = 'Consumo no Local';
+    }
+    
+    orderTypeText.textContent = orderTypeDescription;
+    orderTypeDiv.appendChild(orderTypeText);
+    
+    // Insere após as informações do cliente
+    const customerInfo = orderElement.querySelector('.customer-info');
+    customerInfo.parentNode.insertBefore(orderTypeDiv, customerInfo.nextSibling);
+    
+    // Adiciona informações de pagamento
+    if (order.payments && order.payments.methods && order.payments.methods.length > 0) {
+        const paymentDiv = document.createElement('div');
+        paymentDiv.className = 'payment-info';
+        
+        const paymentTitle = document.createElement('h3');
+        paymentTitle.textContent = 'Forma de Pagamento';
+        paymentDiv.appendChild(paymentTitle);
+        
+        const paymentList = document.createElement('ul');
+        
+        order.payments.methods.forEach(payment => {
+            const paymentItem = document.createElement('li');
+            let paymentText = payment.method || 'Método desconhecido';
+            
+            if (payment.type) {
+                paymentText += ` (${payment.type})`;
+            }
+            
+            if (payment.value) {
+                paymentText += ` - R$ ${payment.value.toFixed(2)}`;
+            }
+            
+            if (payment.prepaid) {
+                paymentText += ' - Pré-pago';
+            }
+            
+            paymentItem.textContent = paymentText;
+            paymentList.appendChild(paymentItem);
+        });
+        
+        paymentDiv.appendChild(paymentList);
+        
+        // Insere após as informações do tipo de pedido
+        orderTypeDiv.parentNode.insertBefore(paymentDiv, orderTypeDiv.nextSibling);
+    }
 
     // Preenche itens do pedido
     const itemsList = orderElement.querySelector('.items-list');
     if (order.items && Array.isArray(order.items)) {
         order.items.forEach(item => {
             const li = document.createElement('li');
-            const itemPrice = (item.price * item.quantity).toFixed(2);
-            li.textContent = `${item.quantity}x ${item.name} - R$ ${itemPrice}`;
+            // Usa totalPrice se disponível, senão calcula a partir do preço unitário e quantidade
+            const itemPrice = item.totalPrice || (item.price * item.quantity);
+            li.textContent = `${item.quantity}x ${item.name} - R$ ${itemPrice.toFixed(2)}`;
+            
+            // Adiciona observações se houver
+            if (item.observations) {
+                const obsSpan = document.createElement('span');
+                obsSpan.className = 'item-observations';
+                obsSpan.textContent = `Obs: ${item.observations}`;
+                li.appendChild(document.createElement('br'));
+                li.appendChild(obsSpan);
+            }
+            
+            // Adiciona opções se houver
+            if (item.options && item.options.length > 0) {
+                const optionsList = document.createElement('ul');
+                optionsList.className = 'options-list';
+                
+                item.options.forEach(option => {
+                    const optionLi = document.createElement('li');
+                    optionLi.textContent = `${option.quantity}x ${option.name} (+R$ ${option.addition || option.price || 0})`;
+                    optionsList.appendChild(optionLi);
+                });
+                
+                li.appendChild(optionsList);
+            }
+            
             itemsList.appendChild(li);
         });
     } else {
@@ -331,25 +490,85 @@ function displayOrder(order) {
         itemsList.appendChild(li);
     }
 
-    // Preenche total - verifica se total é um número antes de usar toFixed
+    // Preenche total
     const totalAmount = orderElement.querySelector('.total-amount');
-    if (typeof order.total === 'number') {
-        totalAmount.textContent = `R$ ${order.total.toFixed(2)}`;
-    } else if (order.total && typeof order.total.value === 'number') {
-        // Em alguns casos, total pode ser um objeto com propriedade value
-        totalAmount.textContent = `R$ ${order.total.value.toFixed(2)}`;
+    
+    if (order.total) {
+        if (typeof order.total === 'number') {
+            totalAmount.textContent = `R$ ${order.total.toFixed(2)}`;
+        } else if (order.total.subTotal || order.total.orderAmount) {
+            // Usa orderAmount ou subTotal + deliveryFee
+            const totalValue = order.total.orderAmount || 
+                              (order.total.subTotal + (order.total.deliveryFee || 0));
+            totalAmount.textContent = `R$ ${totalValue.toFixed(2)}`;
+            
+            // Adiciona detalhamento do total
+            const totalDetails = document.createElement('div');
+            totalDetails.className = 'total-details';
+            
+            if (order.total.subTotal) {
+                const subTotal = document.createElement('p');
+                subTotal.textContent = `Subtotal: R$ ${order.total.subTotal.toFixed(2)}`;
+                totalDetails.appendChild(subTotal);
+            }
+            
+            if (order.total.deliveryFee) {
+                const deliveryFee = document.createElement('p');
+                deliveryFee.textContent = `Taxa de entrega: R$ ${order.total.deliveryFee.toFixed(2)}`;
+                totalDetails.appendChild(deliveryFee);
+            }
+            
+            if (order.total.benefits && order.total.benefits > 0) {
+                const benefits = document.createElement('p');
+                benefits.textContent = `Descontos: -R$ ${order.total.benefits.toFixed(2)}`;
+                totalDetails.appendChild(benefits);
+            }
+            
+            const totalElement = orderElement.querySelector('.order-total');
+            totalElement.appendChild(totalDetails);
+        }
     } else {
         // Tenta calcular o total a partir dos itens
         let calculatedTotal = 0;
         if (order.items && Array.isArray(order.items)) {
-            calculatedTotal = order.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+            calculatedTotal = order.items.reduce((sum, item) => {
+                return sum + (item.totalPrice || (item.price * item.quantity) || 0);
+            }, 0);
         }
         totalAmount.textContent = `R$ ${calculatedTotal.toFixed(2)}`;
+    }
+
+    // Adiciona horário do pedido
+    if (order.createdAt) {
+        const createdAtDiv = document.createElement('div');
+        createdAtDiv.className = 'order-created-at';
+        
+        const createdAtTitle = document.createElement('h3');
+        createdAtTitle.textContent = 'Horário do Pedido';
+        createdAtDiv.appendChild(createdAtTitle);
+        
+        const createdAtText = document.createElement('p');
+        const createdDate = new Date(order.createdAt);
+        createdAtText.textContent = createdDate.toLocaleString('pt-BR');
+        createdAtDiv.appendChild(createdAtText);
+        
+        // Insere após o total
+        const totalElement = orderElement.querySelector('.order-total');
+        totalElement.parentNode.insertBefore(createdAtDiv, totalElement.nextSibling);
     }
 
     // Adiciona botões de ação
     const actionsContainer = orderElement.querySelector('.order-actions');
     addActionButtons(actionsContainer, order);
+
+    // Adiciona atributo data-id ao card para facilitar atualizações
+    const orderCard = orderElement.querySelector('.order-card');
+    orderCard.setAttribute('data-order-id', order.id);
+    
+    // Adiciona classe baseada no status
+    if (order.status) {
+        orderCard.classList.add(`status-${order.status.toLowerCase()}`);
+    }
 
     // Adiciona ao grid de pedidos
     document.getElementById('orders-grid').appendChild(orderElement);
@@ -359,31 +578,75 @@ function displayOrder(order) {
 
 // Adiciona botões de ação baseado no status do pedido
 function addActionButtons(container, order) {
+    console.log('Adicionando botões de ação para pedido com status:', order.status);
+    
+    // Limpa botões existentes
+    while (container.firstChild) {
+        container.removeChild(container.firstChild);
+    }
+    
     const actions = {
         'PLACED': [
-            { label: 'Confirmar', action: 'confirm' },
-            { label: 'Cancelar', action: 'requestCancellation' }
+            { label: 'Confirmar', action: 'confirm', class: 'confirm' },
+            { label: 'Cancelar', action: 'requestCancellation', class: 'cancel' }
         ],
         'CONFIRMED': [
-            { label: 'Iniciar Preparo', action: 'startPreparation' }
+            { label: 'Iniciar Preparo', action: 'startPreparation', class: 'prepare' }
         ],
         'IN_PREPARATION': [
-            { label: 'Pronto para Retirada', action: 'readyToPickup' }
+            { label: 'Pronto para Retirada', action: 'readyToPickup', class: 'ready' }
         ],
         'READY_TO_PICKUP': [
-            { label: 'Despachar', action: 'dispatch' }
-        ]
+            { label: 'Despachar', action: 'dispatch', class: 'dispatch' }
+        ],
+        // Adicione outros status conforme necessário
     };
-
-    const orderActions = actions[order.status] || [];
     
-    orderActions.forEach(({label, action}) => {
+    // Se não encontramos o status na lista acima, verificamos se o status começa com algum dos prefixos conhecidos
+    let orderActions = actions[order.status] || [];
+    
+    if (orderActions.length === 0) {
+        if (order.status && typeof order.status === 'string') {
+            // Tenta encontrar ações para status similares
+            const statusLower = order.status.toLowerCase();
+            
+            if (statusLower.includes('placed') || statusLower.includes('new')) {
+                orderActions = actions['PLACED'];
+            } else if (statusLower.includes('confirm')) {
+                orderActions = actions['CONFIRMED'];
+            } else if (statusLower.includes('prepar')) {
+                orderActions = actions['IN_PREPARATION'];
+            } else if (statusLower.includes('ready') || statusLower.includes('pickup')) {
+                orderActions = actions['READY_TO_PICKUP'];
+            }
+        }
+    }
+    
+    console.log(`Encontradas ${orderActions.length} ações para o status ${order.status}`);
+    
+    // Se ainda não encontramos ações, verificamos pelo tipo de pedido
+    if (orderActions.length === 0 && !order.status) {
+        // Pedido novo sem status explícito
+        orderActions = actions['PLACED'];
+        console.log('Usando ações de pedido novo para pedido sem status');
+    }
+    
+    // Adiciona os botões de ação
+    orderActions.forEach(({label, action, class: buttonClass}) => {
         const button = document.createElement('button');
-        button.className = `action-button ${action}`;
+        button.className = `action-button ${buttonClass || action}`;
         button.textContent = label;
         button.onclick = () => handleOrderAction(order.id, action);
         container.appendChild(button);
     });
+    
+    // Se não houver ações disponíveis, mostra uma mensagem
+    if (orderActions.length === 0) {
+        const messageSpan = document.createElement('span');
+        messageSpan.className = 'no-actions';
+        messageSpan.textContent = 'Nenhuma ação disponível';
+        container.appendChild(messageSpan);
+    }
 }
 
 // Função para buscar pedidos ativos usando eventos
@@ -469,40 +732,58 @@ async function updateStoreStatus() {
     }
 }
 
-// Função para alternar o status da loja
-async function toggleStoreStatus() {
-    try {
-        showLoading();
-        const storeStatus = await makeAuthorizedRequest(`/merchant/v1.0/merchants/${CONFIG.merchantId}/status`, 'GET');
-        
-        // Inverte o status atual
-        const newStatus = !storeStatus.available;
-        
-        // Atualiza o status
-        await makeAuthorizedRequest(`/merchant/v1.0/merchants/${CONFIG.merchantId}/status`, 'PUT', {
-            available: newStatus
-        });
-        
-        // Atualiza a interface
-        updateStoreStatus();
-        
-        showToast(`Loja ${newStatus ? 'ativada' : 'desativada'} com sucesso`, 'success');
-    } catch (error) {
-        console.error('Erro ao alternar status da loja:', error);
-        showToast('Erro ao alternar status da loja', 'error');
-    } finally {
-        hideLoading();
-    }
-}
-
 // Manipula ações do pedido
 async function handleOrderAction(orderId, action) {
     try {
+        console.log(`Executando ação ${action} para o pedido ${orderId}`);
         showLoading();
-        await makeAuthorizedRequest(`/order/v1.0/orders/${orderId}/${action}`, 'POST');
-        showToast('Ação realizada com sucesso!', 'success');
+        
+        // Mapeamento de ações para endpoints da API
+        const actionEndpoints = {
+            'confirm': '/confirm',
+            'startPreparation': '/startPreparation',
+            'readyToPickup': '/readyToPickup',
+            'dispatch': '/dispatch',
+            'requestCancellation': '/requestCancellation'
+        };
+        
+        const endpoint = actionEndpoints[action];
+        if (!endpoint) {
+            throw new Error(`Ação desconhecida: ${action}`);
+        }
+        
+        // Executa a ação na API
+        const response = await makeAuthorizedRequest(`/order/v1.0/orders/${orderId}${endpoint}`, 'POST');
+        console.log(`Resposta da ação ${action}:`, response);
+        
+        // Atualiza o status do pedido na interface
+        let newStatus;
+        switch (action) {
+            case 'confirm':
+                newStatus = 'CONFIRMED';
+                break;
+            case 'startPreparation':
+                newStatus = 'IN_PREPARATION';
+                break;
+            case 'readyToPickup':
+                newStatus = 'READY_TO_PICKUP';
+                break;
+            case 'dispatch':
+                newStatus = 'DISPATCHED';
+                break;
+            case 'requestCancellation':
+                newStatus = 'CANCELLATION_REQUESTED';
+                break;
+        }
+        
+        if (newStatus) {
+            updateOrderStatus(orderId, newStatus);
+        }
+        
+        showToast(`Ação "${action}" realizada com sucesso!`, 'success');
     } catch (error) {
-        showToast('Erro ao realizar ação', 'error');
+        console.error(`Erro ao realizar ação ${action} para o pedido ${orderId}:`, error);
+        showToast(`Erro ao realizar ação: ${error.message}`, 'error');
     } finally {
         hideLoading();
     }
