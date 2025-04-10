@@ -30,11 +30,6 @@ async function authenticate() {
     try {
         showLoading();
 
-        const formData = new URLSearchParams();
-        formData.append('grantType', 'client_credentials');
-        formData.append('clientId', CONFIG.clientId);
-        formData.append('clientSecret', CONFIG.clientSecret);
-
         const response = await fetch('/.netlify/functions/ifood-proxy', {
             method: 'POST',
             headers: {
@@ -43,20 +38,19 @@ async function authenticate() {
             body: JSON.stringify({
                 path: '/authentication/v1.0/oauth/token',
                 method: 'POST',
-                body: formData.toString(),
+                body: `grantType=client_credentials&clientId=${CONFIG.clientId}&clientSecret=${CONFIG.clientSecret}`,
                 isAuth: true
             })
         });
-
-        const data = await response.json();
 
         if (!response.ok) {
             throw new Error(`Erro na autenticação: ${response.status}`);
         }
 
-        state.accessToken = data.accessToken;
+        const data = await response.json();
         
-        if (state.accessToken) {
+        if (data.accessToken) {
+            state.accessToken = data.accessToken;
             showToast('Autenticado com sucesso!', 'success');
             startPolling();
         } else {
@@ -64,42 +58,40 @@ async function authenticate() {
         }
     } catch (error) {
         console.error('Erro na autenticação:', error);
-        showToast(error.message, 'error');
+        showToast('Erro na autenticação: ' + error.message, 'error');
     } finally {
         hideLoading();
     }
 }
 
 // Função para fazer requisições autenticadas
-async function makeRequest(path, method = 'GET', body = null, additionalHeaders = {}) {
+async function makeAuthorizedRequest(path, method = 'GET', body = null) {
+    const headers = {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${state.accessToken}`
+    };
+
+    if (path.includes('events:polling')) {
+        headers['x-polling-merchants'] = CONFIG.merchantId;
+    }
+
     try {
-        const headers = {
-            'Content-Type': 'application/json',
-            ...additionalHeaders
-        };
-
-        if (state.accessToken) {
-            headers.Authorization = `Bearer ${state.accessToken}`;
-        }
-
         const response = await fetch('/.netlify/functions/ifood-proxy', {
             method: 'POST',
-            headers: headers,
+            headers,
             body: JSON.stringify({
                 path,
                 method,
                 body,
-                additionalHeaders
+                additionalHeaders: headers
             })
         });
-
-        const data = await response.json();
 
         if (!response.ok) {
             throw new Error(`Erro na requisição: ${response.status}`);
         }
 
-        return data;
+        return await response.json();
     } catch (error) {
         console.error('Erro na requisição:', error);
         throw error;
@@ -108,28 +100,33 @@ async function makeRequest(path, method = 'GET', body = null, additionalHeaders 
 
 // Polling de eventos
 async function pollEvents() {
-    if (!state.isPolling) return;
+    if (!state.isPolling || !state.accessToken) return;
 
     try {
-        const events = await makeRequest('/events/v1.0/events/polling');
+        console.log('Iniciando polling...');
+        const events = await makeAuthorizedRequest('/events/v1.0/events:polling');
         
         if (events && events.length > 0) {
             console.log('Eventos recebidos:', events);
             
-            // Processa cada evento
+            // Processa os eventos
             for (const event of events) {
-                if (event.code === 'PLACED') {
-                    await fetchOrderDetails(event.orderId);
-                }
+                await handleEvent(event);
             }
 
-            // Confirma o recebimento dos eventos
-            await makeRequest('/events/v1.0/acknowledgment', 'POST', {
-                id: events.map(e => e.id)
+            // Envia acknowledgment
+            await makeAuthorizedRequest('/events/v1.0/events/acknowledgment', 'POST', {
+                ids: events.map(event => event.id)
             });
         }
     } catch (error) {
-        console.error('Erro no polling:', error);
+        if (error.message.includes('403')) {
+            console.error('Erro de permissão no polling:', error);
+            state.isPolling = false;
+            authenticate(); // Tenta autenticar novamente
+        } else {
+            console.error('Erro no polling:', error);
+        }
     } finally {
         if (state.isPolling) {
             setTimeout(pollEvents, CONFIG.pollingInterval);
@@ -137,29 +134,32 @@ async function pollEvents() {
     }
 }
 
-// Busca detalhes do pedido
-async function fetchOrderDetails(orderId) {
+// Manipula um evento recebido
+async function handleEvent(event) {
     try {
-        const order = await makeRequest(`/order/v1.0/orders/${orderId}`);
-        displayOrder(order);
+        if (event.code === 'PLACED') {
+            const order = await makeAuthorizedRequest(`/order/v1.0/orders/${event.orderId}`);
+            displayOrder(order);
+        } else if (['CONFIRMED', 'CANCELLED', 'READY_TO_PICKUP', 'DISPATCHED'].includes(event.code)) {
+            updateOrderStatus(event.orderId, event.code);
+        }
     } catch (error) {
-        console.error('Erro ao buscar pedido:', error);
-        showToast(`Erro ao buscar pedido ${orderId}`, 'error');
+        console.error('Erro ao processar evento:', error);
     }
 }
 
-// Exibe o pedido na interface
+// Exibe um pedido na interface
 function displayOrder(order) {
     const template = document.getElementById('order-modal-template');
     const orderElement = template.content.cloneNode(true);
-
-    // Preenche informações básicas
+    const orderCard = orderElement.querySelector('.order-card');
+    
+    orderCard.dataset.orderId = order.id;
     orderElement.querySelector('.order-number').textContent = `#${order.id.substring(0, 8)}`;
     orderElement.querySelector('.order-status').textContent = getStatusText(order.status);
     orderElement.querySelector('.customer-name').textContent = `Cliente: ${order.customer.name}`;
     orderElement.querySelector('.customer-phone').textContent = `Tel: ${order.customer.phone || 'N/A'}`;
 
-    // Preenche itens do pedido
     const itemsList = orderElement.querySelector('.items-list');
     order.items.forEach(item => {
         const li = document.createElement('li');
@@ -167,18 +167,27 @@ function displayOrder(order) {
         itemsList.appendChild(li);
     });
 
-    // Preenche total
     orderElement.querySelector('.total-amount').textContent = `R$ ${order.total.toFixed(2)}`;
-
-    // Adiciona botões de ação
+    
     const actionsContainer = orderElement.querySelector('.order-actions');
     addActionButtons(actionsContainer, order);
 
-    // Adiciona ao grid de pedidos
     document.getElementById('orders-grid').appendChild(orderElement);
 }
 
-// Adiciona botões de ação baseado no status do pedido
+// Atualiza o status de um pedido
+function updateOrderStatus(orderId, newStatus) {
+    const orderCard = document.querySelector(`[data-order-id="${orderId}"]`);
+    if (orderCard) {
+        orderCard.querySelector('.order-status').textContent = getStatusText(newStatus);
+        
+        const actionsContainer = orderCard.querySelector('.order-actions');
+        actionsContainer.innerHTML = '';
+        addActionButtons(actionsContainer, { id: orderId, status: newStatus });
+    }
+}
+
+// Adiciona botões de ação para um pedido
 function addActionButtons(container, order) {
     const actions = {
         'PLACED': [
@@ -197,7 +206,6 @@ function addActionButtons(container, order) {
     };
 
     const orderActions = actions[order.status] || [];
-    
     orderActions.forEach(({label, action}) => {
         const button = document.createElement('button');
         button.className = `action-button ${action}`;
@@ -207,11 +215,11 @@ function addActionButtons(container, order) {
     });
 }
 
-// Manipula ações do pedido
+// Executa uma ação em um pedido
 async function handleOrderAction(orderId, action) {
     try {
         showLoading();
-        await makeRequest(`/order/v1.0/orders/${orderId}/${action}`, 'POST');
+        await makeAuthorizedRequest(`/order/v1.0/orders/${orderId}/${action}`, 'POST');
         showToast('Ação realizada com sucesso!', 'success');
     } catch (error) {
         showToast('Erro ao realizar ação', 'error');
@@ -238,6 +246,7 @@ function getStatusText(status) {
 function startPolling() {
     state.isPolling = true;
     pollEvents();
+    showToast('Monitoramento de pedidos iniciado', 'success');
 }
 
 // Event Listeners
