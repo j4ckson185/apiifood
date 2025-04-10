@@ -26,7 +26,11 @@ exports.handler = async (event) => {
 
     // Se houver body na requisição, adiciona ao config
     if (body) {
-      options.body = JSON.stringify(body);
+      if (path.includes('/oauth/token')) {
+        options.body = body;  // Já está no formato correto de URL encoded
+      } else {
+        options.body = JSON.stringify(body);
+      }
     }
 
     // Se houver token na requisição, adiciona ao header
