@@ -150,9 +150,6 @@ async function makeAuthorizedRequest(path, method = 'GET', body = null) {
     }
 }
 
-// Rastreamento de pedidos já processados para evitar duplicações
-const processedOrderIds = new Set();
-
 // Rastreamento de pedidos já processados para evitar duplicações - usando localStorage para persistência
 // Inicializa o conjunto de IDs processados a partir do localStorage (se existir)
 const processedOrderIds = new Set(
@@ -776,10 +773,6 @@ async function fetchActiveOrders() {
             if (orderEvents.length > 0) {
                 // Limpa grid de pedidos existentes para evitar duplicações
                 clearOrdersGrid();
-                
-                // Busca detalhes de cada pedido único
-                const processedOrderIds = new Set();
-                const successfulOrders = [];
                 
                 for (const event of orderEvents) {
                     // Evita processar o mesmo pedido múltiplas vezes
