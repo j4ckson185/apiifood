@@ -39,13 +39,16 @@ const requestHeaders = {
       headers: requestHeaders
     };
 
-// Adiciona body se existir (já vem como string)
 if (body) {
-  const parsed = isAuth ? body : JSON.stringify(JSON.parse(body));
-  fetchOptions.body = parsed;
+  if (isAuth) {
+    fetchOptions.body = body;
+  } else {
+    const parsedObject = JSON.parse(body);
+    fetchOptions.body = JSON.stringify(parsedObject);
 
-  // ✅ Log que mostra o corpo final enviado pro iFood
-  console.log('✅ Corpo final enviado:', parsed);
+    console.log('✅ Objeto enviado para o iFood:', parsedObject);
+    console.log('✅ Corpo final serializado:', fetchOptions.body);
+  }
 }
 
     const response = await fetch(`${baseURL}${path}`, fetchOptions);
