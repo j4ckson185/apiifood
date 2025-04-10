@@ -29,18 +29,26 @@ const showToast = (message, type = 'info') => {
 // Funções de API
 async function makeRequest(path, method = 'GET', body = null) {
     try {
-        const headers = {};
-        
-        // Define o Content-Type apropriado
-        if (path.includes('/oauth/token')) {
-            headers['Content-Type'] = 'application/x-www-form-urlencoded';
-        } else {
-            headers['Content-Type'] = 'application/json';
+        const config = {
+            path,
+            method,
+            body,
+            isAuth: path.includes('/oauth/token')
+        };
+
+        const response = await fetch('/.netlify/functions/ifood-proxy', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(config)
+        });
+
+        if (!response.ok) {
+            throw new Error(`Erro na requisição: ${response.status}`);
         }
 
-        if (state.accessToken) {
-            headers.Authorization = `Bearer ${state.accessToken}`;
-        }
+        return await response.json();
 
         const response = await fetch('/.netlify/functions/ifood-proxy', {
             method: 'POST',
@@ -67,13 +75,19 @@ async function makeRequest(path, method = 'GET', body = null) {
 async function authenticate() {
     try {
         showLoading();
-        const formData = new URLSearchParams();
-        formData.append('grant_type', 'client_credentials');
-        formData.append('client_id', CONFIG.clientId);
-        formData.append('client_secret', CONFIG.clientSecret);
+        const response = await makeRequest('/authentication/v1.0/oauth/token', 'POST', {
+            client_id: CONFIG.clientId,
+            client_secret: CONFIG.clientSecret
+        });
 
-        const response = await makeRequest('/authentication/v1.0/oauth/token', 'POST', 
-            formData.toString());
+        state.accessToken = response.accessToken;
+        initializePolling();
+    } catch (error) {
+        showToast('Erro na autenticação', 'error');
+        console.error(error);
+    } finally {
+        hideLoading();
+    }
 
         state.accessToken = response.accessToken;
         initializePolling();
