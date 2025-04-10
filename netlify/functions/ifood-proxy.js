@@ -16,33 +16,49 @@ exports.handler = async (event) => {
     const baseURL = 'https://merchant-api.ifood.com.br';
 
     const requestHeaders = {
-      'Content-Type': isAuth ? 'application/x-www-form-urlencoded' : 'application/json'
+      'Content-Type': isAuth ? 'application/x-www-form-urlencoded' : 'application/json',
+      'Accept': 'application/json'
     };
 
-    if (event.headers.authorization) {
+    if (!isAuth && event.headers.authorization) {
       requestHeaders.Authorization = event.headers.authorization;
     }
 
-    const response = await fetch(`${baseURL}${path}`, {
-      method,
-      headers: requestHeaders,
-      body: isAuth ? body : JSON.stringify(body)
-    });
+    console.log('Fazendo requisição para:', `${baseURL}${path}`);
+    console.log('Headers:', requestHeaders);
+    console.log('Body:', body);
 
-    const data = await response.json();
+    const fetchOptions = {
+      method,
+      headers: requestHeaders
+    };
+
+    if (body) {
+      fetchOptions.body = isAuth ? body : JSON.stringify(body);
+    }
+
+    const response = await fetch(`${baseURL}${path}`, fetchOptions);
+    const responseData = await response.json();
+
+    console.log('Status da resposta:', response.status);
+    console.log('Dados da resposta:', responseData);
 
     return {
       statusCode: response.status,
       headers: { ...headers, 'Content-Type': 'application/json' },
-      body: JSON.stringify(data)
+      body: JSON.stringify(responseData)
     };
 
   } catch (error) {
-    console.error('Erro:', error);
+    console.error('Erro detalhado:', error);
     return {
       statusCode: 500,
       headers: { ...headers, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ error: error.message })
+      body: JSON.stringify({ 
+        error: error.message,
+        details: error.stack,
+        path: event.body ? JSON.parse(event.body).path : null
+      })
     };
   }
 };
