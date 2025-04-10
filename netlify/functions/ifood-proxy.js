@@ -15,6 +15,7 @@ exports.handler = async (event) => {
 
   try {
     const { path, method, body, headers = {}, isAuth } = JSON.parse(event.body);
+    console.log('📩 Body recebido pelo proxy:', body);
     const baseURL = 'https://merchant-api.ifood.com.br';
 
     // Usa os headers enviados pela requisição
