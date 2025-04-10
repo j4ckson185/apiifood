@@ -12,30 +12,52 @@ exports.handler = async (event) => {
       };
     }
 
-    const { path, method, body } = JSON.parse(event.body);
-    
-    // Configurações base para todas as requisições
+    const { path, method, body, isAuth } = JSON.parse(event.body);
     const baseURL = 'https://merchant-api.ifood.com.br';
     
-    const options = {
-      method: method || 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      }
-    };
+    const headers = {};
+    
+    // Define headers baseado no tipo de requisição
+    if (isAuth) {
+      headers['Content-Type'] = 'application/x-www-form-urlencoded';
+      // Transforma o body em URLSearchParams se for autenticação
+      const formBody = new URLSearchParams({
+        grant_type: 'client_credentials',
+        client_id: body.client_id,
+        client_secret: body.client_secret
+      }).toString();
+      
+      const authResponse = await fetch(`${baseURL}${path}`, {
+        method: method,
+        headers: headers,
+        body: formBody
+      });
 
-    // Se houver body na requisição, adiciona ao config
-    if (body) {
-      if (path.includes('/oauth/token')) {
-        options.body = body;  // Já está no formato correto de URL encoded
-      } else {
-        options.body = JSON.stringify(body);
-      }
+      const data = await authResponse.json();
+      
+      return {
+        statusCode: authResponse.status,
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(data)
+      };
     }
 
-    // Se houver token na requisição, adiciona ao header
+    // Para outras requisições
+    headers['Content-Type'] = 'application/json';
     if (event.headers.authorization) {
-      options.headers.Authorization = event.headers.authorization;
+      headers['Authorization'] = event.headers.authorization;
+    }
+
+    const options = {
+      method: method,
+      headers: headers
+    };
+
+    if (body && !isAuth) {
+      options.body = JSON.stringify(body);
     }
 
     const response = await fetch(`${baseURL}${path}`, options);
@@ -45,15 +67,19 @@ exports.handler = async (event) => {
       statusCode: response.status,
       headers: {
         'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-        'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS'
+        'Content-Type': 'application/json'
       },
       body: JSON.stringify(data)
     };
+
   } catch (error) {
     console.error('Erro na função do Netlify:', error);
     return {
       statusCode: 500,
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Content-Type': 'application/json'
+      },
       body: JSON.stringify({
         error: error.message
       })
