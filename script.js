@@ -72,17 +72,28 @@ async function authenticate() {
     }
 }
 
-// Função para fazer requisições autenticadas
 async function makeAuthorizedRequest(path, method = 'GET', body = null) {
     const headers = {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${state.accessToken}`
     };
 
-    // Adiciona o header de merchant UUID exigido para o polling
     if (path === '/events/v1.0/events:polling') {
         headers['x-polling-merchants'] = CONFIG.merchantUUID;
     }
+
+    const payload = {
+        path,
+        method,
+        headers,
+        body: method !== 'GET' && body ? JSON.stringify(body) : null
+    };
+
+    console.log('🔍 Enviando requisição para proxy:');
+    console.log('➡️ path:', path);
+    console.log('➡️ method:', method);
+    console.log('➡️ headers:', headers);
+    console.log('➡️ body:', payload.body);
 
     try {
         const response = await fetch('/.netlify/functions/ifood-proxy', {
@@ -90,26 +101,23 @@ async function makeAuthorizedRequest(path, method = 'GET', body = null) {
             headers: {
                 'Content-Type': 'application/json'
             },
-body: JSON.stringify({
-    path,
-    method,
-    headers,
-    body: method !== 'GET' && body ? JSON.stringify(body) : null
-})
+            body: JSON.stringify(payload)
         });
+
+        const responseText = await response.text();
+        console.log('📨 Resposta bruta do proxy:', responseText);
 
         if (!response.ok) {
             throw new Error(`Erro na requisição: ${response.status}`);
         }
 
-        const data = await response.json();
-        console.log('Resposta da requisição:', data);
-        return data;
+        return JSON.parse(responseText);
     } catch (error) {
-        console.error('Erro na requisição:', error);
+        console.error('❌ Erro na requisição:', error);
         throw error;
     }
 }
+
 
 // Polling de eventos
 async function pollEvents() {
