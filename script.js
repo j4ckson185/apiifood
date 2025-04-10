@@ -835,47 +835,34 @@ function updateOrderStatus(orderId, status) {
     console.log(`Atualizando status do pedido ${orderId} para ${status}`);
     
     // Busca o card do pedido pelo ID parcial
-    const orderCards = document.querySelectorAll('.order-card');
-    const shortOrderId = orderId.substring(0, 8);
-    
-    let found = false;
-    
-    orderCards.forEach(card => {
-        const orderNumberElement = card.querySelector('.order-number');
-        if (orderNumberElement && orderNumberElement.textContent.includes(shortOrderId)) {
-            found = true;
-            
-            // Atualiza o status
-            const statusElement = card.querySelector('.order-status');
-            if (statusElement) {
-                statusElement.textContent = getStatusText(status);
-            }
-            
-            // Atualiza as ações disponíveis
-            const actionsContainer = card.querySelector('.order-actions');
-            if (actionsContainer) {
-                // Limpa ações existentes
-                while (actionsContainer.firstChild) {
-                    actionsContainer.removeChild(actionsContainer.firstChild);
-                }
-                
-                // Adiciona novas ações baseadas no status atualizado
-                addActionButtons(actionsContainer, { id: orderId, status });
-            }
-        }
-    });
-    
-    if (!found) {
-        console.log(`Pedido ${orderId} não encontrado na interface. Buscando detalhes...`);
-        // Se o pedido não estiver na interface, buscamos seus detalhes
-        makeAuthorizedRequest(`/order/v1.0/orders/${orderId}`, 'GET')
-            .then(order => {
-                displayOrder(order);
-            })
-            .catch(error => {
-                console.error(`Erro ao buscar detalhes do pedido ${orderId}:`, error);
-            });
+const card = document.querySelector(`.order-card[data-order-id="${orderId}"]`);
+
+if (card) {
+    // Atualiza o status
+    const statusElement = card.querySelector('.order-status');
+    if (statusElement) {
+        statusElement.textContent = getStatusText(status);
     }
+
+    // Atualiza as ações
+    const actionsContainer = card.querySelector('.order-actions');
+    if (actionsContainer) {
+        // Limpa e adiciona novas ações
+        while (actionsContainer.firstChild) {
+            actionsContainer.removeChild(actionsContainer.firstChild);
+        }
+
+        addActionButtons(actionsContainer, { id: orderId, status });
+    }
+} else {
+    console.log(`Pedido ${orderId} não encontrado na interface. Buscando detalhes...`);
+    makeAuthorizedRequest(`/order/v1.0/orders/${orderId}`, 'GET')
+        .then(order => {
+            displayOrder(order);
+        })
+        .catch(error => {
+            console.error(`Erro ao buscar detalhes do pedido ${orderId}:`, error);
+        });
 }
 
 // Função para atualizar o status da loja - nova tentativa com endpoint correto
