@@ -30,6 +30,11 @@ async function authenticate() {
     try {
         showLoading();
 
+        const formData = new URLSearchParams();
+        formData.append('grantType', 'client_credentials');
+        formData.append('clientId', CONFIG.clientId);
+        formData.append('clientSecret', CONFIG.clientSecret);
+
         const response = await fetch('/.netlify/functions/ifood-proxy', {
             method: 'POST',
             headers: {
@@ -38,7 +43,10 @@ async function authenticate() {
             body: JSON.stringify({
                 path: '/authentication/v1.0/oauth/token',
                 method: 'POST',
-                body: `grantType=client_credentials&clientId=${CONFIG.clientId}&clientSecret=${CONFIG.clientSecret}`,
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded'
+                },
+                body: formData.toString(),
                 isAuth: true
             })
         });
@@ -147,18 +155,18 @@ async function handleEvent(event) {
     }
 }
 
-// Exibe um pedido na interface
+// Exibe o pedido na interface
 function displayOrder(order) {
     const template = document.getElementById('order-modal-template');
     const orderElement = template.content.cloneNode(true);
-    const orderCard = orderElement.querySelector('.order-card');
-    
-    orderCard.dataset.orderId = order.id;
+
+    // Preenche informações básicas
     orderElement.querySelector('.order-number').textContent = `#${order.id.substring(0, 8)}`;
     orderElement.querySelector('.order-status').textContent = getStatusText(order.status);
     orderElement.querySelector('.customer-name').textContent = `Cliente: ${order.customer.name}`;
     orderElement.querySelector('.customer-phone').textContent = `Tel: ${order.customer.phone || 'N/A'}`;
 
+    // Preenche itens do pedido
     const itemsList = orderElement.querySelector('.items-list');
     order.items.forEach(item => {
         const li = document.createElement('li');
@@ -166,27 +174,18 @@ function displayOrder(order) {
         itemsList.appendChild(li);
     });
 
+    // Preenche total
     orderElement.querySelector('.total-amount').textContent = `R$ ${order.total.toFixed(2)}`;
-    
+
+    // Adiciona botões de ação
     const actionsContainer = orderElement.querySelector('.order-actions');
     addActionButtons(actionsContainer, order);
 
+    // Adiciona ao grid de pedidos
     document.getElementById('orders-grid').appendChild(orderElement);
 }
 
-// Atualiza o status de um pedido
-function updateOrderStatus(orderId, newStatus) {
-    const orderCard = document.querySelector(`[data-order-id="${orderId}"]`);
-    if (orderCard) {
-        orderCard.querySelector('.order-status').textContent = getStatusText(newStatus);
-        
-        const actionsContainer = orderCard.querySelector('.order-actions');
-        actionsContainer.innerHTML = '';
-        addActionButtons(actionsContainer, { id: orderId, status: newStatus });
-    }
-}
-
-// Adiciona botões de ação para um pedido
+// Adiciona botões de ação baseado no status do pedido
 function addActionButtons(container, order) {
     const actions = {
         'PLACED': [
@@ -205,6 +204,7 @@ function addActionButtons(container, order) {
     };
 
     const orderActions = actions[order.status] || [];
+    
     orderActions.forEach(({label, action}) => {
         const button = document.createElement('button');
         button.className = `action-button ${action}`;
@@ -214,7 +214,7 @@ function addActionButtons(container, order) {
     });
 }
 
-// Executa uma ação em um pedido
+// Manipula ações do pedido
 async function handleOrderAction(orderId, action) {
     try {
         showLoading();
@@ -245,7 +245,6 @@ function getStatusText(status) {
 function startPolling() {
     state.isPolling = true;
     pollEvents();
-    showToast('Monitoramento de pedidos iniciado', 'success');
 }
 
 // Event Listeners
