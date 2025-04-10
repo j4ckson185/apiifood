@@ -90,12 +90,12 @@ async function makeAuthorizedRequest(path, method = 'GET', body = null) {
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({
-                path,
-                method,
-                body,
-                headers // Enviando os headers específicos para o proxy
-            })
+body: JSON.stringify({
+    path,
+    method,
+    body: body ? JSON.stringify(body) : null,
+    headers
+})
         });
 
         if (!response.ok) {
