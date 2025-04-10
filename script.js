@@ -1026,10 +1026,15 @@ async function handleOrderAction(orderId, action) {
                     break;
             }
             
-            if (newStatus) {
-                updateOrderStatus(orderId, newStatus);
-            }
-            
+if (newStatus) {
+    updateOrderStatus(orderId, newStatus);
+
+    // Evita duplicação futura do mesmo pedido
+    if (!processedOrderIds.has(orderId)) {
+        processedOrderIds.add(orderId);
+        saveProcessedIds();
+    }
+} 
             hideLoading();
             showToast(`Ação "${action}" realizada com sucesso!`, 'success');
         }
