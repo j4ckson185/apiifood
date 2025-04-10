@@ -29,9 +29,14 @@ const showToast = (message, type = 'info') => {
 // Funções de API
 async function makeRequest(path, method = 'GET', body = null) {
     try {
-        const headers = {
-            'Content-Type': 'application/json',
-        };
+        const headers = {};
+        
+        // Define o Content-Type apropriado
+        if (path.includes('/oauth/token')) {
+            headers['Content-Type'] = 'application/x-www-form-urlencoded';
+        } else {
+            headers['Content-Type'] = 'application/json';
+        }
 
         if (state.accessToken) {
             headers.Authorization = `Bearer ${state.accessToken}`;
@@ -62,11 +67,13 @@ async function makeRequest(path, method = 'GET', body = null) {
 async function authenticate() {
     try {
         showLoading();
-        const response = await makeRequest('/authentication/v1.0/oauth/token', 'POST', {
-            grantType: 'client_credentials',
-            clientId: CONFIG.clientId,
-            clientSecret: CONFIG.clientSecret,
-        });
+        const formData = new URLSearchParams();
+        formData.append('grant_type', 'client_credentials');
+        formData.append('client_id', CONFIG.clientId);
+        formData.append('client_secret', CONFIG.clientSecret);
+
+        const response = await makeRequest('/authentication/v1.0/oauth/token', 'POST', 
+            formData.toString());
 
         state.accessToken = response.accessToken;
         initializePolling();
