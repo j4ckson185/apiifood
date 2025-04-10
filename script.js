@@ -211,9 +211,14 @@ async function handleEvent(event) {
             case 'PLACED':
                 // Novo pedido recebido
                 console.log('Novo pedido recebido:', event.orderId);
-                const order = await makeAuthorizedRequest(`/order/v1.0/orders/${event.orderId}`, 'GET');
-                displayOrder(order);
-                showToast('Novo pedido recebido!', 'success');
+                try {
+                    const order = await makeAuthorizedRequest(`/order/v1.0/orders/${event.orderId}`, 'GET');
+                    console.log('Detalhes do pedido recebido:', order);
+                    displayOrder(order);
+                    showToast('Novo pedido recebido!', 'success');
+                } catch (orderError) {
+                    console.error(`Erro ao buscar detalhes do pedido ${event.orderId}:`, orderError);
+                }
                 break;
                 
             case 'CONFIRMED':
@@ -240,16 +245,23 @@ async function handleEvent(event) {
                 updateOrderStatus(event.orderId, 'CONCLUDED');
                 break;
                 
-            case 'INTEGRATED':
-                // Pedido integrado - podemos atualizar dados da loja
-                updateStoreStatus();
-                break;
-                
             default:
                 console.log(`Evento não tratado especificamente: ${event.code}`);
-                // Para outros eventos de pedido, atualizamos o status
+                // Para outros eventos de pedido, tentamos buscar detalhes atualizados
                 if (event.orderId) {
-                    updateOrderStatus(event.orderId, event.code);
+                    try {
+                        const orderDetails = await makeAuthorizedRequest(`/order/v1.0/orders/${event.orderId}`, 'GET');
+                        // Se o pedido já existe na interface, atualizamos o status
+                        // Caso contrário, exibimos o pedido
+                        const orderExists = document.querySelector(`.order-card[data-order-id="${event.orderId}"]`);
+                        if (orderExists) {
+                            updateOrderStatus(event.orderId, orderDetails.status);
+                        } else {
+                            displayOrder(orderDetails);
+                        }
+                    } catch (orderError) {
+                        console.error(`Erro ao buscar detalhes atualizados do pedido ${event.orderId}:`, orderError);
+                    }
                 }
         }
     } catch (error) {
@@ -262,9 +274,9 @@ async function updateStoreStatus() {
     try {
         console.log('Atualizando status da loja...');
         
-        // Tenta obter o status da loja
+        // Tenta obter o status da loja usando o merchantId numérico, não o UUID
         try {
-            const storeStatus = await makeAuthorizedRequest(`/merchant/v1.0/merchants/${CONFIG.merchantUUID}/status`, 'GET');
+            const storeStatus = await makeAuthorizedRequest(`/merchant/v1.0/merchants/${CONFIG.merchantId}/status`, 'GET');
             const statusElement = document.getElementById('store-status');
             
             if (storeStatus && storeStatus.available) {
@@ -307,13 +319,13 @@ async function toggleStoreStatus() {
         showLoading();
         
         try {
-            const storeStatus = await makeAuthorizedRequest(`/merchant/v1.0/merchants/${CONFIG.merchantUUID}/status`, 'GET');
+            const storeStatus = await makeAuthorizedRequest(`/merchant/v1.0/merchants/${CONFIG.merchantId}/status`, 'GET');
             
             // Inverte o status atual
             const newStatus = !storeStatus.available;
             
             // Atualiza o status
-            await makeAuthorizedRequest(`/merchant/v1.0/merchants/${CONFIG.merchantUUID}/status`, 'PUT', {
+            await makeAuthorizedRequest(`/merchant/v1.0/merchants/${CONFIG.merchantId}/status`, 'PUT', {
                 available: newStatus
             });
             
@@ -650,9 +662,11 @@ function addActionButtons(container, order) {
 }
 
 // Função para buscar pedidos ativos usando eventos
+// Função para buscar pedidos ativos usando eventos
 async function fetchActiveOrders() {
     try {
         console.log('Buscando pedidos ativos via eventos...');
+        showToast('Buscando pedidos ativos...', 'info');
         
         // Buscar eventos recentes
         const events = await makeAuthorizedRequest('/events/v1.0/events:polling', 'GET');
@@ -664,11 +678,12 @@ async function fetchActiveOrders() {
             const orderEvents = events.filter(event => event.orderId);
             
             if (orderEvents.length > 0) {
-                // Limpa grid de pedidos existentes
+                // Limpa grid de pedidos existentes para evitar duplicações
                 clearOrdersGrid();
                 
                 // Busca detalhes de cada pedido único
                 const processedOrderIds = new Set();
+                const successfulOrders = [];
                 
                 for (const event of orderEvents) {
                     // Evita processar o mesmo pedido múltiplas vezes
@@ -676,8 +691,12 @@ async function fetchActiveOrders() {
                         processedOrderIds.add(event.orderId);
                         
                         try {
+                            console.log(`Buscando detalhes do pedido ${event.orderId}`);
                             const orderDetails = await makeAuthorizedRequest(`/order/v1.0/orders/${event.orderId}`, 'GET');
+                            console.log(`Detalhes recebidos para pedido ${event.orderId}:`, orderDetails);
+                            
                             displayOrder(orderDetails);
+                            successfulOrders.push(orderDetails);
                         } catch (orderError) {
                             console.error(`Erro ao buscar detalhes do pedido ${event.orderId}:`, orderError);
                         }
@@ -685,10 +704,21 @@ async function fetchActiveOrders() {
                 }
                 
                 // Fazer acknowledgment dos eventos processados
-                const acknowledgmentFormat = events.map(event => ({ id: event.id }));
-                await makeAuthorizedRequest('/events/v1.0/events/acknowledgment', 'POST', acknowledgmentFormat);
+                if (events.length > 0) {
+                    try {
+                        const acknowledgmentFormat = events.map(event => ({ id: event.id }));
+                        await makeAuthorizedRequest('/events/v1.0/events/acknowledgment', 'POST', acknowledgmentFormat);
+                        console.log('Acknowledgment enviado com sucesso para eventos:', events.map(e => e.id));
+                    } catch (ackError) {
+                        console.error('Erro ao enviar acknowledgment:', ackError);
+                    }
+                }
                 
-                showToast(`${processedOrderIds.size} pedidos carregados`, 'success');
+                if (successfulOrders.length > 0) {
+                    showToast(`${successfulOrders.length} pedidos carregados`, 'success');
+                } else {
+                    showToast('Nenhum pedido ativo encontrado', 'info');
+                }
             } else {
                 console.log('Nenhum evento de pedido encontrado');
                 showToast('Nenhum pedido ativo no momento', 'info');
@@ -708,6 +738,54 @@ function clearOrdersGrid() {
     const ordersGrid = document.getElementById('orders-grid');
     while (ordersGrid.firstChild) {
         ordersGrid.removeChild(ordersGrid.firstChild);
+    }
+}
+
+// Atualiza o status de um pedido na interface
+function updateOrderStatus(orderId, status) {
+    console.log(`Atualizando status do pedido ${orderId} para ${status}`);
+    
+    // Busca o card do pedido pelo ID parcial
+    const orderCards = document.querySelectorAll('.order-card');
+    const shortOrderId = orderId.substring(0, 8);
+    
+    let found = false;
+    
+    orderCards.forEach(card => {
+        const orderNumberElement = card.querySelector('.order-number');
+        if (orderNumberElement && orderNumberElement.textContent.includes(shortOrderId)) {
+            found = true;
+            
+            // Atualiza o status
+            const statusElement = card.querySelector('.order-status');
+            if (statusElement) {
+                statusElement.textContent = getStatusText(status);
+            }
+            
+            // Atualiza as ações disponíveis
+            const actionsContainer = card.querySelector('.order-actions');
+            if (actionsContainer) {
+                // Limpa ações existentes
+                while (actionsContainer.firstChild) {
+                    actionsContainer.removeChild(actionsContainer.firstChild);
+                }
+                
+                // Adiciona novas ações baseadas no status atualizado
+                addActionButtons(actionsContainer, { id: orderId, status });
+            }
+        }
+    });
+    
+    if (!found) {
+        console.log(`Pedido ${orderId} não encontrado na interface. Buscando detalhes...`);
+        // Se o pedido não estiver na interface, buscamos seus detalhes
+        makeAuthorizedRequest(`/order/v1.0/orders/${orderId}`, 'GET')
+            .then(order => {
+                displayOrder(order);
+            })
+            .catch(error => {
+                console.error(`Erro ao buscar detalhes do pedido ${orderId}:`, error);
+            });
     }
 }
 
