@@ -1,14 +1,16 @@
 exports.handler = async (event) => {
-  // Headers CORS
   const headers = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     'Access-Control-Allow-Methods': 'GET, POST, OPTIONS'
   };
 
-  // Preflight
   if (event.httpMethod === 'OPTIONS') {
-    return { statusCode: 200, headers, body: '' };
+    return { 
+      statusCode: 200, 
+      headers, 
+      body: '' 
+    };
   }
 
   try {
@@ -16,49 +18,39 @@ exports.handler = async (event) => {
     const baseURL = 'https://merchant-api.ifood.com.br';
 
     const requestHeaders = {
-      'Content-Type': isAuth ? 'application/x-www-form-urlencoded' : 'application/json',
       'Accept': 'application/json'
     };
 
-    if (!isAuth && event.headers.authorization) {
-      requestHeaders.Authorization = event.headers.authorization;
+    // Configurar headers específicos para autenticação ou outras requisições
+    if (isAuth) {
+      requestHeaders['Content-Type'] = 'application/x-www-form-urlencoded';
+    } else {
+      requestHeaders['Content-Type'] = 'application/json';
+      if (event.headers.authorization) {
+        requestHeaders.Authorization = event.headers.authorization;
+      }
     }
 
-    console.log('Fazendo requisição para:', `${baseURL}${path}`);
-    console.log('Headers:', requestHeaders);
-    console.log('Body:', body);
+    const response = await fetch(`${baseURL}${path}`, {
+      method: method,
+      headers: requestHeaders,
+      body: isAuth ? body : JSON.stringify(body)
+    });
 
-    const fetchOptions = {
-      method,
-      headers: requestHeaders
-    };
-
-    if (body) {
-      fetchOptions.body = isAuth ? body : JSON.stringify(body);
-    }
-
-    const response = await fetch(`${baseURL}${path}`, fetchOptions);
-    const responseData = await response.json();
-
-    console.log('Status da resposta:', response.status);
-    console.log('Dados da resposta:', responseData);
+    const data = await response.json();
 
     return {
       statusCode: response.status,
       headers: { ...headers, 'Content-Type': 'application/json' },
-      body: JSON.stringify(responseData)
+      body: JSON.stringify(data)
     };
 
   } catch (error) {
-    console.error('Erro detalhado:', error);
+    console.error('Erro:', error);
     return {
       statusCode: 500,
       headers: { ...headers, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ 
-        error: error.message,
-        details: error.stack,
-        path: event.body ? JSON.parse(event.body).path : null
-      })
+      body: JSON.stringify({ error: error.message })
     };
   }
 };
