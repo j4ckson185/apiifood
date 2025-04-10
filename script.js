@@ -726,96 +726,142 @@ function addActionButtons(container, order) {
         container.removeChild(container.firstChild);
     }
     
-    // Mapeamento detalhado de status para ações
-    const actions = {
-        'PLACED': [
-            { label: 'Confirmar', action: 'confirm', class: 'confirm' },
-            { label: 'Cancelar', action: 'requestCancellation', class: 'cancel' }
-        ],
-        'CONFIRMED': [
-            { label: 'Iniciar Preparo', action: 'startPreparation', class: 'prepare' },
-            { label: 'Cancelar', action: 'requestCancellation', class: 'cancel' }
-        ],
-        'IN_PREPARATION': [
-            { label: 'Pronto para Retirada', action: 'readyToPickup', class: 'ready' },
-            { label: 'Despachar', action: 'dispatch', class: 'dispatch' },
-            { label: 'Cancelar', action: 'requestCancellation', class: 'cancel' }
-        ],
-        'READY_TO_PICKUP': [
-            { label: 'Despachar', action: 'dispatch', class: 'dispatch' },
-            { label: 'Cancelar', action: 'requestCancellation', class: 'cancel' }
-        ],
-        'DISPATCHED': [
-            { label: 'Cancelar', action: 'requestCancellation', class: 'cancel' }
-        ],
-        'CANCELLATION_REQUESTED': [
-            { label: 'Cancelamento Solicitado', action: null, class: 'disabled' }
-        ],
-        'CANCELLED': [
-            { label: 'Pedido Cancelado', action: null, class: 'disabled' }
-        ],
-        'CONCLUDED': [
-            { label: 'Pedido Concluído', action: null, class: 'disabled' }
-        ]
-    };
+    // Determina se é pedido para retirada ou delivery
+    const isPickup = order.orderType === 'TAKEOUT' || 
+                    (order.takeout && order.takeout.mode) || 
+                    (order.indoor && order.indoor.mode);
+                    
+    console.log(`Pedido é para retirada? ${isPickup}`);
     
-    // Pega o status normalizado
-    let orderStatus = order.status;
-    if (!orderStatus && order.id) {
-        // Se não tiver status mas tiver ID, considera como PLACED
-        orderStatus = 'PLACED';
+    // Determina quais botões mostrar com base no status
+    let status = order.status || 'PLACED';
+    if (typeof status === 'string') {
+        status = status.toUpperCase();
     }
     
-    // Se não encontramos o status na lista acima, verificamos se o status começa com algum dos prefixos conhecidos
-    let orderActions = actions[orderStatus] || [];
+    console.log(`Status normalizado: ${status}`);
     
-    if (orderActions.length === 0) {
-        if (orderStatus && typeof orderStatus === 'string') {
-            // Tenta encontrar ações para status similares
-            const statusLower = orderStatus.toLowerCase();
-            
-            if (statusLower.includes('placed') || statusLower.includes('new')) {
-                orderActions = actions['PLACED'];
-            } else if (statusLower.includes('confirm')) {
-                orderActions = actions['CONFIRMED'];
-            } else if (statusLower.includes('prepar')) {
-                orderActions = actions['IN_PREPARATION'];
-            } else if (statusLower.includes('ready') || statusLower.includes('pickup')) {
-                orderActions = actions['READY_TO_PICKUP'];
-            } else if (statusLower.includes('dispatch') || statusLower.includes('delivered')) {
-                orderActions = actions['DISPATCHED'];
-            } else if (statusLower.includes('cancel')) {
-                orderActions = actions['CANCELLED'];
-            } else if (statusLower.includes('conclud')) {
-                orderActions = actions['CONCLUDED'];
-            }
-        }
-    }
+    // Padrão: sempre mostrar algum botão, nunca deixar vazio
     
-    console.log(`Encontradas ${orderActions.length} ações para o status ${orderStatus}`);
-    
-    // Adiciona os botões de ação
-    orderActions.forEach(({label, action, class: buttonClass}) => {
-        const button = document.createElement('button');
-        button.className = `action-button ${buttonClass || action}`;
-        button.textContent = label;
+    // 1. Pedidos novos - Confirmar + Cancelar
+    if (status === 'PLACED' || status.includes('PLACED') || status.includes('NEW')) {
+        // Adiciona botão Confirmar
+        const confirmButton = document.createElement('button');
+        confirmButton.className = 'action-button confirm';
+        confirmButton.textContent = 'Confirmar';
+        confirmButton.onclick = () => handleOrderAction(order.id, 'confirm');
+        container.appendChild(confirmButton);
         
-        if (action) {
-            button.onclick = () => handleOrderAction(order.id, action);
+        // Adiciona botão Cancelar
+        const cancelButton = document.createElement('button');
+        cancelButton.className = 'action-button cancel';
+        cancelButton.textContent = 'Cancelar';
+        cancelButton.onclick = () => handleOrderAction(order.id, 'requestCancellation');
+        container.appendChild(cancelButton);
+        
+        return;
+    }
+    
+    // 2. Pedidos confirmados - depende se é para retirada ou delivery
+    if (status === 'CONFIRMED' || status.includes('CONFIRM')) {
+        if (isPickup) {
+            // Para retirada: Avisar Pedido Pronto + Cancelar
+            const readyButton = document.createElement('button');
+            readyButton.className = 'action-button ready';
+            readyButton.textContent = 'Avisar Pedido Pronto';
+            readyButton.onclick = () => handleOrderAction(order.id, 'readyToPickup');
+            container.appendChild(readyButton);
         } else {
-            button.disabled = true;
+            // Para delivery: Despachar + Cancelar
+            const dispatchButton = document.createElement('button');
+            dispatchButton.className = 'action-button dispatch';
+            dispatchButton.textContent = 'Despachar';
+            dispatchButton.onclick = () => handleOrderAction(order.id, 'dispatch');
+            container.appendChild(dispatchButton);
         }
         
-        container.appendChild(button);
-    });
-    
-    // Se não houver ações disponíveis, mostra uma mensagem
-    if (orderActions.length === 0) {
-        const messageSpan = document.createElement('span');
-        messageSpan.className = 'no-actions';
-        messageSpan.textContent = 'Nenhuma ação disponível';
-        container.appendChild(messageSpan);
+        // Adiciona botão Cancelar
+        const cancelButton = document.createElement('button');
+        cancelButton.className = 'action-button cancel';
+        cancelButton.textContent = 'Cancelar';
+        cancelButton.onclick = () => handleOrderAction(order.id, 'requestCancellation');
+        container.appendChild(cancelButton);
+        
+        return;
     }
+    
+    // 3. Pedidos em preparação - igual aos confirmados
+    if (status === 'IN_PREPARATION' || status.includes('PREPAR')) {
+        if (isPickup) {
+            // Para retirada: Avisar Pedido Pronto + Cancelar
+            const readyButton = document.createElement('button');
+            readyButton.className = 'action-button ready';
+            readyButton.textContent = 'Avisar Pedido Pronto';
+            readyButton.onclick = () => handleOrderAction(order.id, 'readyToPickup');
+            container.appendChild(readyButton);
+        } else {
+            // Para delivery: Despachar + Cancelar
+            const dispatchButton = document.createElement('button');
+            dispatchButton.className = 'action-button dispatch';
+            dispatchButton.textContent = 'Despachar';
+            dispatchButton.onclick = () => handleOrderAction(order.id, 'dispatch');
+            container.appendChild(dispatchButton);
+        }
+        
+        // Adiciona botão Cancelar
+        const cancelButton = document.createElement('button');
+        cancelButton.className = 'action-button cancel';
+        cancelButton.textContent = 'Cancelar';
+        cancelButton.onclick = () => handleOrderAction(order.id, 'requestCancellation');
+        container.appendChild(cancelButton);
+        
+        return;
+    }
+    
+    // 4. Pedidos prontos para retirada - apenas Cancelar
+    if (status === 'READY_TO_PICKUP' || status.includes('READY') || status.includes('PICKUP')) {
+        // Adiciona botão Cancelar
+        const cancelButton = document.createElement('button');
+        cancelButton.className = 'action-button cancel';
+        cancelButton.textContent = 'Cancelar';
+        cancelButton.onclick = () => handleOrderAction(order.id, 'requestCancellation');
+        container.appendChild(cancelButton);
+        
+        return;
+    }
+    
+    // 5. Pedidos despachados - apenas Cancelar
+    if (status === 'DISPATCHED' || status.includes('DISPATCH')) {
+        // Adiciona botão Cancelar
+        const cancelButton = document.createElement('button');
+        cancelButton.className = 'action-button cancel';
+        cancelButton.textContent = 'Cancelar';
+        cancelButton.onclick = () => handleOrderAction(order.id, 'requestCancellation');
+        container.appendChild(cancelButton);
+        
+        return;
+    }
+    
+    // 6. Pedidos cancelados ou concluídos - informativo
+    if (status === 'CANCELLED' || status.includes('CANCEL') || 
+        status === 'CONCLUDED' || status.includes('CONCLUD')) {
+        const statusText = status.includes('CANCEL') ? 'Pedido Cancelado' : 'Pedido Concluído';
+        
+        const infoButton = document.createElement('button');
+        infoButton.className = 'action-button disabled';
+        infoButton.textContent = statusText;
+        infoButton.disabled = true;
+        container.appendChild(infoButton);
+        
+        return;
+    }
+    
+    // 7. Default: pelo menos o botão Cancelar para qualquer outro status
+    const cancelButton = document.createElement('button');
+    cancelButton.className = 'action-button cancel';
+    cancelButton.textContent = 'Cancelar';
+    cancelButton.onclick = () => handleOrderAction(order.id, 'requestCancellation');
+    container.appendChild(cancelButton);
 }
 
 // Função auxiliar para criar botões
