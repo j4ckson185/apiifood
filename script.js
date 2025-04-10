@@ -726,14 +726,7 @@ function addActionButtons(container, order) {
         container.removeChild(container.firstChild);
     }
     
-    // Verifica se o pedido é de delivery ou retirada
-    const isDelivery = order.orderType === 'DELIVERY' || 
-                       (order.delivery && order.delivery.deliveryAddress) ||
-                       (!order.takeout && !order.indoor);
-    
-    console.log('É pedido de delivery?', isDelivery);
-    
-    // Mapeamento de ações por status
+    // Mapeamento detalhado de status para ações
     const actions = {
         'PLACED': [
             { label: 'Confirmar', action: 'confirm', class: 'confirm' },
@@ -743,22 +736,20 @@ function addActionButtons(container, order) {
             { label: 'Iniciar Preparo', action: 'startPreparation', class: 'prepare' },
             { label: 'Cancelar', action: 'requestCancellation', class: 'cancel' }
         ],
-        'IN_PREPARATION': isDelivery 
-            // Para delivery, mostra 'Despachar' quando em preparação
-            ? [
-                { label: 'Despachar', action: 'dispatch', class: 'dispatch' },
-                { label: 'Cancelar', action: 'requestCancellation', class: 'cancel' }
-              ]
-            // Para retirada, mostra 'Pronto para Retirada'
-            : [
-                { label: 'Pronto para Retirada', action: 'readyToPickup', class: 'ready' },
-                { label: 'Cancelar', action: 'requestCancellation', class: 'cancel' }
-              ],
+        'IN_PREPARATION': [
+            { label: 'Pronto para Retirada', action: 'readyToPickup', class: 'ready' },
+            { label: 'Despachar', action: 'dispatch', class: 'dispatch' },
+            { label: 'Cancelar', action: 'requestCancellation', class: 'cancel' }
+        ],
         'READY_TO_PICKUP': [
+            { label: 'Despachar', action: 'dispatch', class: 'dispatch' },
             { label: 'Cancelar', action: 'requestCancellation', class: 'cancel' }
         ],
         'DISPATCHED': [
             { label: 'Cancelar', action: 'requestCancellation', class: 'cancel' }
+        ],
+        'CANCELLATION_REQUESTED': [
+            { label: 'Cancelamento Solicitado', action: null, class: 'disabled' }
         ],
         'CANCELLED': [
             { label: 'Pedido Cancelado', action: null, class: 'disabled' }
@@ -768,83 +759,61 @@ function addActionButtons(container, order) {
         ]
     };
     
-    // Verifica se temos o status ou usamos um status padrão
-    let status = order.status || 'PLACED';
-    
-    // Padroniza o status para maiúsculas
-    if (typeof status === 'string') {
-        status = status.toUpperCase();
+    // Pega o status normalizado
+    let orderStatus = order.status;
+    if (!orderStatus && order.id) {
+        // Se não tiver status mas tiver ID, considera como PLACED
+        orderStatus = 'PLACED';
     }
     
-    // Se o status for IN_PREPARATION para um pedido de delivery,
-    // forçamos a exibição do botão Despachar
-    if (isDelivery && status === 'IN_PREPARATION') {
-        console.log('Adicionando botão de despachar para pedido de delivery em preparação');
-        
-        // Adiciona botão Despachar
-        const dispatchButton = document.createElement('button');
-        dispatchButton.className = 'action-button dispatch';
-        dispatchButton.textContent = 'Despachar';
-        dispatchButton.onclick = () => handleOrderAction(order.id, 'dispatch');
-        container.appendChild(dispatchButton);
-        
-        // Adiciona botão Cancelar
-        const cancelButton = document.createElement('button');
-        cancelButton.className = 'action-button cancel';
-        cancelButton.textContent = 'Cancelar';
-        cancelButton.onclick = () => handleOrderAction(order.id, 'requestCancellation');
-        container.appendChild(cancelButton);
-        
-        return; // Sai da função após adicionar os botões
-    }
+    // Se não encontramos o status na lista acima, verificamos se o status começa com algum dos prefixos conhecidos
+    let orderActions = actions[orderStatus] || [];
     
-    // Para outros status, procura na tabela de mapeamento
-    const orderActions = actions[status] || [];
-    
-    // Se não encontrou ações específicas, tenta identificar o status por palavras-chave
-    if (orderActions.length === 0 && typeof status === 'string') {
-        const statusLower = status.toLowerCase();
-        
-        if (statusLower.includes('placed') || statusLower === 'new') {
-            // Para novos pedidos
-            container.appendChild(createButton('Confirmar', 'confirm', 'confirm', order.id));
-            container.appendChild(createButton('Cancelar', 'requestCancellation', 'cancel', order.id));
-        } else if (statusLower.includes('confirm')) {
-            // Para pedidos confirmados
-            container.appendChild(createButton('Iniciar Preparo', 'startPreparation', 'prepare', order.id));
-            container.appendChild(createButton('Cancelar', 'requestCancellation', 'cancel', order.id));
-        } else if (statusLower.includes('prepar')) {
-            // Para pedidos em preparação
-            if (isDelivery) {
-                container.appendChild(createButton('Despachar', 'dispatch', 'dispatch', order.id));
-            } else {
-                container.appendChild(createButton('Pronto para Retirada', 'readyToPickup', 'ready', order.id));
+    if (orderActions.length === 0) {
+        if (orderStatus && typeof orderStatus === 'string') {
+            // Tenta encontrar ações para status similares
+            const statusLower = orderStatus.toLowerCase();
+            
+            if (statusLower.includes('placed') || statusLower.includes('new')) {
+                orderActions = actions['PLACED'];
+            } else if (statusLower.includes('confirm')) {
+                orderActions = actions['CONFIRMED'];
+            } else if (statusLower.includes('prepar')) {
+                orderActions = actions['IN_PREPARATION'];
+            } else if (statusLower.includes('ready') || statusLower.includes('pickup')) {
+                orderActions = actions['READY_TO_PICKUP'];
+            } else if (statusLower.includes('dispatch') || statusLower.includes('delivered')) {
+                orderActions = actions['DISPATCHED'];
+            } else if (statusLower.includes('cancel')) {
+                orderActions = actions['CANCELLED'];
+            } else if (statusLower.includes('conclud')) {
+                orderActions = actions['CONCLUDED'];
             }
-            container.appendChild(createButton('Cancelar', 'requestCancellation', 'cancel', order.id));
-        } else if (statusLower.includes('cancel')) {
-            // Para pedidos cancelados
-            const messageSpan = document.createElement('span');
-            messageSpan.className = 'no-actions';
-            messageSpan.textContent = 'Pedido Cancelado';
-            container.appendChild(messageSpan);
-        } else {
-            // Para outros status, apenas cancelamento
-            container.appendChild(createButton('Cancelar', 'requestCancellation', 'cancel', order.id));
         }
-    } else {
-        // Adiciona os botões de ação mapeados
-        orderActions.forEach(({label, action, class: buttonClass}) => {
-            container.appendChild(
-                createButton(label, action, buttonClass, order.id)
-            );
-        });
     }
     
-    // Adiciona mensagem se não houver ações disponíveis
-    if (container.childNodes.length === 0) {
+    console.log(`Encontradas ${orderActions.length} ações para o status ${orderStatus}`);
+    
+    // Adiciona os botões de ação
+    orderActions.forEach(({label, action, class: buttonClass}) => {
+        const button = document.createElement('button');
+        button.className = `action-button ${buttonClass || action}`;
+        button.textContent = label;
+        
+        if (action) {
+            button.onclick = () => handleOrderAction(order.id, action);
+        } else {
+            button.disabled = true;
+        }
+        
+        container.appendChild(button);
+    });
+    
+    // Se não houver ações disponíveis, mostra uma mensagem
+    if (orderActions.length === 0) {
         const messageSpan = document.createElement('span');
         messageSpan.className = 'no-actions';
-        messageSpan.textContent = 'Sem ações disponíveis';
+        messageSpan.textContent = 'Nenhuma ação disponível';
         container.appendChild(messageSpan);
     }
 }
