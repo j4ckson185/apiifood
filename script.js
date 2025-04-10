@@ -364,34 +364,52 @@ function addActionButtons(container, order) {
     });
 }
 
-// Função para buscar pedidos ativos
+// Função para buscar pedidos ativos usando eventos
 async function fetchActiveOrders() {
     try {
-        console.log('Buscando pedidos ativos...');
+        console.log('Buscando pedidos ativos via eventos...');
         
-        // Buscar pedidos pelo endpoint de orders
-        const orders = await makeAuthorizedRequest(`/order/v1.0/merchants/${CONFIG.merchantId}/orders`, 'GET');
+        // Buscar eventos recentes
+        const events = await makeAuthorizedRequest('/events/v1.0/events:polling', 'GET');
         
-        console.log('Pedidos ativos recebidos:', orders);
-        
-        if (orders && Array.isArray(orders) && orders.length > 0) {
-            // Limpa grid de pedidos existentes para evitar duplicações
-            clearOrdersGrid();
+        if (events && Array.isArray(events) && events.length > 0) {
+            console.log('Eventos recebidos:', events);
             
-            // Processa e exibe cada pedido
-            for (const orderSummary of orders) {
-                try {
-                    // Busca detalhes completos do pedido
-                    const orderDetails = await makeAuthorizedRequest(`/order/v1.0/orders/${orderSummary.id}`, 'GET');
-                    displayOrder(orderDetails);
-                } catch (error) {
-                    console.error(`Erro ao buscar detalhes do pedido ${orderSummary.id}:`, error);
+            // Filtra eventos relacionados a pedidos
+            const orderEvents = events.filter(event => event.orderId);
+            
+            if (orderEvents.length > 0) {
+                // Limpa grid de pedidos existentes
+                clearOrdersGrid();
+                
+                // Busca detalhes de cada pedido único
+                const processedOrderIds = new Set();
+                
+                for (const event of orderEvents) {
+                    // Evita processar o mesmo pedido múltiplas vezes
+                    if (!processedOrderIds.has(event.orderId)) {
+                        processedOrderIds.add(event.orderId);
+                        
+                        try {
+                            const orderDetails = await makeAuthorizedRequest(`/order/v1.0/orders/${event.orderId}`, 'GET');
+                            displayOrder(orderDetails);
+                        } catch (orderError) {
+                            console.error(`Erro ao buscar detalhes do pedido ${event.orderId}:`, orderError);
+                        }
+                    }
                 }
+                
+                // Fazer acknowledgment dos eventos processados
+                const acknowledgmentFormat = events.map(event => ({ id: event.id }));
+                await makeAuthorizedRequest('/events/v1.0/events/acknowledgment', 'POST', acknowledgmentFormat);
+                
+                showToast(`${processedOrderIds.size} pedidos carregados`, 'success');
+            } else {
+                console.log('Nenhum evento de pedido encontrado');
+                showToast('Nenhum pedido ativo no momento', 'info');
             }
-            
-            showToast(`${orders.length} pedidos carregados`, 'success');
         } else {
-            console.log('Nenhum pedido ativo encontrado');
+            console.log('Nenhum evento recebido');
             showToast('Nenhum pedido ativo no momento', 'info');
         }
     } catch (error) {
