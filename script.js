@@ -150,6 +150,9 @@ async function makeAuthorizedRequest(path, method = 'GET', body = null) {
     }
 }
 
+// Rastreamento de pedidos já processados para evitar duplicações
+const processedOrderIds = new Set();
+
 // Polling de eventos
 async function pollEvents() {
     if (!state.isPolling || !state.accessToken) return;
@@ -171,11 +174,11 @@ async function pollEvents() {
             console.log('📤 Enviando acknowledgment com formato:', acknowledgmentFormat);
 
             try {
-                // Envia acknowledgment com o formato correto
-                const ackResponse = await makeAuthorizedRequest('/events/v1.0/events/acknowledgment', 'POST', acknowledgmentFormat);
-                console.log('✅ Acknowledgment enviado com sucesso:', ackResponse);
+                // Envia acknowledgment
+                await makeAuthorizedRequest('/events/v1.0/events/acknowledgment', 'POST', acknowledgmentFormat);
+                console.log('✅ Acknowledgment enviado com sucesso');
             } catch (ackError) {
-                console.error('❌ Erro no acknowledgment:', ackError);
+                console.error('❌ Erro ao enviar acknowledgment:', ackError);
             }
         } else {
             console.log('Nenhum evento recebido neste polling');
@@ -207,62 +210,38 @@ async function handleEvent(event) {
             return;
         }
         
-        switch (event.code) {
-            case 'PLACED':
-                // Novo pedido recebido
-                console.log('Novo pedido recebido:', event.orderId);
-                try {
-                    const order = await makeAuthorizedRequest(`/order/v1.0/orders/${event.orderId}`, 'GET');
-                    console.log('Detalhes do pedido recebido:', order);
+        // Para eventos PLACED, verifica se já processamos este pedido antes
+        if (event.code === 'PLACED') {
+            // Se já processamos este pedido, ignoramos
+            if (processedOrderIds.has(event.orderId)) {
+                console.log(`Pedido ${event.orderId} já foi processado anteriormente, ignorando`);
+                return;
+            }
+            
+            // Marca o pedido como processado
+            processedOrderIds.add(event.orderId);
+            
+            // Novo pedido recebido
+            console.log('Novo pedido recebido:', event.orderId);
+            try {
+                const order = await makeAuthorizedRequest(`/order/v1.0/orders/${event.orderId}`, 'GET');
+                console.log('Detalhes do pedido recebido:', order);
+                
+                // Verifica se o pedido já existe na interface
+                const existingOrder = document.querySelector(`.order-card[data-order-id="${order.id}"]`);
+                if (!existingOrder) {
                     displayOrder(order);
                     showToast('Novo pedido recebido!', 'success');
-                } catch (orderError) {
-                    console.error(`Erro ao buscar detalhes do pedido ${event.orderId}:`, orderError);
+                } else {
+                    console.log(`Pedido ${order.id} já está na interface, atualizando status`);
+                    updateOrderStatus(order.id, order.status);
                 }
-                break;
-                
-            case 'CONFIRMED':
-            case 'CFM':
-                // Pedido confirmado
-                updateOrderStatus(event.orderId, 'CONFIRMED');
-                break;
-                
-            case 'READY_TO_PICKUP':
-            case 'RTP':
-                // Pedido pronto para entrega
-                updateOrderStatus(event.orderId, 'READY_TO_PICKUP');
-                break;
-                
-            case 'CANCELLED':
-            case 'CAN':
-                // Pedido cancelado
-                updateOrderStatus(event.orderId, 'CANCELLED');
-                break;
-                
-            case 'CONCLUDED':
-            case 'CON':
-                // Pedido concluído
-                updateOrderStatus(event.orderId, 'CONCLUDED');
-                break;
-                
-            default:
-                console.log(`Evento não tratado especificamente: ${event.code}`);
-                // Para outros eventos de pedido, tentamos buscar detalhes atualizados
-                if (event.orderId) {
-                    try {
-                        const orderDetails = await makeAuthorizedRequest(`/order/v1.0/orders/${event.orderId}`, 'GET');
-                        // Se o pedido já existe na interface, atualizamos o status
-                        // Caso contrário, exibimos o pedido
-                        const orderExists = document.querySelector(`.order-card[data-order-id="${event.orderId}"]`);
-                        if (orderExists) {
-                            updateOrderStatus(event.orderId, orderDetails.status);
-                        } else {
-                            displayOrder(orderDetails);
-                        }
-                    } catch (orderError) {
-                        console.error(`Erro ao buscar detalhes atualizados do pedido ${event.orderId}:`, orderError);
-                    }
-                }
+            } catch (orderError) {
+                console.error(`Erro ao buscar detalhes do pedido ${event.orderId}:`, orderError);
+            }
+        } else {
+            // Para outros tipos de evento, atualizamos o status
+            updateOrderStatus(event.orderId, event.code);
         }
     } catch (error) {
         console.error('Erro ao processar evento:', error);
@@ -270,21 +249,35 @@ async function handleEvent(event) {
 }
 
 // Função para atualizar o status da loja
+// Função para atualizar o status da loja
 async function updateStoreStatus() {
     try {
         console.log('Atualizando status da loja...');
         
-        // Tenta obter o status da loja usando o merchantId numérico, não o UUID
+        // Tenta obter o status da loja usando a API merchant
         try {
-            const storeStatus = await makeAuthorizedRequest(`/merchant/v1.0/merchants/${CONFIG.merchantId}/status`, 'GET');
+            // A estrutura correta de acordo com a documentação da API merchant
+            const storeStatuses = await makeAuthorizedRequest(`/merchant/v1.0/merchants/${CONFIG.merchantId}/status`, 'GET');
+            console.log('Status da loja recebido:', storeStatuses);
+            
             const statusElement = document.getElementById('store-status');
             
-            if (storeStatus && storeStatus.available) {
-                statusElement.textContent = 'Online';
-                statusElement.className = 'status-badge online';
+            // Verifica se recebemos uma resposta válida - a API retorna um array de status
+            if (storeStatuses && Array.isArray(storeStatuses) && storeStatuses.length > 0) {
+                // Procura pelo status padrão ou o primeiro disponível
+                const defaultStatus = storeStatuses.find(s => s.operation === 'DEFAULT') || storeStatuses[0];
+                
+                if (defaultStatus && defaultStatus.available) {
+                    statusElement.textContent = 'Online';
+                    statusElement.className = 'status-badge online';
+                } else {
+                    statusElement.textContent = 'Offline';
+                    statusElement.className = 'status-badge offline';
+                }
             } else {
-                statusElement.textContent = 'Offline';
-                statusElement.className = 'status-badge offline';
+                // Caso não receba dados válidos
+                statusElement.textContent = 'Status desconhecido';
+                statusElement.className = 'status-badge';
             }
         } catch (error) {
             console.error('Erro ao buscar status da loja:', error);
@@ -319,20 +312,29 @@ async function toggleStoreStatus() {
         showLoading();
         
         try {
-            const storeStatus = await makeAuthorizedRequest(`/merchant/v1.0/merchants/${CONFIG.merchantId}/status`, 'GET');
+            // Primeiro, obter o status atual
+            const storeStatuses = await makeAuthorizedRequest(`/merchant/v1.0/merchants/${CONFIG.merchantId}/status`, 'GET');
             
-            // Inverte o status atual
-            const newStatus = !storeStatus.available;
-            
-            // Atualiza o status
-            await makeAuthorizedRequest(`/merchant/v1.0/merchants/${CONFIG.merchantId}/status`, 'PUT', {
-                available: newStatus
-            });
-            
-            // Atualiza a interface
-            updateStoreStatus();
-            
-            showToast(`Loja ${newStatus ? 'ativada' : 'desativada'} com sucesso`, 'success');
+            // Verificar se há status disponíveis
+            if (storeStatuses && Array.isArray(storeStatuses) && storeStatuses.length > 0) {
+                // Procura pelo status padrão ou o primeiro disponível
+                const defaultStatus = storeStatuses.find(s => s.operation === 'DEFAULT') || storeStatuses[0];
+                
+                // Define o novo status (inverso do atual)
+                const newAvailable = !(defaultStatus && defaultStatus.available);
+                
+                // Envia a atualização - assumindo o URL correto de acordo com a documentação
+                await makeAuthorizedRequest(`/merchant/v1.0/merchants/${CONFIG.merchantId}/status`, 'PUT', {
+                    available: newAvailable
+                });
+                
+                // Atualiza a interface
+                await updateStoreStatus();
+                
+                showToast(`Loja ${newAvailable ? 'ativada' : 'desativada'} com sucesso`, 'success');
+            } else {
+                showToast('Não foi possível obter o status atual da loja', 'error');
+            }
         } catch (error) {
             console.error('Erro ao alternar status da loja:', error);
             
@@ -843,11 +845,14 @@ async function updateStoreStatus() {
     }
 }
 
+// Variáveis globais para controle de cancelamento
+let currentCancellationOrderId = null;
+let cancellationReasons = [];
+
 // Manipula ações do pedido
 async function handleOrderAction(orderId, action) {
     try {
         console.log(`Executando ação ${action} para o pedido ${orderId}`);
-        showLoading();
         
         // Mapeamento de ações para endpoints da API
         const actionEndpoints = {
@@ -865,45 +870,43 @@ async function handleOrderAction(orderId, action) {
         
         // Tratamento especial para cancelamento
         if (action === 'requestCancellation') {
-            // Primeiro, obter os motivos de cancelamento disponíveis
+            // Primeiro, buscar os motivos de cancelamento disponíveis
+            showLoading();
             try {
-                const cancellationReasons = await makeAuthorizedRequest(`/order/v1.0/orders/${orderId}/cancellationReasons`, 'GET');
+                cancellationReasons = await makeAuthorizedRequest(`/order/v1.0/orders/${orderId}/cancellationReasons`, 'GET');
                 console.log('Motivos de cancelamento disponíveis:', cancellationReasons);
                 
                 if (cancellationReasons && cancellationReasons.length > 0) {
-                    // Use o primeiro motivo disponível
-                    const defaultReason = cancellationReasons[0];
+                    // Guarda o ID do pedido atual para cancelamento
+                    currentCancellationOrderId = orderId;
                     
-                    // Envia a requisição de cancelamento com o motivo
-                    const response = await makeAuthorizedRequest(`/order/v1.0/orders/${orderId}${endpoint}`, 'POST', {
-                        cancellationCode: defaultReason.cancelCodeId,
-                        reason: defaultReason.description
+                    // Preenche o select com os motivos
+                    const select = document.getElementById('cancellation-reason');
+                    select.innerHTML = '';
+                    
+                    cancellationReasons.forEach(reason => {
+                        const option = document.createElement('option');
+                        option.value = reason.cancelCodeId;
+                        option.textContent = reason.description;
+                        select.appendChild(option);
                     });
                     
-                    console.log(`Resposta do cancelamento:`, response);
-                    updateOrderStatus(orderId, 'CANCELLED');
-                    showToast(`Pedido cancelado com sucesso!`, 'success');
+                    // Mostra o modal de cancelamento
+                    hideLoading();
+                    document.getElementById('cancellation-modal').classList.remove('hidden');
                 } else {
-                    throw new Error('Nenhum motivo de cancelamento disponível');
+                    // Se não tiver motivos disponíveis
+                    hideLoading();
+                    showToast('Não foi possível obter os motivos de cancelamento', 'error');
                 }
             } catch (cancelError) {
+                hideLoading();
                 console.error('Erro ao obter motivos de cancelamento:', cancelError);
-                // Se não conseguir obter os motivos, tenta cancelar com um motivo genérico
-                try {
-                    const response = await makeAuthorizedRequest(`/order/v1.0/orders/${orderId}${endpoint}`, 'POST', {
-                        cancellationCode: "MERCHANT_REASON",
-                        reason: "Outro motivo"
-                    });
-                    
-                    console.log(`Resposta do cancelamento:`, response);
-                    updateOrderStatus(orderId, 'CANCELLED');
-                    showToast(`Pedido cancelado com sucesso!`, 'success');
-                } catch (finalError) {
-                    throw finalError;
-                }
+                showToast('Erro ao obter motivos de cancelamento', 'error');
             }
         } else {
             // Para outras ações, envia normalmente
+            showLoading();
             const response = await makeAuthorizedRequest(`/order/v1.0/orders/${orderId}${endpoint}`, 'POST');
             console.log(`Resposta da ação ${action}:`, response);
             
@@ -928,14 +931,71 @@ async function handleOrderAction(orderId, action) {
                 updateOrderStatus(orderId, newStatus);
             }
             
+            hideLoading();
             showToast(`Ação "${action}" realizada com sucesso!`, 'success');
         }
     } catch (error) {
+        hideLoading();
         console.error(`Erro ao realizar ação ${action} para o pedido ${orderId}:`, error);
         showToast(`Erro ao realizar ação: ${error.message}`, 'error');
-    } finally {
-        hideLoading();
     }
+}
+
+// Função para confirmar o cancelamento com o motivo selecionado
+async function confirmCancellation() {
+    if (!currentCancellationOrderId) {
+        showToast('Erro: ID do pedido não encontrado', 'error');
+        return;
+    }
+    
+    const select = document.getElementById('cancellation-reason');
+    const selectedReasonId = select.value;
+    
+    if (!selectedReasonId) {
+        showToast('Selecione um motivo para cancelar', 'warning');
+        return;
+    }
+    
+    // Encontra a descrição do motivo selecionado
+    const selectedReason = cancellationReasons.find(r => r.cancelCodeId === selectedReasonId);
+    
+    if (!selectedReason) {
+        showToast('Motivo inválido', 'error');
+        return;
+    }
+    
+    try {
+        showLoading();
+        // Fecha o modal
+        document.getElementById('cancellation-modal').classList.add('hidden');
+        
+        // Envia a requisição de cancelamento com o motivo
+        const response = await makeAuthorizedRequest(`/order/v1.0/orders/${currentCancellationOrderId}/requestCancellation`, 'POST', {
+            cancellationCode: selectedReason.cancelCodeId,
+            reason: selectedReason.description
+        });
+        
+        console.log('Resposta do cancelamento:', response);
+        
+        // Atualiza o status do pedido na interface
+        updateOrderStatus(currentCancellationOrderId, 'CANCELLED');
+        
+        hideLoading();
+        showToast(`Pedido cancelado com sucesso!`, 'success');
+    } catch (error) {
+        hideLoading();
+        console.error('Erro ao cancelar pedido:', error);
+        showToast(`Erro ao cancelar pedido: ${error.message}`, 'error');
+    } finally {
+        // Limpa o ID do pedido atual
+        currentCancellationOrderId = null;
+    }
+}
+
+// Função para fechar o modal de cancelamento
+function closeCancellationModal() {
+    document.getElementById('cancellation-modal').classList.add('hidden');
+    currentCancellationOrderId = null;
 }
 
 // Converte status para texto amigável
@@ -1011,3 +1071,31 @@ async function initialize() {
         hideLoading();
     }
 }
+
+// Adicione estes event listeners no final do seu arquivo script.js
+// ou dentro da função de inicialização
+
+// Event listeners para o modal de cancelamento
+document.addEventListener('DOMContentLoaded', () => {
+    // Botão de confirmar cancelamento
+    document.getElementById('confirm-cancellation').addEventListener('click', () => {
+        confirmCancellation();
+    });
+    
+    // Botão de cancelar cancelamento
+    document.getElementById('cancel-cancellation').addEventListener('click', () => {
+        closeCancellationModal();
+    });
+    
+    // Botão X para fechar o modal
+    document.querySelector('.close-modal').addEventListener('click', () => {
+        closeCancellationModal();
+    });
+    
+    // Fechar o modal ao clicar fora dele
+    document.getElementById('cancellation-modal').addEventListener('click', (event) => {
+        if (event.target === document.getElementById('cancellation-modal')) {
+            closeCancellationModal();
+        }
+    });
+});
