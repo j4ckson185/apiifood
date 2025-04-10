@@ -207,42 +207,59 @@ async function pollEvents() {
     }
 }
 
-// Função para exibir o pedido na interface - simplificada e robusta
-function displayOrder(order) {
-    // Verificação de segurança para garantir que temos um pedido válido
-    if (!order || !order.id) {
-        console.error('Tentativa de exibir pedido inválido:', order);
-        return;
-    }
-    
-    console.log('Exibindo pedido:', order);
-    
-    // Verifica se o pedido já existe na interface
-    const existingOrderCard = document.querySelector(`.order-card[data-order-id="${order.id}"]`);
-    if (existingOrderCard) {
-        console.log(`Pedido ${order.id} já existe na interface, atualizando status`);
-        // Atualiza o status do pedido existente
-        const statusElement = existingOrderCard.querySelector('.order-status');
-        if (statusElement) {
-            statusElement.textContent = getStatusText(order.status);
+// Manipulador de eventos melhorado para evitar duplicações
+async function handleEvent(event) {
+    try {
+        console.log(`Processando evento: ${event.code} para pedido ${event.orderId}`);
+        
+        // Verifica se é um evento relacionado a pedido
+        if (!event.orderId) {
+            console.log('Evento sem orderId, ignorando:', event);
+            return;
         }
         
-        // Atualiza os botões de ação
-        const actionsContainer = existingOrderCard.querySelector('.order-actions');
-        if (actionsContainer) {
-            // Limpa os botões existentes
-            while (actionsContainer.firstChild) {
-                actionsContainer.removeChild(actionsContainer.firstChild);
+        // Para eventos PLACED (novos pedidos)
+        if (event.code === 'PLACED') {
+            // Checa se já processamos este pedido antes
+            if (processedOrderIds.has(event.orderId)) {
+                console.log(`Pedido ${event.orderId} já foi processado anteriormente, ignorando`);
+                return;
             }
             
-            // Adiciona os botões atualizados
-            addActionButtons(actionsContainer, order);
+            // Tenta buscar detalhes do pedido
+            try {
+                const order = await makeAuthorizedRequest(`/order/v1.0/orders/${event.orderId}`, 'GET');
+                console.log('Detalhes do pedido recebido:', order);
+                
+                // Verifica se o pedido já existe na interface pelo atributo data-order-id
+                const existingOrder = document.querySelector(`.order-card[data-order-id="${order.id}"]`);
+                if (!existingOrder) {
+                    // Exibe o pedido na interface
+                    displayOrder(order);
+                    showToast('Novo pedido recebido!', 'success');
+                    
+                    // Marca o pedido como processado
+                    processedOrderIds.add(event.orderId);
+                    saveProcessedIds();
+                } else {
+                    console.log(`Pedido ${order.id} já está na interface, atualizando status`);
+                    updateOrderStatus(order.id, order.status);
+                }
+            } catch (orderError) {
+                console.error(`Erro ao buscar detalhes do pedido ${event.orderId}:`, orderError);
+            }
+        } else {
+            // Para outros tipos de evento, apenas atualiza o status
+            // Não precisamos rastrear esses eventos, pois não criam duplicatas
+            updateOrderStatus(event.orderId, event.code);
         }
-        return; // Sai da função sem duplicar o pedido
+    } catch (error) {
+        console.error('Erro ao processar evento:', error);
     }
+}
 
-    // Se chegou aqui, o pedido não existe na interface e deve ser criado
-    
+// Função modificada de exibição de pedido para garantir que cada pedido tem um atributo data-order-id
+function displayOrder(order) {
     const template = document.getElementById('order-modal-template');
     const orderElement = template.content.cloneNode(true);
 
@@ -251,7 +268,7 @@ function displayOrder(order) {
     orderElement.querySelector('.order-status').textContent = getStatusText(order.status);
     orderElement.querySelector('.customer-name').textContent = `Cliente: ${order.customer?.name || 'N/A'}`;
     
-    // Formatação do telefone
+    // Adaptação para diferentes formatos de telefone
     let phoneText = 'Tel: N/A';
     if (order.customer?.phone) {
         if (typeof order.customer.phone === 'string') {
@@ -268,15 +285,17 @@ function displayOrder(order) {
         order.items.forEach(item => {
             const li = document.createElement('li');
             
-            // Cálculo do preço do item
-            let itemPrice = 0;
-            if (item.totalPrice) {
-                itemPrice = item.totalPrice;
-            } else if (typeof item.price === 'number' && typeof item.quantity === 'number') {
-                itemPrice = item.price * item.quantity;
+            // Adaptação para diferentes formatos de preço
+            let itemPrice;
+            if (typeof item.price === 'number' && typeof item.quantity === 'number') {
+                itemPrice = (item.price * item.quantity).toFixed(2);
+            } else if (item.totalPrice) {
+                itemPrice = item.totalPrice.toFixed(2);
+            } else {
+                itemPrice = '0.00';
             }
             
-            li.textContent = `${item.quantity}x ${item.name} - R$ ${itemPrice.toFixed(2)}`;
+            li.textContent = `${item.quantity}x ${item.name} - R$ ${itemPrice}`;
             itemsList.appendChild(li);
         });
     } else {
@@ -285,113 +304,46 @@ function displayOrder(order) {
         itemsList.appendChild(li);
     }
 
-    // Preenche total
+    // Preenche total - adaptação para diferentes formatos
     const totalAmount = orderElement.querySelector('.total-amount');
-    let totalValue = 0;
-    
     if (typeof order.total === 'number') {
-        totalValue = order.total;
+        totalAmount.textContent = `R$ ${order.total.toFixed(2)}`;
     } else if (order.total && typeof order.total.value === 'number') {
-        totalValue = order.total.value;
-    } else if (order.total && order.total.subTotal) {
-        totalValue = order.total.subTotal + (order.total.deliveryFee || 0);
-    } else if (order.total && order.total.orderAmount) {
-        totalValue = order.total.orderAmount;
+        totalAmount.textContent = `R$ ${order.total.value.toFixed(2)}`;
+    } else if (order.total && (order.total.subTotal || order.total.orderAmount)) {
+        // Usa orderAmount ou subTotal + deliveryFee
+        const totalValue = order.total.orderAmount || 
+                          (order.total.subTotal + (order.total.deliveryFee || 0));
+        totalAmount.textContent = `R$ ${totalValue.toFixed(2)}`;
     } else {
-        // Calcula o total a partir dos itens
+        // Tenta calcular o total a partir dos itens
+        let calculatedTotal = 0;
         if (order.items && Array.isArray(order.items)) {
-            order.items.forEach(item => {
+            calculatedTotal = order.items.reduce((sum, item) => {
+                let itemTotal = 0;
                 if (item.totalPrice) {
-                    totalValue += item.totalPrice;
+                    itemTotal = item.totalPrice;
                 } else if (typeof item.price === 'number' && typeof item.quantity === 'number') {
-                    totalValue += item.price * item.quantity;
+                    itemTotal = item.price * item.quantity;
                 }
-            });
+                return sum + itemTotal;
+            }, 0);
         }
+        totalAmount.textContent = `R$ ${calculatedTotal.toFixed(2)}`;
     }
-    
-    totalAmount.textContent = `R$ ${totalValue.toFixed(2)}`;
 
     // Adiciona botões de ação
     const actionsContainer = orderElement.querySelector('.order-actions');
     addActionButtons(actionsContainer, order);
 
-    // IMPORTANTE: Adiciona o ID do pedido como atributo data para referência futura
+    // IMPORTANTE: Adiciona um data-attribute com o ID do pedido para facilitar atualizações e evitar duplicações
     const orderCard = orderElement.querySelector('.order-card');
     orderCard.setAttribute('data-order-id', order.id);
 
     // Adiciona ao grid de pedidos
     document.getElementById('orders-grid').appendChild(orderElement);
     
-    console.log('Pedido adicionado com sucesso à interface:', order.id);
-}
-
-// Função para manipular eventos de pedidos - simplificada
-async function handleEvent(event) {
-    try {
-        console.log(`Processando evento: ${event.code} para pedido ${event.orderId}`);
-        
-        if (!event.orderId) {
-            console.log('Evento sem orderId, ignorando');
-            return;
-        }
-        
-        // Para eventos de novos pedidos (PLACED)
-        if (event.code === 'PLACED') {
-            console.log('Novo pedido recebido:', event.orderId);
-            
-            try {
-                // Busca os detalhes completos do pedido
-                const orderDetails = await makeAuthorizedRequest(`/order/v1.0/orders/${event.orderId}`, 'GET');
-                console.log('Detalhes do pedido recebido:', orderDetails);
-                
-                // Exibe o pedido (a função displayOrder agora verifica duplicatas)
-                displayOrder(orderDetails);
-                
-                // Notifica o usuário
-                showToast('Novo pedido recebido!', 'success');
-            } catch (orderError) {
-                console.error(`Erro ao buscar detalhes do pedido ${event.orderId}:`, orderError);
-            }
-        } 
-        // Para atualizações de status
-        else if (['CONFIRMED', 'IN_PREPARATION', 'READY_TO_PICKUP', 'DISPATCHED', 'CANCELLED', 'CONCLUDED'].includes(event.code)) {
-            console.log(`Atualizando status do pedido ${event.orderId} para ${event.code}`);
-            
-            // Verifica se o pedido já está na interface
-            const existingOrder = document.querySelector(`.order-card[data-order-id="${event.orderId}"]`);
-            
-            if (existingOrder) {
-                // Se sim, apenas atualiza o status
-                const statusElement = existingOrder.querySelector('.order-status');
-                if (statusElement) {
-                    statusElement.textContent = getStatusText(event.code);
-                }
-                
-                // Atualiza os botões de ação
-                const actionsContainer = existingOrder.querySelector('.order-actions');
-                if (actionsContainer) {
-                    // Limpa botões existentes
-                    while (actionsContainer.firstChild) {
-                        actionsContainer.removeChild(actionsContainer.firstChild);
-                    }
-                    
-                    // Adiciona novos botões baseados no status
-                    addActionButtons(actionsContainer, { id: event.orderId, status: event.code });
-                }
-            } else {
-                // Se o pedido não estiver na interface, busca os detalhes e exibe
-                try {
-                    const orderDetails = await makeAuthorizedRequest(`/order/v1.0/orders/${event.orderId}`, 'GET');
-                    displayOrder(orderDetails);
-                } catch (orderError) {
-                    console.error(`Erro ao buscar detalhes do pedido ${event.orderId}:`, orderError);
-                }
-            }
-        }
-    } catch (error) {
-        console.error('Erro ao processar evento:', error);
-    }
+    console.log('Pedido exibido com sucesso:', order.id);
 }
 
 // Função para limpar pedidos processados (opção para depuração)
@@ -705,7 +657,7 @@ function addActionButtons(container, order) {
         container.removeChild(container.firstChild);
     }
     
-    // Define as ações disponíveis para cada status
+    // Mapeamento detalhado de status para ações
     const actions = {
         'PLACED': [
             { label: 'Confirmar', action: 'confirm', class: 'confirm' },
@@ -720,10 +672,14 @@ function addActionButtons(container, order) {
             { label: 'Cancelar', action: 'requestCancellation', class: 'cancel' }
         ],
         'READY_TO_PICKUP': [
-            { label: 'Despachar', action: 'dispatch', class: 'dispatch' }
+            { label: 'Despachar', action: 'dispatch', class: 'dispatch' },
+            { label: 'Cancelar', action: 'requestCancellation', class: 'cancel' }
         ],
         'DISPATCHED': [
-            { label: 'Pedido Despachado', action: null, class: 'disabled' }
+            { label: 'Cancelar', action: 'requestCancellation', class: 'cancel' }
+        ],
+        'CANCELLATION_REQUESTED': [
+            { label: 'Cancelamento Solicitado', action: null, class: 'disabled' }
         ],
         'CANCELLED': [
             { label: 'Pedido Cancelado', action: null, class: 'disabled' }
@@ -733,37 +689,42 @@ function addActionButtons(container, order) {
         ]
     };
     
-    // Obtém o status normalizado
-    let orderStatus = order.status || 'PLACED';
-    
-    // Para compatibilidade com diferentes formatos que a API pode enviar
-    if (typeof orderStatus === 'string') {
-        orderStatus = orderStatus.toUpperCase();
+    // Determina o tipo de pedido (delivery ou para retirar)
+    let isDelivery = true;
+    if (order.orderType === 'TAKEOUT' || (order.takeout && order.takeout.mode)) {
+        isDelivery = false;
     }
     
-    console.log(`Status normalizado: ${orderStatus}`);
+    // Pega o status normalizado
+    let orderStatus = order.status;
+    if (!orderStatus && order.id) {
+        // Se não tiver status mas tiver ID, considera como PLACED
+        orderStatus = 'PLACED';
+    }
     
-    // Tenta encontrar ações para o status exato
+    // Se não encontramos o status na lista acima, verificamos se o status começa com algum dos prefixos conhecidos
     let orderActions = actions[orderStatus] || [];
     
-    // Se não encontrou ações específicas, tenta identificar o status por palavras-chave
-    if (orderActions.length === 0 && typeof orderStatus === 'string') {
-        const statusLower = orderStatus.toLowerCase();
-        
-        if (statusLower.includes('placed') || statusLower === 'new') {
-            orderActions = actions['PLACED'];
-        } else if (statusLower.includes('confirm')) {
-            orderActions = actions['CONFIRMED'];
-        } else if (statusLower.includes('prepar')) {
-            orderActions = actions['IN_PREPARATION'];
-        } else if (statusLower.includes('ready') || statusLower.includes('pickup')) {
-            orderActions = actions['READY_TO_PICKUP'];
-        } else if (statusLower.includes('dispatch')) {
-            orderActions = actions['DISPATCHED'];
-        } else if (statusLower.includes('cancel')) {
-            orderActions = actions['CANCELLED'];
-        } else if (statusLower.includes('conclud')) {
-            orderActions = actions['CONCLUDED'];
+    if (orderActions.length === 0) {
+        if (orderStatus && typeof orderStatus === 'string') {
+            // Tenta encontrar ações para status similares
+            const statusLower = orderStatus.toLowerCase();
+            
+            if (statusLower.includes('placed') || statusLower.includes('new')) {
+                orderActions = actions['PLACED'];
+            } else if (statusLower.includes('confirm')) {
+                orderActions = actions['CONFIRMED'];
+            } else if (statusLower.includes('prepar')) {
+                orderActions = actions['IN_PREPARATION'];
+            } else if (statusLower.includes('ready') || statusLower.includes('pickup')) {
+                orderActions = actions['READY_TO_PICKUP'];
+            } else if (statusLower.includes('dispatch') || statusLower.includes('delivered')) {
+                orderActions = actions['DISPATCHED'];
+            } else if (statusLower.includes('cancel')) {
+                orderActions = actions['CANCELLED'];
+            } else if (statusLower.includes('conclud')) {
+                orderActions = actions['CONCLUDED'];
+            }
         }
     }
     
@@ -869,32 +830,51 @@ function clearOrdersGrid() {
     }
 }
 
-// Função para atualizar o status de um pedido específico
+// Atualiza o status de um pedido na interface
 function updateOrderStatus(orderId, status) {
     console.log(`Atualizando status do pedido ${orderId} para ${status}`);
     
-    const orderCard = document.querySelector(`.order-card[data-order-id="${orderId}"]`);
-    if (!orderCard) {
-        console.log(`Pedido ${orderId} não encontrado na interface.`);
-        return;
-    }
+    // Busca o card do pedido pelo ID parcial
+    const orderCards = document.querySelectorAll('.order-card');
+    const shortOrderId = orderId.substring(0, 8);
     
-    // Atualiza o texto do status
-    const statusElement = orderCard.querySelector('.order-status');
-    if (statusElement) {
-        statusElement.textContent = getStatusText(status);
-    }
+    let found = false;
     
-    // Atualiza os botões de ação
-    const actionsContainer = orderCard.querySelector('.order-actions');
-    if (actionsContainer) {
-        // Limpa os botões existentes
-        while (actionsContainer.firstChild) {
-            actionsContainer.removeChild(actionsContainer.firstChild);
+    orderCards.forEach(card => {
+        const orderNumberElement = card.querySelector('.order-number');
+        if (orderNumberElement && orderNumberElement.textContent.includes(shortOrderId)) {
+            found = true;
+            
+            // Atualiza o status
+            const statusElement = card.querySelector('.order-status');
+            if (statusElement) {
+                statusElement.textContent = getStatusText(status);
+            }
+            
+            // Atualiza as ações disponíveis
+            const actionsContainer = card.querySelector('.order-actions');
+            if (actionsContainer) {
+                // Limpa ações existentes
+                while (actionsContainer.firstChild) {
+                    actionsContainer.removeChild(actionsContainer.firstChild);
+                }
+                
+                // Adiciona novas ações baseadas no status atualizado
+                addActionButtons(actionsContainer, { id: orderId, status });
+            }
         }
-        
-        // Adiciona novos botões baseados no status atualizado
-        addActionButtons(actionsContainer, { id: orderId, status: status });
+    });
+    
+    if (!found) {
+        console.log(`Pedido ${orderId} não encontrado na interface. Buscando detalhes...`);
+        // Se o pedido não estiver na interface, buscamos seus detalhes
+        makeAuthorizedRequest(`/order/v1.0/orders/${orderId}`, 'GET')
+            .then(order => {
+                displayOrder(order);
+            })
+            .catch(error => {
+                console.error(`Erro ao buscar detalhes do pedido ${orderId}:`, error);
+            });
     }
 }
 
