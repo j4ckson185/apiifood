@@ -109,7 +109,7 @@ async function pollEvents() {
     if (!state.isPolling) return;
 
     try {
-        const events = await makeRequest('/events/1.0/events:polling');
+        const events = await makeRequest('/events/v1.0/events/polling');
         
         if (events && events.length > 0) {
             console.log('Eventos recebidos:', events);
@@ -122,7 +122,7 @@ async function pollEvents() {
             }
 
             // Confirma o recebimento dos eventos
-            await makeRequest('/events/1.0/acknowledgment', 'POST', {
+            await makeRequest('/events/v1.0/acknowledgment', 'POST', {
                 id: events.map(e => e.id)
             });
         }
