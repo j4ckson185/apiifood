@@ -13,6 +13,9 @@ exports.handler = async (event) => {
     };
   }
 
+  // 🔽 ADICIONE AQUI
+console.log('🔍 event.body recebido bruto:', event.body);
+
   try {
     const { path, method, body, headers = {}, isAuth } = JSON.parse(event.body);
     console.log('📩 Body recebido pelo proxy:', body);
@@ -38,10 +41,12 @@ const requestHeaders = {
 
 // Adiciona body se existir (já vem como string)
 if (body) {
-  fetchOptions.body = isAuth ? body : JSON.stringify(JSON.parse(body));
-}
+  const parsed = isAuth ? body : JSON.stringify(JSON.parse(body));
+  fetchOptions.body = parsed;
 
-  console.log('✅ Corpo final enviado:', fetchOptions.body);
+  // ✅ Log que mostra o corpo final enviado pro iFood
+  console.log('✅ Corpo final enviado:', parsed);
+}
 
     const response = await fetch(`${baseURL}${path}`, fetchOptions);
     const data = await response.json();
