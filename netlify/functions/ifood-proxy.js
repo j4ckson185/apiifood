@@ -22,9 +22,9 @@ exports.handler = async (event) => {
     const requestHeaders = { ...headers };
 
     // Adiciona Authorization se existir
-    if (event.headers.authorization) {
-      requestHeaders.Authorization = event.headers.authorization;
-    }
+if (headers.Authorization || headers.authorization) {
+  requestHeaders.Authorization = headers.Authorization || headers.authorization;
+}
 
     console.log('Requisição para:', `${baseURL}${path}`);
     console.log('Headers:', requestHeaders);
