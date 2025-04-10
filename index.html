@@ -74,5 +74,28 @@
     <div id="toast-container" class="toast-container"></div>
 
     <script src="script.js"></script>
+
+// Adicione este HTML ao seu arquivo index.html, antes do fechamento do body
+`
+<!-- Modal de cancelamento -->
+<div id="cancellation-modal" class="modal hidden">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>Cancelar Pedido</h2>
+            <span class="close-modal">&times;</span>
+        </div>
+        <div class="modal-body">
+            <p>Selecione o motivo do cancelamento:</p>
+            <select id="cancellation-reason" class="cancellation-select">
+                <!-- As opções serão carregadas dinamicamente -->
+            </select>
+        </div>
+        <div class="modal-footer">
+            <button id="confirm-cancellation" class="action-button cancel">Confirmar Cancelamento</button>
+            <button id="cancel-cancellation" class="action-button">Voltar</button>
+        </div>
+    </div>
+</div>
+`
 </body>
 </html>
