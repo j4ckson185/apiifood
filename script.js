@@ -136,18 +136,16 @@ async function pollEvents() {
                 await handleEvent(event);
             }
 
-            console.log('📤 Enviando acknowledgment com eventos:', events.map(event => event.id));
+            // Log do payload exato para debug
+            const acknowledgmentPayload = {
+              events: events.map(event => event.id)
+            };
+            console.log('📤 Payload exato de acknowledgment:', acknowledgmentPayload);
 
-            // Envia acknowledgment
-const eventosValidos = events.filter(event => {
-  // Lista de tipos de eventos que fazem sentido enviar pro acknowledgment
-  const codigosValidos = ['PLC', 'CFM', 'CON', 'CAN', 'PREP', 'RTP', 'DDCR'];
-  return codigosValidos.includes(event.code);
-});
-
-await makeAuthorizedRequest('/events/v1.0/events/acknowledgment', 'POST', {
-  events: eventosValidos.map(event => event.id)
-});
+            // Envia acknowledgment para todos os eventos
+            await makeAuthorizedRequest('/events/v1.0/events/acknowledgment', 'POST', acknowledgmentPayload);
+            
+            console.log('✅ Acknowledgment enviado com sucesso');
         }
     } catch (error) {
         console.error('Erro no polling:', error);
