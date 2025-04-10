@@ -128,9 +128,9 @@ async function pollEvents() {
             }
 
             // Envia acknowledgment
-            await makeAuthorizedRequest('/events/v1.0/events/acknowledgment', 'POST', {
-                id: events.map(event => event.id)
-            });
+await makeAuthorizedRequest('/events/v1.0/events/acknowledgment', 'POST', {
+    events: events.map(event => event.id)
+});
         }
     } catch (error) {
         console.error('Erro no polling:', error);
