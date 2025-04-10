@@ -34,16 +34,10 @@ exports.handler = async (event) => {
       headers: requestHeaders
     };
 
-    // Adiciona body se existir
-    if (body) {
-      if (isAuth) {
-        // Para autenticação, envia o body direto como string
-        fetchOptions.body = body;
-      } else {
-        // Para outras requisições, converte para JSON
-        fetchOptions.body = JSON.stringify(body);
-      }
-    }
+// Adiciona body se existir (já vem como string)
+if (body) {
+  fetchOptions.body = body;
+}
 
     const response = await fetch(`${baseURL}${path}`, fetchOptions);
     const data = await response.json();
