@@ -199,14 +199,109 @@ async function pollEvents() {
 // Manipula um evento recebido
 async function handleEvent(event) {
     try {
-        if (event.code === 'PLACED') {
-            const order = await makeAuthorizedRequest(`/order/v1.0/orders/${event.orderId}`);
-            displayOrder(order);
-        } else if (['CONFIRMED', 'CANCELLED', 'READY_TO_PICKUP', 'DISPATCHED'].includes(event.code)) {
-            updateOrderStatus(event.orderId, event.code);
+        console.log(`Processando evento: ${event.code} para pedido ${event.orderId}`);
+        
+        // Verifica se é um evento relacionado a pedido
+        if (!event.orderId) {
+            console.log('Evento sem orderId, ignorando:', event);
+            return;
+        }
+        
+        switch (event.code) {
+            case 'PLACED':
+                // Novo pedido recebido
+                console.log('Novo pedido recebido:', event.orderId);
+                const order = await makeAuthorizedRequest(`/order/v1.0/orders/${event.orderId}`, 'GET');
+                displayOrder(order);
+                showToast('Novo pedido recebido!', 'success');
+                break;
+                
+            case 'CONFIRMED':
+            case 'CFM':
+                // Pedido confirmado
+                updateOrderStatus(event.orderId, 'CONFIRMED');
+                break;
+                
+            case 'READY_TO_PICKUP':
+            case 'RTP':
+                // Pedido pronto para entrega
+                updateOrderStatus(event.orderId, 'READY_TO_PICKUP');
+                break;
+                
+            case 'CANCELLED':
+            case 'CAN':
+                // Pedido cancelado
+                updateOrderStatus(event.orderId, 'CANCELLED');
+                break;
+                
+            case 'CONCLUDED':
+            case 'CON':
+                // Pedido concluído
+                updateOrderStatus(event.orderId, 'CONCLUDED');
+                break;
+                
+            case 'INTEGRATED':
+                // Pedido integrado - podemos atualizar dados da loja
+                updateStoreStatus();
+                break;
+                
+            default:
+                console.log(`Evento não tratado especificamente: ${event.code}`);
+                // Para outros eventos de pedido, atualizamos o status
+                if (event.orderId) {
+                    updateOrderStatus(event.orderId, event.code);
+                }
         }
     } catch (error) {
         console.error('Erro ao processar evento:', error);
+    }
+}
+
+// Atualiza o status de um pedido na interface
+function updateOrderStatus(orderId, status) {
+    console.log(`Atualizando status do pedido ${orderId} para ${status}`);
+    
+    // Busca o card do pedido pelo ID parcial
+    const orderCards = document.querySelectorAll('.order-card');
+    const shortOrderId = orderId.substring(0, 8);
+    
+    let found = false;
+    
+    orderCards.forEach(card => {
+        const orderNumberElement = card.querySelector('.order-number');
+        if (orderNumberElement && orderNumberElement.textContent.includes(shortOrderId)) {
+            found = true;
+            
+            // Atualiza o status
+            const statusElement = card.querySelector('.order-status');
+            if (statusElement) {
+                statusElement.textContent = getStatusText(status);
+            }
+            
+            // Atualiza as ações disponíveis
+            const actionsContainer = card.querySelector('.order-actions');
+            if (actionsContainer) {
+                // Limpa ações existentes
+                while (actionsContainer.firstChild) {
+                    actionsContainer.removeChild(actionsContainer.firstChild);
+                }
+                
+                // Adiciona novas ações baseadas no status atualizado
+                addActionButtons(actionsContainer, { id: orderId, status });
+            }
+        }
+    });
+    
+    if (!found) {
+        console.log(`Pedido ${orderId} não encontrado na interface. Buscando detalhes...`);
+        // Se o pedido não estiver na interface, buscamos seus detalhes
+        makeAuthorizedRequest(`/order/v1.0/orders/${orderId}`, 'GET')
+            .then(order => {
+                displayOrder(order);
+            })
+            .catch(error => {
+                console.error(`Erro ao buscar detalhes do pedido ${orderId}:`, error);
+            });
     }
 }
 
@@ -267,6 +362,97 @@ function addActionButtons(container, order) {
         button.onclick = () => handleOrderAction(order.id, action);
         container.appendChild(button);
     });
+}
+
+// Função para buscar pedidos ativos
+async function fetchActiveOrders() {
+    try {
+        console.log('Buscando pedidos ativos...');
+        
+        // Buscar pedidos pelo endpoint de orders
+        const orders = await makeAuthorizedRequest(`/order/v1.0/merchants/${CONFIG.merchantId}/orders`, 'GET');
+        
+        console.log('Pedidos ativos recebidos:', orders);
+        
+        if (orders && Array.isArray(orders) && orders.length > 0) {
+            // Limpa grid de pedidos existentes para evitar duplicações
+            clearOrdersGrid();
+            
+            // Processa e exibe cada pedido
+            for (const orderSummary of orders) {
+                try {
+                    // Busca detalhes completos do pedido
+                    const orderDetails = await makeAuthorizedRequest(`/order/v1.0/orders/${orderSummary.id}`, 'GET');
+                    displayOrder(orderDetails);
+                } catch (error) {
+                    console.error(`Erro ao buscar detalhes do pedido ${orderSummary.id}:`, error);
+                }
+            }
+            
+            showToast(`${orders.length} pedidos carregados`, 'success');
+        } else {
+            console.log('Nenhum pedido ativo encontrado');
+            showToast('Nenhum pedido ativo no momento', 'info');
+        }
+    } catch (error) {
+        console.error('Erro ao buscar pedidos ativos:', error);
+        showToast('Erro ao buscar pedidos', 'error');
+    }
+}
+
+// Função para limpar o grid de pedidos
+function clearOrdersGrid() {
+    const ordersGrid = document.getElementById('orders-grid');
+    while (ordersGrid.firstChild) {
+        ordersGrid.removeChild(ordersGrid.firstChild);
+    }
+}
+
+// Função para atualizar o status da loja
+async function updateStoreStatus() {
+    try {
+        const storeStatus = await makeAuthorizedRequest(`/merchant/v1.0/merchants/${CONFIG.merchantId}/status`, 'GET');
+        const statusElement = document.getElementById('store-status');
+        
+        if (storeStatus && storeStatus.available) {
+            statusElement.textContent = 'Online';
+            statusElement.className = 'status-badge online';
+        } else {
+            statusElement.textContent = 'Offline';
+            statusElement.className = 'status-badge offline';
+        }
+    } catch (error) {
+        console.error('Erro ao buscar status da loja:', error);
+        const statusElement = document.getElementById('store-status');
+        statusElement.textContent = 'Erro';
+        statusElement.className = 'status-badge';
+    }
+}
+
+// Função para alternar o status da loja
+async function toggleStoreStatus() {
+    try {
+        showLoading();
+        const storeStatus = await makeAuthorizedRequest(`/merchant/v1.0/merchants/${CONFIG.merchantId}/status`, 'GET');
+        
+        // Inverte o status atual
+        const newStatus = !storeStatus.available;
+        
+        // Atualiza o status
+        await makeAuthorizedRequest(`/merchant/v1.0/merchants/${CONFIG.merchantId}/status`, 'PUT', {
+            available: newStatus
+        });
+        
+        // Atualiza a interface
+        updateStoreStatus();
+        
+        showToast(`Loja ${newStatus ? 'ativada' : 'desativada'} com sucesso`, 'success');
+    } catch (error) {
+        console.error('Erro ao alternar status da loja:', error);
+        showToast('Erro ao alternar status da loja', 'error');
+    } finally {
+        hideLoading();
+    }
 }
 
 // Manipula ações do pedido
