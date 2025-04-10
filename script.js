@@ -35,7 +35,7 @@ async function authenticate() {
         formData.append('clientId', CONFIG.clientId);
         formData.append('clientSecret', CONFIG.clientSecret);
 
-        const response = await fetch('/.netlify/functions/ifood-proxy-v2', {
+        const response = await fetch('/.netlify/functions/ifood-proxy', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
