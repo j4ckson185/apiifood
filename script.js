@@ -78,9 +78,9 @@ async function makeAuthorizedRequest(path, method = 'GET', body = null) {
         'Authorization': `Bearer ${state.accessToken}`
     };
 
-    if (path === '/events/v1.0/events:polling') {
-        headers['x-polling-merchants'] = CONFIG.merchantUUID;
-    }
+if (path === '/events/v1.0/events:polling' || path === '/events/v1.0/events/acknowledgment') {
+    headers['x-polling-merchants'] = CONFIG.merchantUUID;
+}
 
     const payload = {
         path,
