@@ -15,61 +15,51 @@ exports.handler = async (event) => {
     const { path, method, body, isAuth } = JSON.parse(event.body);
     const baseURL = 'https://merchant-api.ifood.com.br';
     
-    const headers = {};
-    
-    // Define headers baseado no tipo de requisição
-    if (isAuth) {
-      headers['Content-Type'] = 'application/x-www-form-urlencoded';
-      // Transforma o body em URLSearchParams se for autenticação
-      const formBody = new URLSearchParams({
-        grant_type: 'client_credentials',
-        client_id: body.client_id,
-        client_secret: body.client_secret
-      }).toString();
-      
-      const authResponse = await fetch(`${baseURL}${path}`, {
-        method: method,
-        headers: headers,
-        body: formBody
-      });
-
-      const data = await authResponse.json();
-      
-      return {
-        statusCode: authResponse.status,
-        headers: {
-          'Access-Control-Allow-Origin': '*',
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(data)
-      };
-    }
-
-    // Para outras requisições
-    headers['Content-Type'] = 'application/json';
-    if (event.headers.authorization) {
-      headers['Authorization'] = event.headers.authorization;
-    }
-
-    const options = {
-      method: method,
-      headers: headers
+    // Configuração padrão para todas as requisições
+    const headers = {
+      'Accept': 'application/json'
     };
 
-    if (body && !isAuth) {
-      options.body = JSON.stringify(body);
+    let requestBody;
+    
+    // Tratamento especial para autenticação
+    if (path.includes('/oauth/token')) {
+      headers['Content-Type'] = 'application/x-www-form-urlencoded';
+      const params = new URLSearchParams();
+      params.append('grant_type', body.grant_type);
+      params.append('client_id', body.client_id);
+      params.append('client_secret', body.client_secret);
+      requestBody = params.toString();
+    } else {
+      headers['Content-Type'] = 'application/json';
+      if (event.headers.authorization) {
+        headers['Authorization'] = event.headers.authorization;
+      }
+      requestBody = body ? JSON.stringify(body) : undefined;
     }
 
-    const response = await fetch(`${baseURL}${path}`, options);
-    const data = await response.json();
+    console.log('Request URL:', `${baseURL}${path}`);
+    console.log('Request Headers:', headers);
+    console.log('Request Body:', requestBody);
+
+    const fetchResponse = await fetch(`${baseURL}${path}`, {
+      method: method,
+      headers: headers,
+      body: requestBody
+    });
+
+    const responseData = await fetchResponse.json();
+
+    console.log('Response Status:', fetchResponse.status);
+    console.log('Response Data:', responseData);
 
     return {
-      statusCode: response.status,
+      statusCode: fetchResponse.status,
       headers: {
         'Access-Control-Allow-Origin': '*',
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify(data)
+      body: JSON.stringify(responseData)
     };
 
   } catch (error) {
@@ -81,7 +71,8 @@ exports.handler = async (event) => {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        error: error.message
+        error: error.message,
+        details: error.stack
       })
     };
   }
