@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDV iFood</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    <header>
+        <div class="header-content">
+            <h1><i class="fas fa-store"></i> PDV iFood</h1>
+            <div class="status-container">
+                <span class="status-label">Status da Loja:</span>
+                <span id="store-status" class="status-badge">Carregando...</span>
+            </div>
+        </div>
+    </header>
+
+    <main>
+        <div class="controls">
+            <button id="poll-orders" class="primary-button">
+                <i class="fas fa-sync"></i> Atualizar Pedidos
+            </button>
+            <div class="status-toggles">
+                <button id="toggle-store" class="secondary-button">
+                    <i class="fas fa-power-off"></i> Alternar Loja
+                </button>
+            </div>
+        </div>
+
+        <div class="orders-container">
+            <div class="orders-grid" id="orders-grid">
+                <!-- Pedidos serão inseridos aqui dinamicamente -->
+            </div>
+        </div>
+    </main>
+
+    <!-- Template para modal de pedido -->
+    <template id="order-modal-template">
+        <div class="order-card">
+            <div class="order-header">
+                <span class="order-number"></span>
+                <span class="order-status"></span>
+            </div>
+            <div class="order-content">
+                <div class="customer-info">
+                    <h3>Informações do Cliente</h3>
+                    <p class="customer-name"></p>
+                    <p class="customer-phone"></p>
+                </div>
+                <div class="order-items">
+                    <h3>Itens do Pedido</h3>
+                    <ul class="items-list"></ul>
+                </div>
+                <div class="order-total">
+                    <h3>Total do Pedido</h3>
+                    <p class="total-amount"></p>
+                </div>
+                <div class="order-actions">
+                    <!-- Botões de ação serão inseridos dinamicamente -->
+                </div>
+            </div>
+        </div>
+    </template>
+
+    <!-- Loading overlay -->
+    <div id="loading-overlay" class="loading-overlay hidden">
+        <div class="loader"></div>
+    </div>
+
+    <!-- Toast notifications -->
+    <div id="toast-container" class="toast-container"></div>
+
+    <script src="script.js"></script>
+</body>
+</html>
