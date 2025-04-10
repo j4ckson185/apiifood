@@ -597,30 +597,58 @@ function addActionButtons(container, order) {
         container.removeChild(container.firstChild);
     }
     
+    // Mapeamento detalhado de status para ações
     const actions = {
         'PLACED': [
             { label: 'Confirmar', action: 'confirm', class: 'confirm' },
             { label: 'Cancelar', action: 'requestCancellation', class: 'cancel' }
         ],
         'CONFIRMED': [
-            { label: 'Iniciar Preparo', action: 'startPreparation', class: 'prepare' }
+            { label: 'Iniciar Preparo', action: 'startPreparation', class: 'prepare' },
+            { label: 'Cancelar', action: 'requestCancellation', class: 'cancel' }
         ],
         'IN_PREPARATION': [
-            { label: 'Pronto para Retirada', action: 'readyToPickup', class: 'ready' }
+            { label: 'Pronto para Retirada', action: 'readyToPickup', class: 'ready' },
+            { label: 'Cancelar', action: 'requestCancellation', class: 'cancel' }
         ],
         'READY_TO_PICKUP': [
-            { label: 'Despachar', action: 'dispatch', class: 'dispatch' }
+            { label: 'Despachar', action: 'dispatch', class: 'dispatch' },
+            { label: 'Cancelar', action: 'requestCancellation', class: 'cancel' }
         ],
-        // Adicione outros status conforme necessário
+        'DISPATCHED': [
+            { label: 'Cancelar', action: 'requestCancellation', class: 'cancel' }
+        ],
+        'CANCELLATION_REQUESTED': [
+            { label: 'Cancelamento Solicitado', action: null, class: 'disabled' }
+        ],
+        'CANCELLED': [
+            { label: 'Pedido Cancelado', action: null, class: 'disabled' }
+        ],
+        'CONCLUDED': [
+            { label: 'Pedido Concluído', action: null, class: 'disabled' }
+        ]
     };
     
+    // Determina o tipo de pedido (delivery ou para retirar)
+    let isDelivery = true;
+    if (order.orderType === 'TAKEOUT' || (order.takeout && order.takeout.mode)) {
+        isDelivery = false;
+    }
+    
+    // Pega o status normalizado
+    let orderStatus = order.status;
+    if (!orderStatus && order.id) {
+        // Se não tiver status mas tiver ID, considera como PLACED
+        orderStatus = 'PLACED';
+    }
+    
     // Se não encontramos o status na lista acima, verificamos se o status começa com algum dos prefixos conhecidos
-    let orderActions = actions[order.status] || [];
+    let orderActions = actions[orderStatus] || [];
     
     if (orderActions.length === 0) {
-        if (order.status && typeof order.status === 'string') {
+        if (orderStatus && typeof orderStatus === 'string') {
             // Tenta encontrar ações para status similares
-            const statusLower = order.status.toLowerCase();
+            const statusLower = orderStatus.toLowerCase();
             
             if (statusLower.includes('placed') || statusLower.includes('new')) {
                 orderActions = actions['PLACED'];
@@ -630,25 +658,30 @@ function addActionButtons(container, order) {
                 orderActions = actions['IN_PREPARATION'];
             } else if (statusLower.includes('ready') || statusLower.includes('pickup')) {
                 orderActions = actions['READY_TO_PICKUP'];
+            } else if (statusLower.includes('dispatch') || statusLower.includes('delivered')) {
+                orderActions = actions['DISPATCHED'];
+            } else if (statusLower.includes('cancel')) {
+                orderActions = actions['CANCELLED'];
+            } else if (statusLower.includes('conclud')) {
+                orderActions = actions['CONCLUDED'];
             }
         }
     }
     
-    console.log(`Encontradas ${orderActions.length} ações para o status ${order.status}`);
-    
-    // Se ainda não encontramos ações, verificamos pelo tipo de pedido
-    if (orderActions.length === 0 && !order.status) {
-        // Pedido novo sem status explícito
-        orderActions = actions['PLACED'];
-        console.log('Usando ações de pedido novo para pedido sem status');
-    }
+    console.log(`Encontradas ${orderActions.length} ações para o status ${orderStatus}`);
     
     // Adiciona os botões de ação
     orderActions.forEach(({label, action, class: buttonClass}) => {
         const button = document.createElement('button');
         button.className = `action-button ${buttonClass || action}`;
         button.textContent = label;
-        button.onclick = () => handleOrderAction(order.id, action);
+        
+        if (action) {
+            button.onclick = () => handleOrderAction(order.id, action);
+        } else {
+            button.disabled = true;
+        }
+        
         container.appendChild(button);
     });
     
@@ -830,35 +863,73 @@ async function handleOrderAction(orderId, action) {
             throw new Error(`Ação desconhecida: ${action}`);
         }
         
-        // Executa a ação na API
-        const response = await makeAuthorizedRequest(`/order/v1.0/orders/${orderId}${endpoint}`, 'POST');
-        console.log(`Resposta da ação ${action}:`, response);
-        
-        // Atualiza o status do pedido na interface
-        let newStatus;
-        switch (action) {
-            case 'confirm':
-                newStatus = 'CONFIRMED';
-                break;
-            case 'startPreparation':
-                newStatus = 'IN_PREPARATION';
-                break;
-            case 'readyToPickup':
-                newStatus = 'READY_TO_PICKUP';
-                break;
-            case 'dispatch':
-                newStatus = 'DISPATCHED';
-                break;
-            case 'requestCancellation':
-                newStatus = 'CANCELLATION_REQUESTED';
-                break;
+        // Tratamento especial para cancelamento
+        if (action === 'requestCancellation') {
+            // Primeiro, obter os motivos de cancelamento disponíveis
+            try {
+                const cancellationReasons = await makeAuthorizedRequest(`/order/v1.0/orders/${orderId}/cancellationReasons`, 'GET');
+                console.log('Motivos de cancelamento disponíveis:', cancellationReasons);
+                
+                if (cancellationReasons && cancellationReasons.length > 0) {
+                    // Use o primeiro motivo disponível
+                    const defaultReason = cancellationReasons[0];
+                    
+                    // Envia a requisição de cancelamento com o motivo
+                    const response = await makeAuthorizedRequest(`/order/v1.0/orders/${orderId}${endpoint}`, 'POST', {
+                        cancellationCode: defaultReason.cancelCodeId,
+                        reason: defaultReason.description
+                    });
+                    
+                    console.log(`Resposta do cancelamento:`, response);
+                    updateOrderStatus(orderId, 'CANCELLED');
+                    showToast(`Pedido cancelado com sucesso!`, 'success');
+                } else {
+                    throw new Error('Nenhum motivo de cancelamento disponível');
+                }
+            } catch (cancelError) {
+                console.error('Erro ao obter motivos de cancelamento:', cancelError);
+                // Se não conseguir obter os motivos, tenta cancelar com um motivo genérico
+                try {
+                    const response = await makeAuthorizedRequest(`/order/v1.0/orders/${orderId}${endpoint}`, 'POST', {
+                        cancellationCode: "MERCHANT_REASON",
+                        reason: "Outro motivo"
+                    });
+                    
+                    console.log(`Resposta do cancelamento:`, response);
+                    updateOrderStatus(orderId, 'CANCELLED');
+                    showToast(`Pedido cancelado com sucesso!`, 'success');
+                } catch (finalError) {
+                    throw finalError;
+                }
+            }
+        } else {
+            // Para outras ações, envia normalmente
+            const response = await makeAuthorizedRequest(`/order/v1.0/orders/${orderId}${endpoint}`, 'POST');
+            console.log(`Resposta da ação ${action}:`, response);
+            
+            // Atualiza o status do pedido na interface
+            let newStatus;
+            switch (action) {
+                case 'confirm':
+                    newStatus = 'CONFIRMED';
+                    break;
+                case 'startPreparation':
+                    newStatus = 'IN_PREPARATION';
+                    break;
+                case 'readyToPickup':
+                    newStatus = 'READY_TO_PICKUP';
+                    break;
+                case 'dispatch':
+                    newStatus = 'DISPATCHED';
+                    break;
+            }
+            
+            if (newStatus) {
+                updateOrderStatus(orderId, newStatus);
+            }
+            
+            showToast(`Ação "${action}" realizada com sucesso!`, 'success');
         }
-        
-        if (newStatus) {
-            updateOrderStatus(orderId, newStatus);
-        }
-        
-        showToast(`Ação "${action}" realizada com sucesso!`, 'success');
     } catch (error) {
         console.error(`Erro ao realizar ação ${action} para o pedido ${orderId}:`, error);
         showToast(`Erro ao realizar ação: ${error.message}`, 'error');
