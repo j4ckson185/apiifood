@@ -139,8 +139,14 @@ async function pollEvents() {
             console.log('📤 Enviando acknowledgment com eventos:', events.map(event => event.id));
 
             // Envia acknowledgment
+const eventosValidos = events.filter(event => {
+  // Lista de tipos de eventos que fazem sentido enviar pro acknowledgment
+  const codigosValidos = ['PLC', 'CFM', 'CON', 'CAN', 'PREP', 'RTP', 'DDCR'];
+  return codigosValidos.includes(event.code);
+});
+
 await makeAuthorizedRequest('/events/v1.0/events/acknowledgment', 'POST', {
-    events: [events[events.length - 1].id]
+  events: eventosValidos.map(event => event.id)
 });
         }
     } catch (error) {
