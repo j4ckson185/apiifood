@@ -36,35 +36,20 @@ async function makeRequest(path, method = 'GET', body = null) {
             isAuth: path.includes('/oauth/token')
         };
 
-        const response = await fetch('/.netlify/functions/ifood-proxy', {
+        const fetchResponse = await fetch('/.netlify/functions/ifood-proxy', {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json'
+                'Content-Type': 'application/json',
+                ...(state.accessToken && !config.isAuth ? { 'Authorization': `Bearer ${state.accessToken}` } : {})
             },
             body: JSON.stringify(config)
         });
 
-        if (!response.ok) {
-            throw new Error(`Erro na requisição: ${response.status}`);
+        if (!fetchResponse.ok) {
+            throw new Error(`Erro na requisição: ${fetchResponse.status}`);
         }
 
-        return await response.json();
-
-        const response = await fetch('/.netlify/functions/ifood-proxy', {
-            method: 'POST',
-            headers: headers,
-            body: JSON.stringify({
-                path,
-                method,
-                body,
-            }),
-        });
-
-        if (!response.ok) {
-            throw new Error(`Erro na requisição: ${response.status}`);
-        }
-
-        return await response.json();
+        return await fetchResponse.json();
     } catch (error) {
         console.error('Erro na requisição:', error);
         showToast(error.message, 'error');
@@ -75,24 +60,21 @@ async function makeRequest(path, method = 'GET', body = null) {
 async function authenticate() {
     try {
         showLoading();
-        const response = await makeRequest('/authentication/v1.0/oauth/token', 'POST', {
+        const authResponse = await makeRequest('/authentication/v1.0/oauth/token', 'POST', {
             client_id: CONFIG.clientId,
             client_secret: CONFIG.clientSecret
         });
 
-        state.accessToken = response.accessToken;
-        initializePolling();
+        if (authResponse.accessToken) {
+            state.accessToken = authResponse.accessToken;
+            initializePolling();
+            showToast('Autenticado com sucesso!', 'success');
+        } else {
+            throw new Error('Token não recebido');
+        }
     } catch (error) {
-        showToast('Erro na autenticação', 'error');
+        showToast('Erro na autenticação: ' + error.message, 'error');
         console.error(error);
-    } finally {
-        hideLoading();
-    }
-
-        state.accessToken = response.accessToken;
-        initializePolling();
-    } catch (error) {
-        showToast('Erro na autenticação', 'error');
     } finally {
         hideLoading();
     }
@@ -234,20 +216,6 @@ function getStatusText(status) {
         'CANCELLED': 'Cancelado'
     };
     return statusMap[status] || status;
-}
-
-function updateOrderStatus(orderId, newStatus) {
-    const orderElement = document.querySelector(`[data-order-id="${orderId}"]`);
-    if (orderElement) {
-        orderElement.querySelector('.order-status').textContent = getStatusText(newStatus);
-        const actionsContainer = orderElement.querySelector('.order-actions');
-        actionsContainer.innerHTML = '';
-        if (state.activeOrders.has(orderId)) {
-            const order = state.activeOrders.get(orderId);
-            order.status = newStatus;
-            addActionButtons(actionsContainer, order);
-        }
-    }
 }
 
 async function toggleStore() {
