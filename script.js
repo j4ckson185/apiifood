@@ -72,50 +72,82 @@ async function authenticate() {
 
 // Função para fazer requisições autenticadas
 async function makeRequest(path, method = 'GET', body = null) {
-    const response = await fetch('/.netlify/functions/ifood-proxy', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${state.accessToken}`
-        },
-        body: JSON.stringify({
-            path,
-            method,
-            body
-        })
-    });
+    try {
+        console.log(`Fazendo requisição ${method} para ${path}`);
+        
+        if (!state.accessToken && !path.includes('/oauth/token')) {
+            throw new Error('Token não disponível');
+        }
 
-    if (!response.ok) {
-        throw new Error(`Erro na requisição: ${response.status}`);
-    }
+        const response = await fetch('/.netlify/functions/ifood-proxy', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                ...(state.accessToken && !path.includes('/oauth/token') ? {
+                    'Authorization': `Bearer ${state.accessToken}`
+                } : {})
+            },
+            body: JSON.stringify({
+                path,
+                method,
+                body
+            })
+        });
 
-    return await response.json();
+        const data = await response.json();
+
+        if (!response.ok) {
+            console.error('Erro na resposta:', data);
+            throw new Error(`Erro na requisição: ${response.status}`);
+        }
+
+        return data;
 }
 
 // Polling de eventos
 async function pollEvents() {
-    if (!state.isPolling) return;
+    if (!state.isPolling || !state.accessToken) return;
 
     try {
-        const events = await makeRequest('/events/1.0/events:polling');
+        console.log('Iniciando polling...');
+        const events = await makeRequest('/events/1.0/events:polling', 'GET');
         
-        if (events && events.length > 0) {
+        console.log('Resposta do polling:', events);
+        
+        if (Array.isArray(events) && events.length > 0) {
             console.log('Eventos recebidos:', events);
             
             // Processa cada evento
             for (const event of events) {
-                await processEvent(event);
+                if (event && event.orderId) {
+                    await processEvent(event);
+                }
             }
 
             // Confirma o recebimento dos eventos
-            await makeRequest('/events/1.0/acknowledgment', 'POST', {
-                id: events.map(e => e.id)
-            });
+            try {
+                await makeRequest('/events/1.0/acknowledgment', 'POST', {
+                    id: events.map(e => e.id).filter(Boolean)
+                });
+            } catch (ackError) {
+                console.error('Erro no acknowledgment:', ackError);
+            }
+        } else {
+            console.log('Nenhum evento novo.');
         }
     } catch (error) {
         console.error('Erro no polling:', error);
+        showToast('Erro ao buscar eventos. Tentando novamente...', 'error');
+        
+        // Se for erro de autenticação, tenta autenticar novamente
+        if (error.message.includes('401')) {
+            state.isPolling = false;
+            authenticate();
+            return;
+        }
     } finally {
         if (state.isPolling) {
+            console.log('Agendando próximo polling...');
             setTimeout(pollEvents, CONFIG.pollingInterval);
         }
     }
