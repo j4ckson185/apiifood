@@ -93,8 +93,8 @@ async function makeAuthorizedRequest(path, method = 'GET', body = null) {
 body: JSON.stringify({
     path,
     method,
-    body: body ? JSON.stringify(body) : null,
-    headers
+    headers,
+    body: method !== 'GET' && body ? JSON.stringify(body) : null
 })
         });
 
