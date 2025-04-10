@@ -102,6 +102,11 @@ async function makeRequest(path, method = 'GET', body = null) {
         }
 
         return data;
+    } catch (error) {
+        console.error('Erro na requisição:', error);
+        throw error;
+    }
+}
 }
 
 // Polling de eventos
