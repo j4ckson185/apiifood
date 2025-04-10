@@ -19,16 +19,16 @@ exports.handler = async (event) => {
     const baseURL = 'https://merchant-api.ifood.com.br';
 
     // Usa os headers enviados pela requisição
-    const requestHeaders = { ...headers };
-
-    // Adiciona Authorization se existir
-if (headers.Authorization || headers.authorization) {
-  requestHeaders.Authorization = headers.Authorization || headers.authorization;
-}
+const requestHeaders = {
+  ...headers,
+  Authorization: headers.Authorization || headers.authorization
+};
 
     console.log('Requisição para:', `${baseURL}${path}`);
     console.log('Headers:', requestHeaders);
     console.log('Body:', body);
+    console.log('🔐 Authorization enviado para o iFood:', requestHeaders.Authorization);
+
 
     const fetchOptions = {
       method,
