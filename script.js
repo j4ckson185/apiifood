@@ -153,7 +153,18 @@ async function makeAuthorizedRequest(path, method = 'GET', body = null) {
 // Rastreamento de pedidos já processados para evitar duplicações
 const processedOrderIds = new Set();
 
-// Polling de eventos
+// Rastreamento de pedidos já processados para evitar duplicações - usando localStorage para persistência
+// Inicializa o conjunto de IDs processados a partir do localStorage (se existir)
+const processedOrderIds = new Set(
+    JSON.parse(localStorage.getItem('processedOrderIds') || '[]')
+);
+
+// Função auxiliar para salvar IDs processados no localStorage
+function saveProcessedIds() {
+    localStorage.setItem('processedOrderIds', JSON.stringify([...processedOrderIds]));
+}
+
+// Polling de eventos melhorado para evitar duplicações
 async function pollEvents() {
     if (!state.isPolling || !state.accessToken) return;
 
@@ -164,12 +175,12 @@ async function pollEvents() {
         if (events && Array.isArray(events) && events.length > 0) {
             console.log('Eventos recebidos:', events);
             
-            // Processa os eventos
+            // Processa os eventos evitando duplicações
             for (const event of events) {
                 await handleEvent(event);
             }
 
-            // Formato correto para acknowledgment - array de objetos com propriedade "id"
+            // Formato correto para acknowledgment
             const acknowledgmentFormat = events.map(event => ({ id: event.id }));
             console.log('📤 Enviando acknowledgment com formato:', acknowledgmentFormat);
 
@@ -199,7 +210,7 @@ async function pollEvents() {
     }
 }
 
-// Manipula um evento recebido
+// Manipulador de eventos melhorado para evitar duplicações
 async function handleEvent(event) {
     try {
         console.log(`Processando evento: ${event.code} para pedido ${event.orderId}`);
@@ -210,28 +221,29 @@ async function handleEvent(event) {
             return;
         }
         
-        // Para eventos PLACED, verifica se já processamos este pedido antes
+        // Para eventos PLACED (novos pedidos)
         if (event.code === 'PLACED') {
-            // Se já processamos este pedido, ignoramos
+            // Checa se já processamos este pedido antes
             if (processedOrderIds.has(event.orderId)) {
                 console.log(`Pedido ${event.orderId} já foi processado anteriormente, ignorando`);
                 return;
             }
             
-            // Marca o pedido como processado
-            processedOrderIds.add(event.orderId);
-            
-            // Novo pedido recebido
-            console.log('Novo pedido recebido:', event.orderId);
+            // Tenta buscar detalhes do pedido
             try {
                 const order = await makeAuthorizedRequest(`/order/v1.0/orders/${event.orderId}`, 'GET');
                 console.log('Detalhes do pedido recebido:', order);
                 
-                // Verifica se o pedido já existe na interface
+                // Verifica se o pedido já existe na interface pelo atributo data-order-id
                 const existingOrder = document.querySelector(`.order-card[data-order-id="${order.id}"]`);
                 if (!existingOrder) {
+                    // Exibe o pedido na interface
                     displayOrder(order);
                     showToast('Novo pedido recebido!', 'success');
+                    
+                    // Marca o pedido como processado
+                    processedOrderIds.add(event.orderId);
+                    saveProcessedIds();
                 } else {
                     console.log(`Pedido ${order.id} já está na interface, atualizando status`);
                     updateOrderStatus(order.id, order.status);
@@ -240,12 +252,108 @@ async function handleEvent(event) {
                 console.error(`Erro ao buscar detalhes do pedido ${event.orderId}:`, orderError);
             }
         } else {
-            // Para outros tipos de evento, atualizamos o status
+            // Para outros tipos de evento, apenas atualiza o status
+            // Não precisamos rastrear esses eventos, pois não criam duplicatas
             updateOrderStatus(event.orderId, event.code);
         }
     } catch (error) {
         console.error('Erro ao processar evento:', error);
     }
+}
+
+// Função modificada de exibição de pedido para garantir que cada pedido tem um atributo data-order-id
+function displayOrder(order) {
+    const template = document.getElementById('order-modal-template');
+    const orderElement = template.content.cloneNode(true);
+
+    // Preenche informações básicas
+    orderElement.querySelector('.order-number').textContent = `#${order.displayId || order.id.substring(0, 8)}`;
+    orderElement.querySelector('.order-status').textContent = getStatusText(order.status);
+    orderElement.querySelector('.customer-name').textContent = `Cliente: ${order.customer?.name || 'N/A'}`;
+    
+    // Adaptação para diferentes formatos de telefone
+    let phoneText = 'Tel: N/A';
+    if (order.customer?.phone) {
+        if (typeof order.customer.phone === 'string') {
+            phoneText = `Tel: ${order.customer.phone}`;
+        } else if (order.customer.phone.number) {
+            phoneText = `Tel: ${order.customer.phone.number}`;
+        }
+    }
+    orderElement.querySelector('.customer-phone').textContent = phoneText;
+
+    // Preenche itens do pedido
+    const itemsList = orderElement.querySelector('.items-list');
+    if (order.items && Array.isArray(order.items)) {
+        order.items.forEach(item => {
+            const li = document.createElement('li');
+            
+            // Adaptação para diferentes formatos de preço
+            let itemPrice;
+            if (typeof item.price === 'number' && typeof item.quantity === 'number') {
+                itemPrice = (item.price * item.quantity).toFixed(2);
+            } else if (item.totalPrice) {
+                itemPrice = item.totalPrice.toFixed(2);
+            } else {
+                itemPrice = '0.00';
+            }
+            
+            li.textContent = `${item.quantity}x ${item.name} - R$ ${itemPrice}`;
+            itemsList.appendChild(li);
+        });
+    } else {
+        const li = document.createElement('li');
+        li.textContent = 'Nenhum item encontrado';
+        itemsList.appendChild(li);
+    }
+
+    // Preenche total - adaptação para diferentes formatos
+    const totalAmount = orderElement.querySelector('.total-amount');
+    if (typeof order.total === 'number') {
+        totalAmount.textContent = `R$ ${order.total.toFixed(2)}`;
+    } else if (order.total && typeof order.total.value === 'number') {
+        totalAmount.textContent = `R$ ${order.total.value.toFixed(2)}`;
+    } else if (order.total && (order.total.subTotal || order.total.orderAmount)) {
+        // Usa orderAmount ou subTotal + deliveryFee
+        const totalValue = order.total.orderAmount || 
+                          (order.total.subTotal + (order.total.deliveryFee || 0));
+        totalAmount.textContent = `R$ ${totalValue.toFixed(2)}`;
+    } else {
+        // Tenta calcular o total a partir dos itens
+        let calculatedTotal = 0;
+        if (order.items && Array.isArray(order.items)) {
+            calculatedTotal = order.items.reduce((sum, item) => {
+                let itemTotal = 0;
+                if (item.totalPrice) {
+                    itemTotal = item.totalPrice;
+                } else if (typeof item.price === 'number' && typeof item.quantity === 'number') {
+                    itemTotal = item.price * item.quantity;
+                }
+                return sum + itemTotal;
+            }, 0);
+        }
+        totalAmount.textContent = `R$ ${calculatedTotal.toFixed(2)}`;
+    }
+
+    // Adiciona botões de ação
+    const actionsContainer = orderElement.querySelector('.order-actions');
+    addActionButtons(actionsContainer, order);
+
+    // IMPORTANTE: Adiciona um data-attribute com o ID do pedido para facilitar atualizações e evitar duplicações
+    const orderCard = orderElement.querySelector('.order-card');
+    orderCard.setAttribute('data-order-id', order.id);
+
+    // Adiciona ao grid de pedidos
+    document.getElementById('orders-grid').appendChild(orderElement);
+    
+    console.log('Pedido exibido com sucesso:', order.id);
+}
+
+// Função para limpar pedidos processados (opção para depuração)
+function clearProcessedOrders() {
+    processedOrderIds.clear();
+    localStorage.removeItem('processedOrderIds');
+    console.log('Lista de pedidos processados foi limpa');
 }
 
 // Função simplificada para atualizar o status da loja
@@ -777,24 +885,69 @@ function updateOrderStatus(orderId, status) {
     }
 }
 
-// Função para atualizar o status da loja
+// Função para atualizar o status da loja - nova tentativa com endpoint correto
 async function updateStoreStatus() {
     try {
-        const storeStatus = await makeAuthorizedRequest(`/merchant/v1.0/merchants/${CONFIG.merchantId}/status`, 'GET');
-        const statusElement = document.getElementById('store-status');
+        console.log('Atualizando status da loja...');
         
-        if (storeStatus && storeStatus.available) {
-            statusElement.textContent = 'Online';
-            statusElement.className = 'status-badge online';
-        } else {
-            statusElement.textContent = 'Offline';
-            statusElement.className = 'status-badge offline';
+        // Tenta obter o status da loja usando o endpoint correto da documentação
+        try {
+            // Nota: Usando apenas merchantId (numérico), não UUID
+            const response = await makeAuthorizedRequest(`/merchant/v1.0/merchants/${CONFIG.merchantId}/status`, 'GET');
+            console.log('Resposta completa do status da loja:', response);
+            
+            const statusElement = document.getElementById('store-status');
+            
+            // Verificar se recebemos uma resposta válida
+            if (response && Array.isArray(response) && response.length > 0) {
+                // Procura pelo status DEFAULT ou qualquer outra operação disponível
+                const defaultStatus = response.find(s => s.operation === 'DEFAULT') || response[0];
+                
+                if (defaultStatus && defaultStatus.available) {
+                    statusElement.textContent = 'Online';
+                    statusElement.className = 'status-badge online';
+                } else {
+                    statusElement.textContent = 'Offline';
+                    statusElement.className = 'status-badge offline';
+                }
+            } else {
+                // Se não receber dados válidos
+                statusElement.textContent = 'Status desconhecido';
+                statusElement.className = 'status-badge';
+            }
+        } catch (error) {
+            console.error('Erro detalhado ao buscar status da loja:', error);
+            console.log('Tentando abordagem alternativa...');
+            
+            // ALTERNATIVA: tentar outro endpoint que não exija permissões especiais
+            try {
+                // Tentar obter detalhes básicos do merchant que também podem indicar status
+                const merchantDetails = await makeAuthorizedRequest(`/merchant/v1.0/merchants/${CONFIG.merchantId}`, 'GET');
+                console.log('Detalhes do merchant:', merchantDetails);
+                
+                const statusElement = document.getElementById('store-status');
+                
+                if (merchantDetails && merchantDetails.status) {
+                    // Se obtivermos um status dos detalhes do merchant
+                    const isActive = merchantDetails.status === 'ACTIVE';
+                    statusElement.textContent = isActive ? 'Online' : 'Offline';
+                    statusElement.className = isActive ? 'status-badge online' : 'status-badge offline';
+                } else {
+                    // Assume online se conseguimos obter os detalhes
+                    statusElement.textContent = 'Online (assumido)';
+                    statusElement.className = 'status-badge online';
+                }
+            } catch (altError) {
+                console.error('Erro também na abordagem alternativa:', altError);
+                
+                // Última alternativa: assumir status com base no token
+                const statusElement = document.getElementById('store-status');
+                statusElement.textContent = 'Online (assumido)';
+                statusElement.className = 'status-badge online';
+            }
         }
     } catch (error) {
-        console.error('Erro ao buscar status da loja:', error);
-        const statusElement = document.getElementById('store-status');
-        statusElement.textContent = 'Erro';
-        statusElement.className = 'status-badge';
+        console.error('Erro geral ao atualizar status da loja:', error);
     }
 }
 
