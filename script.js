@@ -79,9 +79,9 @@ async function makeAuthorizedRequest(path, method = 'GET', body = null) {
         'Authorization': `Bearer ${state.accessToken}`
     };
 
-    // Adiciona o header de merchant apenas para o polling
+    // Adiciona o header de merchant UUID exigido para o polling
     if (path === '/events/v1.0/events:polling') {
-        headers['x-polling-merchants'] = CONFIG.merchantId;
+        headers['x-polling-merchants'] = CONFIG.merchantUUID;
     }
 
     try {
