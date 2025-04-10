@@ -244,3 +244,23 @@ main {
         width: 100%;
     }
 }
+
+.customer-address, .order-type, .payment-info, .order-created-at {
+    margin-bottom: 1.5rem;
+}
+
+.options-list {
+    margin-left: 20px;
+    margin-top: 5px;
+    font-size: 0.9em;
+}
+
+.item-observations {
+    font-style: italic;
+    color: #666;
+}
+
+.total-details {
+    font-size: 0.9em;
+    margin-top: 10px;
+}
