@@ -71,10 +71,11 @@ async function authenticate() {
 }
 
 // Função para fazer requisições autenticadas
-async function makeRequest(path, method = 'GET', body = null) {
+async function makeRequest(path, method = 'GET', body = null, additionalHeaders = {}) {
     try {
         const headers = {
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
+            ...additionalHeaders
         };
 
         if (state.accessToken) {
@@ -87,7 +88,8 @@ async function makeRequest(path, method = 'GET', body = null) {
             body: JSON.stringify({
                 path,
                 method,
-                body
+                body,
+                additionalHeaders
             })
         });
 
