@@ -38,8 +38,10 @@ const requestHeaders = {
 
 // Adiciona body se existir (já vem como string)
 if (body) {
-  fetchOptions.body = body;
+  fetchOptions.body = isAuth ? body : JSON.stringify(JSON.parse(body));
 }
+
+  console.log('✅ Corpo final enviado:', fetchOptions.body);
 
     const response = await fetch(`${baseURL}${path}`, fetchOptions);
     const data = await response.json();
