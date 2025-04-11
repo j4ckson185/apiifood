@@ -1155,7 +1155,7 @@ async function handleOrderAction(orderId, action) {
    }
 }
 
-// Função melhorada para fechar o modal de cancelamento
+// Função modificada para garantir que o modal fique oculto
 function closeCancellationModal() {
    console.log('Fechando modal de cancelamento');
    const modal = document.getElementById('cancellation-modal');
@@ -1259,14 +1259,12 @@ function startPolling() {
 
 // Event Listeners
 document.addEventListener('DOMContentLoaded', () => {
-   // Garantir que o modal de cancelamento esteja HIDDEN inicialmente
+   // Garantir que o modal de cancelamento esteja oculto inicialmente
    const cancelModal = document.getElementById('cancellation-modal');
    if (cancelModal) {
        cancelModal.classList.add('hidden');
        console.log("Modal escondido na inicialização");
    }
-   
-   // Remover e readicionar todos os event listeners para garantir funcionamento correto
    
    // Corrigir os listeners do modal de cancelamento
    const confirmButton = document.getElementById('confirm-cancellation');
@@ -1378,14 +1376,14 @@ document.addEventListener('DOMContentLoaded', () => {
    initialize();
 });
 
-// Função de inicialização
+// Função de inicialização modificada
 async function initialize() {
    try {
-       // Garantir que o modal de cancelamento esteja oculto antes de qualquer operação
+       // Garantir que o modal de cancelamento esteja SEMPRE oculto
        const cancelModal = document.getElementById('cancellation-modal');
        if (cancelModal) {
            cancelModal.classList.add('hidden');
-           console.log("Modal escondido na inicialização da função initialize");
+           console.log("Modal escondido na inicialização");
        }
        
        showLoading();
@@ -1406,5 +1404,11 @@ async function initialize() {
        showToast('Erro ao inicializar aplicação', 'error');
    } finally {
        hideLoading();
+       
+       // Adicional: Garantir que o modal esteja oculto após carregar
+       const cancelModal = document.getElementById('cancellation-modal');
+       if (cancelModal) {
+           cancelModal.classList.add('hidden');
+       }
    }
 }
