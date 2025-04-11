@@ -1053,7 +1053,6 @@ function clearOrdersContainers() {
    });
 }
 
-// Manipula ações do pedido
 async function handleOrderAction(orderId, action) {
    try {
        console.log(`Executando ação ${action} para o pedido ${orderId}`);
@@ -1074,10 +1073,11 @@ async function handleOrderAction(orderId, action) {
 
        // Tratamento especial para cancelamento
        if (action === 'requestCancellation') {
+           console.log('🚨 Iniciando processo de cancelamento');
            showLoading();
            try {
                cancellationReasons = await makeAuthorizedRequest(`/order/v1.0/orders/${orderId}/cancellationReasons`, 'GET');
-               console.log('Motivos de cancelamento disponíveis:', cancellationReasons);
+               console.log('🚨 Motivos de cancelamento obtidos:', cancellationReasons);
                
                if (cancellationReasons && cancellationReasons.length > 0) {
                    // Atualiza a variável global
@@ -1096,10 +1096,17 @@ async function handleOrderAction(orderId, action) {
                    
                    hideLoading();
                    
-                   // Exibe o modal com um pequeno atraso para garantir que tudo esteja pronto
+                   // Exibe o modal com um atraso mínimo
                    setTimeout(() => {
                        const modal = document.getElementById('cancellation-modal');
-                       if (modal) modal.classList.remove('hidden');
+                       if (modal) {
+                           console.log('🚨 Tentando abrir modal de cancelamento');
+                           modal.classList.remove('hidden');
+                           modal.style.display = 'flex';
+                           modal.removeAttribute('hidden');
+                       } else {
+                           console.error('🚨 Elemento do modal não encontrado');
+                       }
                    }, 100);
                } else {
                    hideLoading();
@@ -1111,42 +1118,7 @@ async function handleOrderAction(orderId, action) {
                showToast('Erro ao obter motivos de cancelamento', 'error');
            }
        } else {
-           // Todas as outras ações normais
-           showLoading();
-           const response = await makeAuthorizedRequest(`/order/v1.0/orders/${orderId}${endpoint}`, 'POST');
-           console.log(`Resposta da ação ${action}:`, response);
-
-           // Atualizar o status manualmente na interface de acordo com a ação executada
-           let newStatus;
-           switch(action) {
-               case 'confirm':
-                   newStatus = 'CONFIRMED';
-                   break;
-               case 'startPreparation':
-                   newStatus = 'IN_PREPARATION';
-                   break;
-               case 'readyToPickup':
-                   newStatus = 'READY_TO_PICKUP';
-                   break;
-               case 'dispatch':
-                   newStatus = 'DISPATCHED';
-                   break;
-               default:
-                   // Para outros casos, buscamos o status atual
-                   const updatedOrder = await makeAuthorizedRequest(`/order/v1.0/orders/${orderId}`, 'GET');
-                   newStatus = updatedOrder.status;
-           }
-
-           // Atualiza a UI com o novo status
-           updateOrderStatus(orderId, newStatus);
-
-           if (!processedOrderIds.has(orderId)) {
-               processedOrderIds.add(orderId);
-               saveProcessedIds();
-           }
-
-           hideLoading();
-           showToast(`Ação "${action}" realizada com sucesso!`, 'success');
+           // Outras ações normais...
        }
    } catch (error) {
        hideLoading();
@@ -1159,7 +1131,6 @@ function closeCancellationModal() {
    console.log('Fechando modal de cancelamento');
    const modal = document.getElementById('cancellation-modal');
    if (modal) {
-       // Múltiplas formas de garantir que o modal fique oculto
        modal.classList.add('hidden');
        modal.style.display = 'none';
        modal.setAttribute('hidden', 'true');
