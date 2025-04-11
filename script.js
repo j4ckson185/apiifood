@@ -1354,6 +1354,7 @@ async function fetchStoreDetails(merchantId) {
     } finally {
         hideLoading();
     }
+}
 
     // Função para buscar horários de funcionamento
 async function fetchOpeningHours(merchantId) {
@@ -1504,52 +1505,6 @@ async function saveOpeningHours() {
     } finally {
         hideLoading();
     }
-}
-
-// Função para mostrar o modal de edição
-function showEditModal() {
-    const modal = document.getElementById('hours-modal');
-    const editor = document.getElementById('schedule-editor');
-    if (!modal || !editor) return;
-    
-    // Limpa o editor
-    editor.innerHTML = '';
-    
-    const daysOfWeek = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY'];
-    const dayNames = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado', 'Domingo'];
-    
-    daysOfWeek.forEach((day, index) => {
-        const dayShifts = currentOpeningHours.shifts.filter(shift => shift.dayOfWeek === day);
-        
-        const daySection = document.createElement('div');
-        daySection.className = 'day-section';
-        daySection.innerHTML = `<h3>${dayNames[index]}</h3>`;
-        
-        const shiftsContainer = document.createElement('div');
-        shiftsContainer.className = 'shifts-container';
-        shiftsContainer.setAttribute('data-day', day);
-        
-        // Adiciona os turnos existentes
-        dayShifts.forEach(shift => {
-            shiftsContainer.appendChild(createShiftEditor(day, shift));
-        });
-        
-        // Botão para adicionar novo turno
-        const addButton = document.createElement('button');
-        addButton.className = 'add-shift';
-        addButton.innerHTML = '<i class="fas fa-plus"></i> Adicionar Turno';
-        addButton.onclick = () => {
-            const newShift = { dayOfWeek: day, start: '09:00:00', duration: 360 };
-            shiftsContainer.appendChild(createShiftEditor(day, newShift));
-        };
-        
-        daySection.appendChild(shiftsContainer);
-        daySection.appendChild(addButton);
-        editor.appendChild(daySection);
-    });
-    
-    modal.classList.remove('hidden');
-    modal.classList.add('show');
 }
 
 // Função para mostrar o modal de edição
