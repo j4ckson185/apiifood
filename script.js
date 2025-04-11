@@ -162,6 +162,7 @@ function saveProcessedIds() {
 }
 
 // Polling de eventos melhorado para evitar duplicações
+// Polling de eventos melhorado para evitar duplicações
 async function pollEvents() {
     if (!state.isPolling || !state.accessToken) return;
 
@@ -172,12 +173,15 @@ async function pollEvents() {
         if (events && Array.isArray(events) && events.length > 0) {
             console.log('Eventos recebidos:', events);
             
-            // Processa os eventos evitando duplicações
-            for (const event of events) {
+            // Filtra os eventos: aceita apenas PLACED (novos pedidos) e ignora atualizações de status
+            const newOrderEvents = events.filter(event => event.code === 'PLACED');
+            
+            // Processa apenas os eventos de novos pedidos
+            for (const event of newOrderEvents) {
                 await handleEvent(event);
             }
 
-            // Formato correto para acknowledgment
+            // Reconhece todos os eventos para evitar recebê-los novamente
             const acknowledgmentFormat = events.map(event => ({ id: event.id }));
             console.log('📤 Enviando acknowledgment com formato:', acknowledgmentFormat);
 
@@ -242,19 +246,64 @@ async function handleEvent(event) {
                     processedOrderIds.add(event.orderId);
                     saveProcessedIds();
                 } else {
-                    console.log(`Pedido ${order.id} já está na interface, atualizando status`);
-                    updateOrderStatus(order.id, order.status);
+                    console.log(`Pedido ${order.id} já está na interface, mantendo status atual`);
                 }
             } catch (orderError) {
                 console.error(`Erro ao buscar detalhes do pedido ${event.orderId}:`, orderError);
             }
         } else {
-            // Para outros tipos de evento, apenas atualiza o status
-            // Não precisamos rastrear esses eventos, pois não criam duplicatas
-            updateOrderStatus(event.orderId, event.code);
+            // Para outros tipos de evento, NÃO atualizamos automaticamente o status
+            // Isso evita que a interface seja alterada sem ação do usuário
+            console.log(`Ignorando atualização automática de status para o evento ${event.code}`);
         }
     } catch (error) {
         console.error('Erro ao processar evento:', error);
+    }
+}
+
+// Função modificada para atualizar o status apenas quando explicitamente solicitado
+function updateOrderStatus(orderId, status) {
+    console.log(`Atualizando status do pedido ${orderId} para ${status}`);
+
+    // Busca o card do pedido pelo data-order-id exato
+    const card = document.querySelector(`.order-card[data-order-id="${orderId}"]`);
+
+    if (card) {
+        // Atualiza o status
+        const statusElement = card.querySelector('.order-status');
+        if (statusElement) {
+            statusElement.textContent = getStatusText(status);
+        }
+
+        // Atualiza as ações disponíveis
+        const actionsContainer = card.querySelector('.order-actions');
+        if (actionsContainer) {
+            // Adiciona novas ações baseadas no status atualizado
+            addActionButtons(actionsContainer, { id: orderId, status });
+        }
+        
+        // Atualiza classes do card baseado no status
+        // Primeiro remove todas as classes de status existentes
+        const statusClasses = Array.from(card.classList)
+            .filter(className => className.startsWith('status-'));
+        
+        statusClasses.forEach(className => {
+            card.classList.remove(className);
+        });
+        
+        // Adiciona a nova classe de status
+        if (status) {
+            card.classList.add(`status-${status.toLowerCase()}`);
+        }
+    } else {
+        console.log(`Pedido ${orderId} não encontrado na interface. Buscando detalhes...`);
+        makeAuthorizedRequest(`/order/v1.0/orders/${orderId}`, 'GET')
+            .then(order => {
+                displayOrder(order);
+            })
+            .catch(error => {
+                console.error(`Erro ao buscar detalhes do pedido ${orderId}:`, error);
+            });
     }
 }
 
@@ -664,11 +713,11 @@ function addActionButtons(container, order) {
             { label: 'Cancelar', action: 'requestCancellation', class: 'cancel' }
         ],
         'CONFIRMED': [
-            { label: 'Iniciar Preparo', action: 'startPreparation', class: 'prepare' },
+            { label: 'Despachar', action: 'dispatch', class: 'dispatch' },
             { label: 'Cancelar', action: 'requestCancellation', class: 'cancel' }
         ],
         'IN_PREPARATION': [
-            { label: 'Pronto para Retirada', action: 'readyToPickup', class: 'ready' },
+            { label: 'Despachar', action: 'dispatch', class: 'dispatch' },
             { label: 'Cancelar', action: 'requestCancellation', class: 'cancel' }
         ],
         'READY_TO_PICKUP': [
@@ -702,23 +751,23 @@ function addActionButtons(container, order) {
         orderStatus = 'PLACED';
     }
     
-const statusMap = {
-    'PLC': 'PLACED',
-    'CFM': 'CONFIRMED',
-    'PREP': 'IN_PREPARATION',
-    'RTP': 'READY_TO_PICKUP',
-    'DDCR': 'DISPATCHED',
-    'CONC': 'CONCLUDED',
-    'CANC': 'CANCELLED',
-    'CANR': 'CANCELLATION_REQUESTED'
-};
+    // Mapeamento de códigos de status para status normalizados
+    const statusMap = {
+        'PLC': 'PLACED',
+        'CFM': 'CONFIRMED',
+        'PREP': 'IN_PREPARATION',
+        'PRS': 'IN_PREPARATION', // Adicional para lidar com 'PRS'
+        'RTP': 'READY_TO_PICKUP',
+        'DDCR': 'DISPATCHED',
+        'CONC': 'CONCLUDED',
+        'CANC': 'CANCELLED',
+        'CANR': 'CANCELLATION_REQUESTED'
+    };
 
-const normalizedStatus = statusMap[orderStatus] || orderStatus;
-
-// SE O PEDIDO ESTIVER COMO CONFIRMADO, JÁ PULA PRA AÇÕES DE DESPACHAR
-const remappedStatus = normalizedStatus;
-
-let orderActions = actions[remappedStatus] || [];
+    const normalizedStatus = statusMap[orderStatus] || orderStatus;
+    
+    // Usar o status normalizado para buscar as ações
+    let orderActions = actions[normalizedStatus] || [];
     
     if (orderActions.length === 0) {
         if (orderStatus && typeof orderStatus === 'string') {
@@ -727,13 +776,13 @@ let orderActions = actions[remappedStatus] || [];
             
             if (statusLower.includes('placed') || statusLower.includes('new')) {
                 orderActions = actions['PLACED'];
-            } else if (statusLower.includes('confirm')) {
+            } else if (statusLower.includes('confirm') || statusLower.includes('cfm')) {
                 orderActions = actions['CONFIRMED'];
-            } else if (statusLower.includes('prepar')) {
+            } else if (statusLower.includes('prepar') || statusLower.includes('prs')) {
                 orderActions = actions['IN_PREPARATION'];
             } else if (statusLower.includes('ready') || statusLower.includes('pickup')) {
                 orderActions = actions['READY_TO_PICKUP'];
-            } else if (statusLower.includes('dispatch') || statusLower.includes('delivered')) {
+            } else if (statusLower.includes('dispatch') || statusLower.includes('ddcr')) {
                 orderActions = actions['DISPATCHED'];
             } else if (statusLower.includes('cancel')) {
                 orderActions = actions['CANCELLED'];
@@ -845,42 +894,6 @@ function clearOrdersGrid() {
     }
 }
 
-function updateOrderStatus(orderId, status) {
-    console.log(`Atualizando status do pedido ${orderId} para ${status}`);
-
-    // Busca o card do pedido pelo data-order-id exato
-    const card = document.querySelector(`.order-card[data-order-id="${orderId}"]`);
-
-    if (card) {
-        // Atualiza o status
-        const statusElement = card.querySelector('.order-status');
-        if (statusElement) {
-            statusElement.textContent = getStatusText(status);
-        }
-
-        // Atualiza as ações disponíveis
-        const actionsContainer = card.querySelector('.order-actions');
-        if (actionsContainer) {
-            // Limpa ações existentes
-            while (actionsContainer.firstChild) {
-                actionsContainer.removeChild(actionsContainer.firstChild);
-            }
-
-            // Adiciona novas ações baseadas no status atualizado
-            addActionButtons(actionsContainer, { id: orderId, status });
-        }
-    } else {
-        console.log(`Pedido ${orderId} não encontrado na interface. Buscando detalhes...`);
-        makeAuthorizedRequest(`/order/v1.0/orders/${orderId}`, 'GET')
-            .then(order => {
-                displayOrder(order);
-            })
-            .catch(error => {
-                console.error(`Erro ao buscar detalhes do pedido ${orderId}:`, error);
-            });
-    }
-}
-
 // Função para atualizar o status da loja - nova tentativa com endpoint correto
 async function updateStoreStatus() {
     try {
@@ -970,32 +983,6 @@ async function handleOrderAction(orderId, action) {
             throw new Error(`Ação desconhecida: ${action}`);
         }
 
-        // CASO ESPECIAL: ação "confirm" → confirmar + iniciar preparo
-        if (action === 'confirm') {
-            showLoading();
-
-            // Confirma o pedido
-            const confirmResponse = await makeAuthorizedRequest(`/order/v1.0/orders/${orderId}/confirm`, 'POST');
-            console.log(`Pedido ${orderId} confirmado:`, confirmResponse);
-
-            // Inicia o preparo automaticamente
-            const prepResponse = await makeAuthorizedRequest(`/order/v1.0/orders/${orderId}/startPreparation`, 'POST');
-            console.log(`Preparo iniciado para o pedido ${orderId}:`, prepResponse);
-
-            // Busca status real do pedido
-            const updatedOrder = await makeAuthorizedRequest(`/order/v1.0/orders/${orderId}`, 'GET');
-            updateOrderStatus(orderId, updatedOrder.status);
-
-            if (!processedOrderIds.has(orderId)) {
-                processedOrderIds.add(orderId);
-                saveProcessedIds();
-            }
-
-            hideLoading();
-            showToast(`Pedido confirmado e preparo iniciado!`, 'success');
-            return;
-        }
-
         // Tratamento especial para cancelamento
         if (action === 'requestCancellation') {
             showLoading();
@@ -1027,14 +1014,34 @@ async function handleOrderAction(orderId, action) {
                 showToast('Erro ao obter motivos de cancelamento', 'error');
             }
         } else {
-            // Outras ações normais
+            // Todas as outras ações normais
             showLoading();
             const response = await makeAuthorizedRequest(`/order/v1.0/orders/${orderId}${endpoint}`, 'POST');
             console.log(`Resposta da ação ${action}:`, response);
 
-            // Recarrega status real
-            const updatedOrder = await makeAuthorizedRequest(`/order/v1.0/orders/${orderId}`, 'GET');
-            updateOrderStatus(orderId, updatedOrder.status);
+            // Atualizar o status manualmente na interface de acordo com a ação executada
+            let newStatus;
+            switch(action) {
+                case 'confirm':
+                    newStatus = 'CONFIRMED';
+                    break;
+                case 'startPreparation':
+                    newStatus = 'IN_PREPARATION';
+                    break;
+                case 'readyToPickup':
+                    newStatus = 'READY_TO_PICKUP';
+                    break;
+                case 'dispatch':
+                    newStatus = 'DISPATCHED';
+                    break;
+                default:
+                    // Para outros casos, buscamos o status atual
+                    const updatedOrder = await makeAuthorizedRequest(`/order/v1.0/orders/${orderId}`, 'GET');
+                    newStatus = updatedOrder.status;
+            }
+
+            // Atualiza a UI com o novo status
+            updateOrderStatus(orderId, newStatus);
 
             if (!processedOrderIds.has(orderId)) {
                 processedOrderIds.add(orderId);
