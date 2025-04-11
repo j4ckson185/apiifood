@@ -44,25 +44,58 @@ function displayStoreStatus(status) {
     // Define o conteúdo baseado na resposta da API
     let statusText = 'Desconhecido';
     let statusClass = '';
+    let additionalInfo = '';
 
     if (status) {
-        if (status.available === true) {
-            statusText = 'Aberta';
-            statusClass = 'status-online';
-        } else {
-            statusText = 'Fechada';
-            statusClass = 'status-offline';
-        }
-
-        // Adiciona informações adicionais se disponíveis
-        if (status.reason) {
-            statusText += ` (${status.reason})`;
+        console.log('Processando status:', status);
+        
+        // Verifica se o status é um array (como na resposta da API)
+        if (Array.isArray(status) && status.length > 0) {
+            // Verifica o status do primeiro canal (normalmente o ifood-app)
+            const channel = status[0];
+            
+            if (channel.available === true) {
+                statusText = 'Aberta';
+                statusClass = 'status-online';
+            } else {
+                statusText = 'Fechada';
+                statusClass = 'status-offline';
+            }
+            
+            // Adiciona informações adicionais
+            if (channel.state) {
+                additionalInfo += ` (Estado: ${channel.state})`;
+            }
+            
+            if (channel.salesChannel) {
+                additionalInfo += ` Canal: ${channel.salesChannel}`;
+            }
+            
+            if (channel.operation) {
+                additionalInfo += ` Operação: ${channel.operation}`;
+            }
+        } 
+        // Caso a API retorne um único objeto em vez de um array
+        else if (status.available !== undefined) {
+            if (status.available === true) {
+                statusText = 'Aberta';
+                statusClass = 'status-online';
+            } else {
+                statusText = 'Fechada';
+                statusClass = 'status-offline';
+            }
+            
+            // Adiciona informações adicionais se disponíveis
+            if (status.reason) {
+                additionalInfo += ` (${status.reason})`;
+            }
         }
     }
 
     statusElement.innerHTML = `
         <span class="store-detail-label">Status da Loja:</span>
         <span class="store-detail-value ${statusClass}">${statusText}</span>
+        <span class="status-additional">${additionalInfo}</span>
     `;
 
     // Adiciona o elemento ao detalhe da loja (após o primeiro elemento)
