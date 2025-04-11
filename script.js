@@ -1318,7 +1318,6 @@ async function fetchStores(page = 1) {
     }
 }
 
-// Função para buscar detalhes da loja
 async function fetchStoreDetails(merchantId) {
     try {
         showLoading();
@@ -1346,12 +1345,84 @@ async function fetchStoreDetails(merchantId) {
         `;
         
         storeDetails.classList.remove('hidden');
+        
+        // Busca os horários de funcionamento
+        await fetchOpeningHours(merchantId);
     } catch (error) {
         console.error('Erro ao buscar detalhes da loja:', error);
         showToast('Erro ao carregar detalhes da loja', 'error');
     } finally {
         hideLoading();
     }
+
+    // Função para buscar horários de funcionamento
+async function fetchOpeningHours(merchantId) {
+    try {
+        showLoading();
+        const response = await makeAuthorizedRequest(`/merchant/v1.0/merchants/${merchantId}/opening-hours`, 'GET');
+        console.log('Horários recebidos:', response);
+        
+        currentOpeningHours = response;
+        currentMerchantId = merchantId;
+        
+        displayOpeningHours(response);
+        
+        // Mostra a seção de horários
+        const openingHoursSection = document.getElementById('opening-hours');
+        if (openingHoursSection) {
+            openingHoursSection.classList.remove('hidden');
+        }
+    } catch (error) {
+        console.error('Erro ao buscar horários:', error);
+        showToast('Erro ao carregar horários de funcionamento', 'error');
+    } finally {
+        hideLoading();
+    }
+}
+
+// Função para exibir os horários na interface
+function displayOpeningHours(data) {
+    const grid = document.querySelector('.schedule-grid');
+    if (!grid) return;
+    
+    grid.innerHTML = '';
+    
+    const daysOfWeek = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY'];
+    const dayNames = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado', 'Domingo'];
+    
+    daysOfWeek.forEach((day, index) => {
+        const dayColumn = document.createElement('div');
+        dayColumn.className = 'day-column';
+        
+        const dayHeader = document.createElement('div');
+        dayHeader.className = 'day-header';
+        dayHeader.textContent = dayNames[index];
+        
+        dayColumn.appendChild(dayHeader);
+        
+        // Filtra os horários para este dia
+        const shifts = data.shifts.filter(shift => shift.dayOfWeek === day);
+        
+        if (shifts.length === 0) {
+            const closedSlot = document.createElement('div');
+            closedSlot.className = 'time-slot closed';
+            closedSlot.textContent = 'Fechado';
+            dayColumn.appendChild(closedSlot);
+        } else {
+            shifts.forEach(shift => {
+                const timeSlot = document.createElement('div');
+                timeSlot.className = 'time-slot';
+                
+                // Converte a duração em minutos para formato de hora
+                const endTime = addMinutesToTime(shift.start, shift.duration);
+                timeSlot.textContent = `${shift.start.substring(0, 5)} - ${endTime}`;
+                
+                dayColumn.appendChild(timeSlot);
+            });
+        }
+        
+        grid.appendChild(dayColumn);
+    });
 }
 
 // Função auxiliar para adicionar minutos a um horário
