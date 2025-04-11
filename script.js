@@ -18,6 +18,8 @@ let state = {
 // Variáveis globais para controle de cancelamento
 let currentCancellationOrderId = null;
 let cancellationReasons = [];
+let currentOpeningHours = null;
+let currentMerchantId = null;
 
 // Funções de utilidade
 const showLoading = () => document.getElementById('loading-overlay').classList.remove('hidden');
@@ -1265,9 +1267,94 @@ function startPolling() {
    pollEvents();
 }
 
-// Variável global para armazenar os horários atuais
-let currentOpeningHours = null;
-let currentMerchantId = null;
+// Variáveis para controle de paginação
+let currentPage = 1;
+const pageSize = 10;
+let totalStores = 0;
+
+// Função para listar lojas
+async function fetchStores(page = 1) {
+    try {
+        console.log('Buscando lojas da página:', page);
+        showLoading();
+        const response = await makeAuthorizedRequest(`/merchant/v1.0/merchants?page=${page}&size=${pageSize}`, 'GET');
+        console.log('Resposta da busca de lojas:', response);
+        
+        const storesList = document.getElementById('stores-list');
+        if (!storesList) {
+            console.error('Elemento stores-list não encontrado');
+            return;
+        }
+        
+        storesList.innerHTML = '';
+        
+        if (response && Array.isArray(response)) {
+            response.forEach(store => {
+                const storeCard = document.createElement('div');
+                storeCard.className = 'store-card';
+                storeCard.innerHTML = `
+                    <h3>${store.name || 'Nome não disponível'}</h3>
+                    <p>${store.corporateName || 'Razão social não disponível'}</p>
+                `;
+                
+                storeCard.onclick = () => fetchStoreDetails(store.id);
+                storesList.appendChild(storeCard);
+            });
+            
+            // Atualiza informações de paginação
+            const pageInfo = document.getElementById('page-info');
+            if (pageInfo) {
+                pageInfo.textContent = `Página ${page}`;
+            }
+            currentPage = page;
+            console.log('Lojas carregadas com sucesso');
+        } else {
+            console.log('Nenhuma loja encontrada ou formato de resposta inválido');
+            showToast('Nenhuma loja encontrada', 'info');
+        }
+    } catch (error) {
+        console.error('Erro ao buscar lojas:', error);
+        showToast('Erro ao carregar lista de lojas', 'error');
+    } finally {
+        hideLoading();
+    }
+}
+
+// Função para buscar detalhes da loja
+async function fetchStoreDetails(merchantId) {
+    try {
+        showLoading();
+        const response = await makeAuthorizedRequest(`/merchant/v1.0/merchants/${merchantId}`, 'GET');
+        
+        const storeDetails = document.getElementById('store-details');
+        storeDetails.innerHTML = `
+            <h2>Detalhes da Loja</h2>
+            <div class="store-detail-row">
+                <span class="store-detail-label">Nome:</span>
+                <span class="store-detail-value">${response.name || 'N/A'}</span>
+            </div>
+            <div class="store-detail-row">
+                <span class="store-detail-label">Razão Social:</span>
+                <span class="store-detail-value">${response.corporateName || 'N/A'}</span>
+            </div>
+            <div class="store-detail-row">
+                <span class="store-detail-label">CNPJ:</span>
+                <span class="store-detail-value">${response.cnpj || 'N/A'}</span>
+            </div>
+            <div class="store-detail-row">
+                <span class="store-detail-label">Endereço:</span>
+                <span class="store-detail-value">${response.address || 'N/A'}</span>
+            </div>
+        `;
+        
+        storeDetails.classList.remove('hidden');
+    } catch (error) {
+        console.error('Erro ao buscar detalhes da loja:', error);
+        showToast('Erro ao carregar detalhes da loja', 'error');
+    } finally {
+        hideLoading();
+    }
+}
 
 // Função para buscar horários de funcionamento
 async function fetchOpeningHours(merchantId) {
@@ -1466,96 +1553,6 @@ async function saveOpeningHours() {
     }
 }
 
-// Variáveis para controle de paginação
-let currentPage = 1;
-const pageSize = 10;
-let totalStores = 0;
-
-// Função para listar lojas
-async function fetchStores(page = 1) {
-    try {
-        console.log('Buscando lojas da página:', page);
-        showLoading();
-        const response = await makeAuthorizedRequest(`/merchant/v1.0/merchants?page=${page}&size=${pageSize}`, 'GET');
-        console.log('Resposta da busca de lojas:', response);
-        
-        const storesList = document.getElementById('stores-list');
-        if (!storesList) {
-            console.error('Elemento stores-list não encontrado');
-            return;
-        }
-        
-        storesList.innerHTML = '';
-        
-        if (response && Array.isArray(response)) {
-            response.forEach(store => {
-                const storeCard = document.createElement('div');
-                storeCard.className = 'store-card';
-                storeCard.innerHTML = `
-                    <h3>${store.name || 'Nome não disponível'}</h3>
-                    <p>${store.corporateName || 'Razão social não disponível'}</p>
-                `;
-                
-                storeCard.onclick = () => fetchStoreDetails(store.id);
-                storesList.appendChild(storeCard);
-            });
-            
-            // Atualiza informações de paginação
-            const pageInfo = document.getElementById('page-info');
-            if (pageInfo) {
-                pageInfo.textContent = `Página ${page}`;
-            }
-            currentPage = page;
-            console.log('Lojas carregadas com sucesso');
-        } else {
-            console.log('Nenhuma loja encontrada ou formato de resposta inválido');
-            showToast('Nenhuma loja encontrada', 'info');
-        }
-    } catch (error) {
-        console.error('Erro ao buscar lojas:', error);
-        showToast('Erro ao carregar lista de lojas', 'error');
-    } finally {
-        hideLoading();
-    }
-}
-
-async function fetchStoreDetails(merchantId) {
-    try {
-        showLoading();
-        const response = await makeAuthorizedRequest(`/merchant/v1.0/merchants/${merchantId}`, 'GET');
-        
-        const storeDetails = document.getElementById('store-details');
-        storeDetails.innerHTML = `
-            <h2>Detalhes da Loja</h2>
-            <div class="store-detail-row">
-                <span class="store-detail-label">Nome:</span>
-                <span class="store-detail-value">${response.name || 'N/A'}</span>
-            </div>
-            <div class="store-detail-row">
-                <span class="store-detail-label">Razão Social:</span>
-                <span class="store-detail-value">${response.corporateName || 'N/A'}</span>
-            </div>
-            <div class="store-detail-row">
-                <span class="store-detail-label">CNPJ:</span>
-                <span class="store-detail-value">${response.cnpj || 'N/A'}</span>
-            </div>
-            <div class="store-detail-row">
-                <span class="store-detail-label">Endereço:</span>
-                <span class="store-detail-value">${response.address || 'N/A'}</span>
-            </div>
-        `;
-        
-        storeDetails.classList.remove('hidden');
-        
-        // Busca os horários de funcionamento
-        await fetchOpeningHours(merchantId);
-    } catch (error) {
-        console.error('Erro ao buscar detalhes da loja:', error);
-        showToast('Erro ao carregar detalhes da loja', 'error');
-    } finally {
-        hideLoading();
-    }
-
 // Event Listeners
 document.addEventListener('DOMContentLoaded', () => {
    const cancelModal = document.getElementById('cancellation-modal');
@@ -1610,28 +1607,7 @@ document.addEventListener('DOMContentLoaded', () => {
        });
    }
 
-   // Eventos para navegação entre seções principais
-   document.querySelectorAll('.sidebar-item').forEach(item => {
-       item.addEventListener('click', () => {
-           const targetSection = item.getAttribute('data-target');
-           if (targetSection) {
-               switchMainTab(targetSection);
-           }
-       });
-   });
-   
-   // Eventos para navegação entre tabs de pedidos
-   document.querySelectorAll('.tab-item').forEach(tab => {
-       tab.addEventListener('click', () => {
-           const targetTab = tab.getAttribute('data-tab');
-           if (targetTab) {
-               switchOrderTab(targetTab);
-           }
-       });
-   });
-
-    document.addEventListener('DOMContentLoaded', () => {
-    // Botão de editar horários
+     // Botão de editar horários
     document.getElementById('edit-hours')?.addEventListener('click', showEditModal);
     
     // Botões do modal
@@ -1651,6 +1627,26 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 });
+
+   // Eventos para navegação entre seções principais
+   document.querySelectorAll('.sidebar-item').forEach(item => {
+       item.addEventListener('click', () => {
+           const targetSection = item.getAttribute('data-target');
+           if (targetSection) {
+               switchMainTab(targetSection);
+           }
+       });
+   });
+   
+   // Eventos para navegação entre tabs de pedidos
+   document.querySelectorAll('.tab-item').forEach(tab => {
+       tab.addEventListener('click', () => {
+           const targetTab = tab.getAttribute('data-tab');
+           if (targetTab) {
+               switchOrderTab(targetTab);
+           }
+       });
+   });
 
     // Event Listeners para paginação
 document.getElementById('prev-page')?.addEventListener('click', () => {
