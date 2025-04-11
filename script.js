@@ -1273,10 +1273,17 @@ let totalStores = 0;
 // Função para listar lojas
 async function fetchStores(page = 1) {
     try {
+        console.log('Buscando lojas da página:', page);
         showLoading();
         const response = await makeAuthorizedRequest(`/merchant/v1.0/merchants?page=${page}&size=${pageSize}`, 'GET');
+        console.log('Resposta da busca de lojas:', response);
         
         const storesList = document.getElementById('stores-list');
+        if (!storesList) {
+            console.error('Elemento stores-list não encontrado');
+            return;
+        }
+        
         storesList.innerHTML = '';
         
         if (response && Array.isArray(response)) {
@@ -1293,8 +1300,15 @@ async function fetchStores(page = 1) {
             });
             
             // Atualiza informações de paginação
-            document.getElementById('page-info').textContent = `Página ${page}`;
+            const pageInfo = document.getElementById('page-info');
+            if (pageInfo) {
+                pageInfo.textContent = `Página ${page}`;
+            }
             currentPage = page;
+            console.log('Lojas carregadas com sucesso');
+        } else {
+            console.log('Nenhuma loja encontrada ou formato de resposta inválido');
+            showToast('Nenhuma loja encontrada', 'info');
         }
     } catch (error) {
         console.error('Erro ao buscar lojas:', error);
