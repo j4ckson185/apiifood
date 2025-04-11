@@ -156,7 +156,26 @@ document.addEventListener('DOMContentLoaded', () => {
     setTimeout(() => {
         loadOrdersFromLocalStorage();
     }, 2000); // Aguarda 2 segundos para garantir que a página foi carregada
+    
+    // Inicia atualizações forçadas após 5 segundos (para dar tempo de carregar a página)
+    setTimeout(() => {
+        setupForcedUpdates();
+    }, 5000);
 });
+
+// Função para forçar a atualização de todos os pedidos periodicamente
+function setupForcedUpdates() {
+    console.log('Configurando atualizações forçadas de pedidos');
+    
+    // Atualiza imediatamente
+    updateAllVisibleOrders();
+    
+    // Configura atualização a cada minuto
+    setInterval(() => {
+        console.log('Executando atualização forçada de pedidos');
+        updateAllVisibleOrders();
+    }, 60000); // 60 segundos
+}
 
 // Modificar a função de polling para atualizar todos os pedidos periodicamente
 const originalPollEvents = pollEvents;
@@ -213,124 +232,68 @@ window.pollEvents = async function() {
     }
 };
 
-// Modificar a função handleEvent para atualizar status a partir de eventos
+// Modificar a função handleEvent para processar todos os tipos de eventos corretamente
 const originalHandleEvent = handleEvent;
 window.handleEvent = async function(event) {
     try {
         console.log(`Processando evento: ${event.code} para pedido ${event.orderId}`);
         
-        // Verifica se é um evento relacionado a pedido
+        // Ignora eventos sem ID de pedido
         if (!event.orderId) {
             console.log('Evento sem orderId, ignorando:', event);
             return;
         }
         
-        // Para eventos PLACED (novos pedidos) - mantém comportamento original
-        if (event.code === 'PLACED' || event.code === 'PLC') {
-            // Lógica existente para novos pedidos...
-            if (processedOrderIds.has(event.orderId)) {
-                console.log(`Pedido ${event.orderId} já foi processado anteriormente, ignorando`);
-                return;
-            }
+        // Buscar dados atualizados do pedido da API independente do tipo de evento
+        try {
+            console.log(`Buscando detalhes atualizados do pedido ${event.orderId}`);
+            const orderDetails = await makeAuthorizedRequest(`/order/v1.0/orders/${event.orderId}`, 'GET');
             
-            try {
-                const order = await makeAuthorizedRequest(`/order/v1.0/orders/${event.orderId}`, 'GET');
-                console.log('Detalhes do pedido recebido:', order);
+            if (orderDetails && orderDetails.id) {
+                console.log(`Detalhes do pedido recebidos com status: ${orderDetails.status}`);
                 
-                const existingOrder = document.querySelector(`.order-card[data-order-id="${order.id}"]`);
-                if (!existingOrder) {
-                    displayOrder(order);
-                    showToast('Novo pedido recebido!', 'success');
+                // Verifica se o pedido já existe na interface
+                const existingOrder = document.querySelector(`.order-card[data-order-id="${orderDetails.id}"]`);
+                
+                if (existingOrder) {
+                    // Pedido já existe, atualiza o status
+                    console.log(`Atualizando status do pedido existente para: ${orderDetails.status}`);
+                    updateOrderStatus(orderDetails.id, orderDetails.status);
                     
-                    processedOrderIds.add(event.orderId);
-                    saveProcessedIds();
+                    // Se for cancelamento, mostra notificação
+                    if (orderDetails.status === 'CANCELLED' || orderDetails.status === 'CANC') {
+                        showToast('Pedido foi cancelado', 'warning');
+                    }
                 } else {
-                    console.log(`Pedido ${order.id} já está na interface, ignorando duplicação`);
-                }
-            } catch (orderError) {
-                console.error(`Erro ao buscar detalhes do pedido ${event.orderId}:`, orderError);
-            }
-        } 
-        else {
-            // CORREÇÃO: Mapeamento correto de códigos de evento para status
-            const eventToStatusMap = {
-                // Confirmação
-                'CONFIRMED': 'CONFIRMED',
-                'CFM': 'CONFIRMED',
-                // Em preparação
-                'IN_PREPARATION': 'IN_PREPARATION',
-                'PREP': 'IN_PREPARATION',
-                'PRS': 'IN_PREPARATION',
-                // Pronto para retirada
-                'READY_TO_PICKUP': 'READY_TO_PICKUP',
-                'RTP': 'READY_TO_PICKUP',
-                // Despachado
-                'DISPATCHED': 'DISPATCHED',
-                'DDCR': 'DISPATCHED',
-                // Concluído
-                'CONCLUDED': 'CONCLUDED',
-                'CONC': 'CONCLUDED',
-                // Cancelamento
-                'CANCELLED': 'CANCELLED',
-                'CANC': 'CANCELLED',
-                'CAN': 'CANCELLED', // Código adicionado
-                'CANCELLATION_REQUESTED': 'CANCELLATION_REQUESTED',
-                'CANR': 'CANCELLATION_REQUESTED',
-                'CAR': 'CANCELLATION_REQUESTED', // Código adicionado
-            };
-            
-            // CORREÇÃO: Buscar sempre o status atual do pedido na API para garantir precisão
-            try {
-                console.log(`Buscando status atual do pedido ${event.orderId} na API`);
-                const orderDetails = await makeAuthorizedRequest(`/order/v1.0/orders/${event.orderId}`, 'GET');
-                
-                if (orderDetails && orderDetails.status) {
-                    console.log(`Status na API: ${orderDetails.status}`);
-                    
-                    // Verifica se o pedido está na interface
-                    const existingOrder = document.querySelector(`.order-card[data-order-id="${event.orderId}"]`);
-                    
-                    if (existingOrder) {
-                        // Atualiza com o status real da API
-                        updateOrderStatus(event.orderId, orderDetails.status);
-                        
-                        // Se for um cancelamento, mostra toast
-                        if (orderDetails.status === 'CANCELLED' || orderDetails.status.includes('CANC')) {
-                            // Extrai o motivo do cancelamento, se disponível
-                            let cancelReason = "";
-                            if (event.metadata && event.metadata.CANCEL_REASON) {
-                                cancelReason = `: ${event.metadata.CANCEL_REASON}`;
-                            }
-                            showToast(`Pedido cancelado${cancelReason}`, 'warning');
+                    // Pedido não existe, verifica se é um novo pedido
+                    if (event.code === 'PLACED' || event.code === 'PLC') {
+                        // Verifica se já processamos antes
+                        if (!processedOrderIds.has(orderDetails.id)) {
+                            console.log('Exibindo novo pedido na interface');
+                            displayOrder(orderDetails);
+                            showToast('Novo pedido recebido!', 'success');
+                            processedOrderIds.add(orderDetails.id);
+                            saveProcessedIds();
+                        } else {
+                            console.log(`Pedido ${orderDetails.id} já foi processado anteriormente`);
                         }
                     } else {
-                        // Se o pedido não estiver na interface, exibe-o
-                        console.log(`Pedido ${event.orderId} não está na interface, adicionando`);
+                        // Não é um novo pedido, mas não está na interface - adiciona
+                        console.log('Adicionando pedido existente à interface');
                         displayOrder(orderDetails);
-                        processedOrderIds.add(event.orderId);
+                        processedOrderIds.add(orderDetails.id);
                         saveProcessedIds();
                     }
-                    
-                    // Atualiza no cache
-                    ordersCache[event.orderId] = orderDetails;
-                    saveOrdersToLocalStorage();
                 }
-            } catch (orderError) {
-                console.error(`Erro ao buscar detalhes do pedido ${event.orderId}:`, orderError);
                 
-                // Fallback: se não conseguir buscar o status na API, usa o mapeamento de eventos
-                if (event.code in eventToStatusMap) {
-                    const newStatus = eventToStatusMap[event.code];
-                    console.log(`Usando fallback: Atualizando para ${newStatus} pelo código do evento ${event.code}`);
-                    
-                    const existingOrder = document.querySelector(`.order-card[data-order-id="${event.orderId}"]`);
-                    if (existingOrder) {
-                        updateOrderStatus(event.orderId, newStatus);
-                    }
-                }
+                // Atualiza cache
+                ordersCache[orderDetails.id] = orderDetails;
+                saveOrdersToLocalStorage();
             }
+        } catch (orderError) {
+            console.error(`Erro ao buscar detalhes do pedido ${event.orderId}:`, orderError);
         }
     } catch (error) {
-        console.error('Erro ao processar evento:', error);
+        console.error('Erro geral ao processar evento:', error);
     }
 };
