@@ -1366,6 +1366,7 @@ async function fetchStoreDetails(merchantId) {
     } finally {
         hideLoading();
     }
+    }
 
     // Função para buscar horários de funcionamento
 async function fetchOpeningHours(merchantId) {
