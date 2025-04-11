@@ -3,41 +3,153 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PDV iFood</title>
+    <title>Cabana Delivery</title>
     <link rel="stylesheet" href="styles.css">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
 </head>
 <body>
-    <header>
-        <div class="header-content">
-            <h1><i class="fas fa-store"></i> PDV iFood</h1>
-            <div class="status-container">
-                <span class="status-label">Status da Loja:</span>
-                <span id="store-status" class="status-badge">Carregando...</span>
-            </div>
+    <!-- Sidebar navigation -->
+    <div class="sidebar">
+        <div class="sidebar-item active" data-target="orders">
+            <i class="fas fa-list-alt"></i>
         </div>
-    </header>
+        <div class="sidebar-item" data-target="evaluations">
+            <i class="fas fa-star"></i>
+        </div>
+        <div class="sidebar-item">
+            <i class="fas fa-chart-line"></i>
+        </div>
+        <div class="sidebar-item">
+            <i class="fas fa-cog"></i>
+        </div>
+    </div>
 
-    <main>
-        <div class="controls">
-            <button id="poll-orders" class="primary-button">
-                <i class="fas fa-sync"></i> Atualizar Pedidos
-            </button>
-            <div class="status-toggles">
-                <button id="toggle-store" class="secondary-button">
-                    <i class="fas fa-power-off"></i> Alternar Loja
+    <!-- Main content area -->
+    <div class="content-wrapper">
+        <header>
+            <div class="header-content">
+                <div class="header-title">
+                    <i class="fas fa-store"></i>
+                    <h1>PDV iFood</h1>
+                </div>
+                <div class="status-container">
+                    <span class="status-label">Status da Loja:</span>
+                    <span id="store-status" class="status-badge">Carregando...</span>
+                    <button id="toggle-store" class="secondary-button">
+                        <i class="fas fa-power-off"></i> Alternar
+                    </button>
+                </div>
+                <div class="search-box">
+                    <i class="fas fa-search"></i>
+                    <input type="text" placeholder="Buscar pedidos..." id="search-orders">
+                </div>
+                <button id="poll-orders" class="refresh-button" title="Atualizar Pedidos">
+                    <i class="fas fa-sync"></i>
                 </button>
             </div>
-        </div>
+        </header>
 
-        <div class="orders-container">
-            <div class="orders-grid" id="orders-grid">
-                <!-- Pedidos serão inseridos aqui dinamicamente -->
-            </div>
-        </div>
-    </main>
+        <main>
+            <!-- Orders section -->
+            <section id="orders-section" class="tab-section active">
+                <div class="tab-navigation">
+                    <div class="tab-item active" data-tab="preparation">Em Preparo</div>
+                    <div class="tab-item" data-tab="dispatched">A Caminho</div>
+                    <div class="tab-item" data-tab="completed">Concluídos</div>
+                    <div class="tab-item" data-tab="cancelled">Cancelados</div>
+                </div>
 
-    <!-- Template para modal de pedido -->
+                <div class="filter-buttons">
+                    <button class="filter-button active" data-filter="all">Todos</button>
+                    <button class="filter-button" data-filter="cash">Dinheiro</button>
+                    <button class="filter-button" data-filter="card">Cartão</button>
+                    <button class="filter-button" data-filter="online">Online</button>
+                </div>
+
+                <!-- Tab content areas -->
+                <div id="preparation-tab" class="tab-content active">
+                    <div class="orders-grid" id="preparation-orders">
+                        <!-- Orders will be added here -->
+                    </div>
+                    <div class="no-orders preparation-empty hidden">
+                        <i class="fas fa-clipboard-list"></i>
+                        <h3>Sem pedidos em preparo</h3>
+                        <p>Novos pedidos aparecerão aqui</p>
+                    </div>
+                </div>
+
+                <div id="dispatched-tab" class="tab-content">
+                    <div class="orders-grid" id="dispatched-orders">
+                        <!-- Orders will be added here -->
+                    </div>
+                    <div class="no-orders dispatched-empty hidden">
+                        <i class="fas fa-motorcycle"></i>
+                        <h3>Sem pedidos a caminho</h3>
+                        <p>Pedidos em entrega aparecerão aqui</p>
+                    </div>
+                </div>
+
+                <div id="completed-tab" class="tab-content">
+                    <div class="orders-grid" id="completed-orders">
+                        <!-- Orders will be added here -->
+                    </div>
+                    <div class="no-orders completed-empty hidden">
+                        <i class="fas fa-check-circle"></i>
+                        <h3>Sem pedidos concluídos</h3>
+                        <p>Pedidos finalizados aparecerão aqui</p>
+                    </div>
+                </div>
+
+                <div id="cancelled-tab" class="tab-content">
+                    <div class="orders-grid" id="cancelled-orders">
+                        <!-- Orders will be added here -->
+                    </div>
+                    <div class="no-orders cancelled-empty hidden">
+                        <i class="fas fa-times-circle"></i>
+                        <h3>Sem pedidos cancelados</h3>
+                        <p>Pedidos cancelados aparecerão aqui</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Evaluations section -->
+            <section id="evaluations-section" class="tab-section hidden">
+                <div class="evaluations">
+                    <div class="evaluations-header">
+                        <h2>Avaliações dos Clientes</h2>
+                    </div>
+                    <div class="ratings-summary">
+                        <div class="rating-card">
+                            <h3>Avaliação Média</h3>
+                            <div class="rating-value">4.7</div>
+                            <div class="rating-stars">
+                                <i class="fas fa-star"></i>
+                                <i class="fas fa-star"></i>
+                                <i class="fas fa-star"></i>
+                                <i class="fas fa-star"></i>
+                                <i class="fas fa-star-half-alt"></i>
+                            </div>
+                        </div>
+                        <div class="rating-card">
+                            <h3>Total de Avaliações</h3>
+                            <div class="rating-value">42</div>
+                        </div>
+                        <div class="rating-card">
+                            <h3>Satisfação</h3>
+                            <div class="rating-value">92%</div>
+                        </div>
+                    </div>
+                    <div class="empty-evaluations">
+                        <i class="fas fa-comment-slash"></i>
+                        <h3>Avaliações em breve</h3>
+                        <p>A funcionalidade de avaliações será implementada em breve</p>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Order card template -->
     <template id="order-modal-template">
         <div class="order-card">
             <div class="order-header">
@@ -73,27 +185,26 @@
     <!-- Toast notifications -->
     <div id="toast-container" class="toast-container"></div>
 
-    <script src="script.js"></script>
-
-<!-- Modal de cancelamento -->
-<div id="cancellation-modal" class="modal hidden">
-    <div class="modal-content">
-        <div class="modal-header">
-            <h2>Cancelar Pedido</h2>
-            <span class="close-modal">&times;</span>
-        </div>
-        <div class="modal-body">
-            <p>Selecione o motivo do cancelamento:</p>
-            <select id="cancellation-reason" class="cancellation-select">
-                <!-- As opções serão carregadas dinamicamente -->
-            </select>
-        </div>
-        <div class="modal-footer">
-            <button id="confirm-cancellation" class="action-button cancel">Confirmar Cancelamento</button>
-            <button id="cancel-cancellation" class="action-button">Voltar</button>
+    <!-- Cancellation modal -->
+    <div id="cancellation-modal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Cancelar Pedido</h2>
+                <span class="close-modal">&times;</span>
+            </div>
+            <div class="modal-body">
+                <p>Selecione o motivo do cancelamento:</p>
+                <select id="cancellation-reason" class="cancellation-select">
+                    <!-- As opções serão carregadas dinamicamente -->
+                </select>
+            </div>
+            <div class="modal-footer">
+                <button id="confirm-cancellation" class="action-button cancel">Confirmar Cancelamento</button>
+                <button id="cancel-cancellation" class="action-button">Voltar</button>
+            </div>
         </div>
     </div>
-</div>
-`
+
+    <script src="script.js"></script>
 </body>
 </html>
