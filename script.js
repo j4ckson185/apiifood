@@ -969,20 +969,42 @@ async function handleOrderAction(orderId, action) {
         if (!endpoint) {
             throw new Error(`Ação desconhecida: ${action}`);
         }
-        
+
+        // CASO ESPECIAL: ação "confirm" → confirmar + iniciar preparo
+        if (action === 'confirm') {
+            showLoading();
+
+            // Confirma o pedido
+            const confirmResponse = await makeAuthorizedRequest(`/order/v1.0/orders/${orderId}/confirm`, 'POST');
+            console.log(`Pedido ${orderId} confirmado:`, confirmResponse);
+
+            // Inicia o preparo automaticamente
+            const prepResponse = await makeAuthorizedRequest(`/order/v1.0/orders/${orderId}/startPreparation`, 'POST');
+            console.log(`Preparo iniciado para o pedido ${orderId}:`, prepResponse);
+
+            // Busca status real do pedido
+            const updatedOrder = await makeAuthorizedRequest(`/order/v1.0/orders/${orderId}`, 'GET');
+            updateOrderStatus(orderId, updatedOrder.status);
+
+            if (!processedOrderIds.has(orderId)) {
+                processedOrderIds.add(orderId);
+                saveProcessedIds();
+            }
+
+            hideLoading();
+            showToast(`Pedido confirmado e preparo iniciado!`, 'success');
+            return;
+        }
+
         // Tratamento especial para cancelamento
         if (action === 'requestCancellation') {
-            // Primeiro, buscar os motivos de cancelamento disponíveis
             showLoading();
             try {
                 cancellationReasons = await makeAuthorizedRequest(`/order/v1.0/orders/${orderId}/cancellationReasons`, 'GET');
                 console.log('Motivos de cancelamento disponíveis:', cancellationReasons);
                 
                 if (cancellationReasons && cancellationReasons.length > 0) {
-                    // Guarda o ID do pedido atual para cancelamento
                     currentCancellationOrderId = orderId;
-                    
-                    // Preenche o select com os motivos
                     const select = document.getElementById('cancellation-reason');
                     select.innerHTML = '';
                     
@@ -993,11 +1015,9 @@ async function handleOrderAction(orderId, action) {
                         select.appendChild(option);
                     });
                     
-                    // Mostra o modal de cancelamento
                     hideLoading();
                     document.getElementById('cancellation-modal').classList.remove('hidden');
                 } else {
-                    // Se não tiver motivos disponíveis
                     hideLoading();
                     showToast('Não foi possível obter os motivos de cancelamento', 'error');
                 }
@@ -1007,23 +1027,20 @@ async function handleOrderAction(orderId, action) {
                 showToast('Erro ao obter motivos de cancelamento', 'error');
             }
         } else {
-            // Para outras ações, envia normalmente
+            // Outras ações normais
             showLoading();
             const response = await makeAuthorizedRequest(`/order/v1.0/orders/${orderId}${endpoint}`, 'POST');
             console.log(`Resposta da ação ${action}:`, response);
-            
-// Após ação, recarrega os detalhes do pedido para pegar o status real da API
-try {
-    const updatedOrder = await makeAuthorizedRequest(`/order/v1.0/orders/${orderId}`, 'GET');
-    updateOrderStatus(orderId, updatedOrder.status);
 
-    if (!processedOrderIds.has(orderId)) {
-        processedOrderIds.add(orderId);
-        saveProcessedIds();
-    }
-} catch (error) {
-    console.error(`Erro ao buscar pedido atualizado ${orderId}:`, error);
-}
+            // Recarrega status real
+            const updatedOrder = await makeAuthorizedRequest(`/order/v1.0/orders/${orderId}`, 'GET');
+            updateOrderStatus(orderId, updatedOrder.status);
+
+            if (!processedOrderIds.has(orderId)) {
+                processedOrderIds.add(orderId);
+                saveProcessedIds();
+            }
+
             hideLoading();
             showToast(`Ação "${action}" realizada com sucesso!`, 'success');
         }
