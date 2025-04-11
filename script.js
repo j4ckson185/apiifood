@@ -1259,9 +1259,8 @@ function startPolling() {
 
 // Event Listeners
 document.addEventListener('DOMContentLoaded', () => {
-   // Garantir que o modal de cancelamento esteja oculto inicialmente
+   // Garantir que o modal de cancelamento esteja HIDDEN inicialmente
    const cancelModal = document.getElementById('cancellation-modal');
-   console.log("Modal encontrado:", cancelModal);
    if (cancelModal) {
        cancelModal.classList.add('hidden');
        console.log("Modal escondido na inicialização");
@@ -1305,17 +1304,13 @@ document.addEventListener('DOMContentLoaded', () => {
    
    // Adicionar evento para fechar o modal ao clicar no fundo
    if (cancelModal) {
-       // Remover qualquer listener existente
-       const newModal = cancelModal.cloneNode(true);
-       cancelModal.parentNode.replaceChild(newModal, cancelModal);
-       
-       // Adicionar o novo listener
-       newModal.addEventListener('click', function(event) {
-           if (event.target === newModal) {
+       cancelModal.addEventListener('click', function(event) {
+           if (event.target === cancelModal) {
                console.log("Clique fora do modal detectado, fechando modal");
                closeCancellationModal();
            }
        });
+   }
        
        // Readicionar os listeners para os botões dentro do novo modal
        const newConfirmBtn = newModal.querySelector('#confirm-cancellation');
