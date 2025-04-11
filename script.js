@@ -1311,32 +1311,6 @@ document.addEventListener('DOMContentLoaded', () => {
            }
        });
    }
-       
-       // Readicionar os listeners para os botões dentro do novo modal
-       const newConfirmBtn = newModal.querySelector('#confirm-cancellation');
-       if (newConfirmBtn) {
-           newConfirmBtn.addEventListener('click', function() {
-               console.log("Botão confirmar cancelamento clicado (novo modal)");
-               confirmCancellation();
-           });
-       }
-       
-       const newCancelBtn = newModal.querySelector('#cancel-cancellation');
-       if (newCancelBtn) {
-           newCancelBtn.addEventListener('click', function() {
-               console.log("Botão cancelar cancelamento clicado (novo modal)");
-               closeCancellationModal();
-           });
-       }
-       
-       const newCloseX = newModal.querySelector('.close-modal');
-       if (newCloseX) {
-           newCloseX.addEventListener('click', function() {
-               console.log("Botão X para fechar o modal clicado (novo modal)");
-               closeCancellationModal();
-           });
-       }
-   }
 
    // Eventos para navegação entre seções principais
    document.querySelectorAll('.sidebar-item').forEach(item => {
