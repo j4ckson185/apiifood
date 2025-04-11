@@ -716,7 +716,7 @@ const statusMap = {
 const normalizedStatus = statusMap[orderStatus] || orderStatus;
 
 // SE O PEDIDO ESTIVER COMO CONFIRMADO, JÁ PULA PRA AÇÕES DE DESPACHAR
-const remappedStatus = normalizedStatus === 'CONFIRMED' ? 'READY_TO_PICKUP' : normalizedStatus;
+const remappedStatus = normalizedStatus;
 
 let orderActions = actions[remappedStatus] || [];
     
