@@ -166,7 +166,38 @@
                     <div id="store-details" class="store-details hidden">
                         <!-- Store details will be shown here -->
                     </div>
-                </div>
+                                        <div id="opening-hours" class="opening-hours hidden">
+                        <div class="opening-hours-header">
+                            <h2>Horário de Funcionamento</h2>
+                            <button id="edit-hours" class="action-button">
+                                <i class="fas fa-edit"></i> Editar Horários
+                            </button>
+                        </div>
+                        <div class="schedule-grid">
+                            <!-- Os horários serão exibidos aqui -->
+                        </div>
+                    </div>
+                    
+                    <!-- Modal de edição de horários -->
+                    <div id="hours-modal" class="modal">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h2>Editar Horários</h2>
+                                <span class="close-modal">&times;</span>
+                            </div>
+                            <div class="modal-body">
+                                <div class="schedule-editor">
+                                    <div class="day-editor" id="schedule-editor">
+                                        <!-- O editor de horários será renderizado aqui -->
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="modal-footer">
+                                <button id="save-hours" class="action-button confirm">Salvar</button>
+                                <button id="cancel-hours" class="action-button cancel">Cancelar</button>
+                            </div>
+                        </div>
+                    </div>
             </section>
         </main>
     </div>
