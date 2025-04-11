@@ -150,6 +150,14 @@ styleElement.textContent = `
         padding: 10px;
         border-radius: var(--border-radius);
         margin-bottom: 10px;
+        display: flex;
+        align-items: center;
+    }
+    
+    .status-additional {
+        font-size: 0.85rem;
+        color: #666;
+        margin-left: 10px;
     }
 `;
 document.head.appendChild(styleElement);
