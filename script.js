@@ -1327,10 +1327,6 @@ async function fetchStoreDetails(merchantId) {
         storeDetails.innerHTML = `
             <h2>Detalhes da Loja</h2>
             <div class="store-detail-row">
-                <span class="store-detail-label">ID:</span>
-                <span class="store-detail-value">${response.id || 'N/A'}</span>
-            </div>
-            <div class="store-detail-row">
                 <span class="store-detail-label">Nome:</span>
                 <span class="store-detail-value">${response.name || 'N/A'}</span>
             </div>
@@ -1339,20 +1335,12 @@ async function fetchStoreDetails(merchantId) {
                 <span class="store-detail-value">${response.corporateName || 'N/A'}</span>
             </div>
             <div class="store-detail-row">
-                <span class="store-detail-label">Tipo:</span>
-                <span class="store-detail-value">${response.type || 'N/A'}</span>
+                <span class="store-detail-label">CNPJ:</span>
+                <span class="store-detail-value">${response.cnpj || 'N/A'}</span>
             </div>
             <div class="store-detail-row">
                 <span class="store-detail-label">Endereço:</span>
-                <span class="store-detail-value">${response.address ? 
-                    `${response.address.street}, ${response.address.number} - ${response.address.city}/${response.address.state}` 
-                    : 'N/A'}</span>
-            </div>
-            <div class="store-detail-row">
-                <span class="store-detail-label">Operações:</span>
-                <span class="store-detail-value">${response.operations ? 
-                    `${response.operations.name} - ${response.operations.salesChannel.name} (${response.operations.salesChannel.enabled})` 
-                    : 'N/A'}</span>
+                <span class="store-detail-value">${response.address || 'N/A'}</span>
             </div>
         `;
         
@@ -1366,7 +1354,7 @@ async function fetchStoreDetails(merchantId) {
     } finally {
         hideLoading();
     }
-    }
+}
 
     // Função para buscar horários de funcionamento
 async function fetchOpeningHours(merchantId) {
