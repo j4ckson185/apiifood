@@ -1367,6 +1367,9 @@ async function fetchStoreDetails(merchantId) {
         
         // Busca os horários de funcionamento
         await fetchOpeningHours(merchantId);
+        
+        // ADICIONE ESTA LINHA: Inicia o polling de status da loja
+        startStatusPolling(merchantId);
     } catch (error) {
         console.error('Erro ao buscar detalhes da loja:', error);
         showToast('Erro ao carregar detalhes da loja', 'error');
@@ -1684,15 +1687,20 @@ document.addEventListener('DOMContentLoaded', () => {
         fetchStores(1);
     });
 
-    // Eventos para navegação entre seções principais
-    document.querySelectorAll('.sidebar-item').forEach(item => {
-        item.addEventListener('click', () => {
-            const targetSection = item.getAttribute('data-target');
-            if (targetSection) {
-                switchMainTab(targetSection);
+// Eventos para navegação entre seções principais
+document.querySelectorAll('.sidebar-item').forEach(item => {
+    item.addEventListener('click', () => {
+        const targetSection = item.getAttribute('data-target');
+        if (targetSection) {
+            // Se estiver mudando para uma seção diferente de 'stores', pare o polling de status
+            if (targetSection !== 'stores') {
+                stopStatusPolling();
             }
-        });
+            
+            switchMainTab(targetSection);
+        }
     });
+});
    
     // Eventos para navegação entre tabs de pedidos
     document.querySelectorAll('.tab-item').forEach(tab => {
