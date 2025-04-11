@@ -1356,188 +1356,208 @@ async function fetchStoreDetails(merchantId) {
 
 // Event Listeners
 document.addEventListener('DOMContentLoaded', () => {
-   const cancelModal = document.getElementById('cancellation-modal');
-   if (cancelModal) {
-       cancelModal.classList.add('hidden');
-       cancelModal.style.display = 'none';
-       cancelModal.setAttribute('hidden', 'true');
-       console.log("Modal escondido na inicialização do DOMContentLoaded");
-   }
-   
-   // Corrigir os listeners do modal de cancelamento
-   const confirmButton = document.getElementById('confirm-cancellation');
-   if (confirmButton) {
-       const newConfirmButton = confirmButton.cloneNode(true);
-       confirmButton.parentNode.replaceChild(newConfirmButton, confirmButton);
-       
-       newConfirmButton.addEventListener('click', function() {
-           console.log("Botão confirmar cancelamento clicado");
-           confirmCancellation();
-       });
-   }
-   
-   const cancelButton = document.getElementById('cancel-cancellation');
-   if (cancelButton) {
-       const newCancelButton = cancelButton.cloneNode(true);
-       cancelButton.parentNode.replaceChild(newCancelButton, cancelButton);
-       
-       newCancelButton.addEventListener('click', function() {
-           console.log("Botão cancelar cancelamento clicado");
-           closeCancellationModal();
-       });
-   }
-   
-   const closeModalX = document.querySelector('.close-modal');
-   if (closeModalX) {
-       const newCloseModalX = closeModalX.cloneNode(true);
-       closeModalX.parentNode.replaceChild(newCloseModalX, closeModalX);
-       
-       newCloseModalX.addEventListener('click', function() {
-           console.log("Botão X para fechar o modal clicado");
-           closeCancellationModal();
-       });
-   }
-   
-   // Adicionar evento para fechar o modal ao clicar no fundo
-   if (cancelModal) {
-       cancelModal.addEventListener('click', function(event) {
-           if (event.target === cancelModal) {
-               console.log("Clique fora do modal detectado, fechando modal");
-               closeCancellationModal();
-           }
-       });
-   }
-
-   // Eventos para navegação entre seções principais
-   document.querySelectorAll('.sidebar-item').forEach(item => {
-       item.addEventListener('click', () => {
-           const targetSection = item.getAttribute('data-target');
-           if (targetSection) {
-               switchMainTab(targetSection);
-           }
-       });
-   });
-   
-   // Eventos para navegação entre tabs de pedidos
-   document.querySelectorAll('.tab-item').forEach(tab => {
-       tab.addEventListener('click', () => {
-           const targetTab = tab.getAttribute('data-tab');
-           if (targetTab) {
-               switchOrderTab(targetTab);
-           }
-       });
-   });
-
-    // Event Listeners para paginação
-document.getElementById('prev-page')?.addEventListener('click', () => {
-    if (currentPage > 1) {
-        fetchStores(currentPage - 1);
+    // Event listeners do cancelamento
+    const cancelModal = document.getElementById('cancellation-modal');
+    if (cancelModal) {
+        cancelModal.classList.add('hidden');
+        cancelModal.style.display = 'none';
+        cancelModal.setAttribute('hidden', 'true');
+        console.log("Modal escondido na inicialização do DOMContentLoaded");
     }
-});
-
-document.getElementById('next-page')?.addEventListener('click', () => {
-    fetchStores(currentPage + 1);
-});
-
-// Adiciona o listener para a nova aba de lojas
-document.querySelector('.sidebar-item[data-target="stores"]')?.addEventListener('click', () => {
-    switchMainTab('stores');
-    fetchStores(1); // Carrega a primeira página ao abrir a aba
-});
    
-   // Eventos para filtros
-   document.querySelectorAll('.filter-button').forEach(button => {
-       button.addEventListener('click', () => {
-           const filter = button.getAttribute('data-filter');
-           if (filter) {
-               applyFilter(filter);
-           }
-       });
-   });
-   
-   // Evento para busca
-   const searchInput = document.getElementById('search-orders');
-   if (searchInput) {
-       searchInput.addEventListener('input', () => {
-           searchOrders(searchInput.value);
-       });
-   }
-
-   // Botão para atualizar pedidos
-   document.getElementById('poll-orders').addEventListener('click', async () => {
-       if (!state.accessToken) {
-           await authenticate();
-       }
+    // Corrigir os listeners do modal de cancelamento
+    const confirmButton = document.getElementById('confirm-cancellation');
+    if (confirmButton) {
+        const newConfirmButton = confirmButton.cloneNode(true);
+        confirmButton.parentNode.replaceChild(newConfirmButton, confirmButton);
        
-       showLoading();
-       try {
-           await fetchActiveOrders();
-           startPolling();
-       } finally {
-           hideLoading();
-       }
-   });
+        newConfirmButton.addEventListener('click', function() {
+            console.log("Botão confirmar cancelamento clicado");
+            confirmCancellation();
+        });
+    }
+   
+    const cancelButton = document.getElementById('cancel-cancellation');
+    if (cancelButton) {
+        const newCancelButton = cancelButton.cloneNode(true);
+        cancelButton.parentNode.replaceChild(newCancelButton, cancelButton);
+       
+        newCancelButton.addEventListener('click', function() {
+            console.log("Botão cancelar cancelamento clicado");
+            closeCancellationModal();
+        });
+    }
+   
+    const closeModalX = document.querySelector('.close-modal');
+    if (closeModalX) {
+        const newCloseModalX = closeModalX.cloneNode(true);
+        closeModalX.parentNode.replaceChild(newCloseModalX, closeModalX);
+       
+        newCloseModalX.addEventListener('click', function() {
+            console.log("Botão X para fechar o modal clicado");
+            closeCancellationModal();
+        });
+    }
+   
+    // Adicionar evento para fechar o modal ao clicar no fundo
+    if (cancelModal) {
+        cancelModal.addEventListener('click', function(event) {
+            if (event.target === cancelModal) {
+                console.log("Clique fora do modal detectado, fechando modal");
+                closeCancellationModal();
+            }
+        });
+    }
 
-   // Botão para alternar status da loja
-   document.getElementById('toggle-store').addEventListener('click', async () => {
-       if (!state.accessToken) {
-           await authenticate();
-       } else {
-           await toggleStoreStatus();
-       }
-   });
+    // Event listeners dos horários
+    document.getElementById('edit-hours')?.addEventListener('click', showEditModal);
+    
+    document.getElementById('save-hours')?.addEventListener('click', saveOpeningHours);
+    
+    document.getElementById('cancel-hours')?.addEventListener('click', () => {
+        document.getElementById('hours-modal').classList.remove('show');
+    });
+    
+    document.querySelector('#hours-modal .close-modal')?.addEventListener('click', () => {
+        document.getElementById('hours-modal').classList.remove('show');
+    });
+    
+    document.getElementById('hours-modal')?.addEventListener('click', (e) => {
+        if (e.target.id === 'hours-modal') {
+            e.target.classList.remove('show');
+        }
+    });
 
-   // Inicialização
-   initialize();
+    // Event listeners de paginação
+    document.getElementById('prev-page')?.addEventListener('click', () => {
+        if (currentPage > 1) {
+            fetchStores(currentPage - 1);
+        }
+    });
+
+    document.getElementById('next-page')?.addEventListener('click', () => {
+        fetchStores(currentPage + 1);
+    });
+
+    // Event listener da nova aba de lojas
+    document.querySelector('.sidebar-item[data-target="stores"]')?.addEventListener('click', () => {
+        switchMainTab('stores');
+        fetchStores(1);
+    });
+
+    // Eventos para navegação entre seções principais
+    document.querySelectorAll('.sidebar-item').forEach(item => {
+        item.addEventListener('click', () => {
+            const targetSection = item.getAttribute('data-target');
+            if (targetSection) {
+                switchMainTab(targetSection);
+            }
+        });
+    });
+   
+    // Eventos para navegação entre tabs de pedidos
+    document.querySelectorAll('.tab-item').forEach(tab => {
+        tab.addEventListener('click', () => {
+            const targetTab = tab.getAttribute('data-tab');
+            if (targetTab) {
+                switchOrderTab(targetTab);
+            }
+        });
+    });
+   
+    // Eventos para filtros
+    document.querySelectorAll('.filter-button').forEach(button => {
+        button.addEventListener('click', () => {
+            const filter = button.getAttribute('data-filter');
+            if (filter) {
+                applyFilter(filter);
+            }
+        });
+    });
+   
+    // Evento para busca
+    const searchInput = document.getElementById('search-orders');
+    if (searchInput) {
+        searchInput.addEventListener('input', () => {
+            searchOrders(searchInput.value);
+        });
+    }
+
+    // Botão para atualizar pedidos
+    document.getElementById('poll-orders').addEventListener('click', async () => {
+        if (!state.accessToken) {
+            await authenticate();
+        }
+       
+        showLoading();
+        try {
+            await fetchActiveOrders();
+            startPolling();
+        } finally {
+            hideLoading();
+        }
+    });
+
+    // Botão para alternar status da loja
+    document.getElementById('toggle-store').addEventListener('click', async () => {
+        if (!state.accessToken) {
+            await authenticate();
+        } else {
+            await toggleStoreStatus();
+        }
+    });
+
+    // Inicialização
+    initialize();
 });
 
 async function initialize() {
-   try {
-       // Garantir que o modal de cancelamento esteja SEMPRE oculto
-       const cancelModal = document.getElementById('cancellation-modal');
-       if (cancelModal) {
-           cancelModal.classList.add('hidden');
-           cancelModal.style.display = 'none';
-           cancelModal.setAttribute('hidden', 'true');
-           console.log("Modal escondido na inicialização");
-       }
+    try {
+        // Garantir que o modal de cancelamento esteja SEMPRE oculto
+        const cancelModal = document.getElementById('cancellation-modal');
+        if (cancelModal) {
+            cancelModal.classList.add('hidden');
+            cancelModal.style.display = 'none';
+            cancelModal.setAttribute('hidden', 'true');
+            console.log("Modal escondido na inicialização");
+        }
        
-       showLoading();
+        showLoading();
        
-       // Autenticação inicial
-       await authenticate();
+        // Autenticação inicial
+        await authenticate();
        
-       // Atualiza status da loja
-       await updateStoreStatus();
+        // Atualiza status da loja
+        await updateStoreStatus();
        
-       // Carrega pedidos ativos iniciais
-       await fetchActiveOrders();
+        // Carrega pedidos ativos iniciais
+        await fetchActiveOrders();
        
-       // Inicia polling de eventos
-       startPolling();
-   } catch (error) {
-       console.error('Erro na inicialização:', error);
-       showToast('Erro ao inicializar aplicação', 'error');
-   } finally {
-       hideLoading();
+        // Inicia polling de eventos
+        startPolling();
+    } catch (error) {
+        console.error('Erro na inicialização:', error);
+        showToast('Erro ao inicializar aplicação', 'error');
+    } finally {
+        hideLoading();
        
-       // Adicional: Garantir que o modal esteja oculto após carregar
-       const cancelModal = document.getElementById('cancellation-modal');
-       if (cancelModal) {
-           cancelModal.classList.add('hidden');
-           cancelModal.style.display = 'none';
-           cancelModal.setAttribute('hidden', 'true');
-       }
-   }
+        // Adicional: Garantir que o modal esteja oculto após carregar
+        const cancelModal = document.getElementById('cancellation-modal');
+        if (cancelModal) {
+            cancelModal.classList.add('hidden');
+            cancelModal.style.display = 'none';
+            cancelModal.setAttribute('hidden', 'true');
+        }
+    }
 }
 
-// Adicione isso no final do seu script.js
+// Event listener de carregamento da janela
 window.addEventListener('load', () => {
-   const cancelModal = document.getElementById('cancellation-modal');
-   if (cancelModal) {
-       cancelModal.classList.add('hidden');
-       cancelModal.style.display = 'none';
-       cancelModal.setAttribute('hidden', 'true');
-       console.log("Modal escondido no evento de carregamento da janela");
-   }
+    const cancelModal = document.getElementById('cancellation-modal');
+    if (cancelModal) {
+        cancelModal.classList.add('hidden');
+        cancelModal.style.display = 'none';
+        cancelModal.setAttribute('hidden', 'true');
+        console.log("Modal escondido no evento de carregamento da janela");
+    }
 });
