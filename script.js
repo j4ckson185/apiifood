@@ -10,7 +10,9 @@ const CONFIG = {
 // Estado da aplicação
 let state = {
     accessToken: null,
-    isPolling: false
+    isPolling: false,
+    activeTab: 'preparation', // Tab atual (preparation, dispatched, completed, cancelled)
+    activeFilter: 'all' // Filtro atual (all, cash, card, online)
 };
 
 // Funções de utilidade
@@ -20,10 +22,140 @@ const hideLoading = () => document.getElementById('loading-overlay').classList.a
 const showToast = (message, type = 'info') => {
     const toast = document.createElement('div');
     toast.className = `toast ${type}`;
-    toast.textContent = message;
+    
+    // Adiciona ícone baseado no tipo
+    let icon = '';
+    switch(type) {
+        case 'success': icon = '<i class="fas fa-check-circle"></i>'; break;
+        case 'error': icon = '<i class="fas fa-exclamation-circle"></i>'; break;
+        case 'warning': icon = '<i class="fas fa-exclamation-triangle"></i>'; break;
+        default: icon = '<i class="fas fa-info-circle"></i>';
+    }
+    
+    toast.innerHTML = `${icon} ${message}`;
     document.getElementById('toast-container').appendChild(toast);
     setTimeout(() => toast.remove(), 3000);
 };
+
+// Função para alternar entre tabs de seções principais
+function switchMainTab(tabId) {
+    // Oculta todas as seções
+    document.querySelectorAll('.tab-section').forEach(section => {
+        section.classList.add('hidden');
+    });
+    
+    // Exibe a seção selecionada
+    document.getElementById(`${tabId}-section`).classList.remove('hidden');
+    
+    // Atualiza os itens da sidebar
+    document.querySelectorAll('.sidebar-item').forEach(item => {
+        item.classList.remove('active');
+    });
+    
+    document.querySelector(`.sidebar-item[data-target="${tabId}"]`).classList.add('active');
+}
+
+// Função para alternar entre tabs de pedidos
+function switchOrderTab(tabId) {
+    // Oculta todos os conteúdos de tab
+    document.querySelectorAll('.tab-content').forEach(content => {
+        content.classList.remove('active');
+    });
+    
+    // Exibe o conteúdo da tab selecionada
+    document.getElementById(`${tabId}-tab`).classList.add('active');
+    
+    // Atualiza a tab ativa
+    document.querySelectorAll('.tab-item').forEach(tab => {
+        tab.classList.remove('active');
+    });
+    
+    document.querySelector(`.tab-item[data-tab="${tabId}"]`).classList.add('active');
+    
+    // Atualiza o estado
+    state.activeTab = tabId;
+    
+    // Verifica se há pedidos na tab atual
+    checkForEmptyTab(tabId);
+}
+
+// Função para aplicar filtros
+function applyFilter(filter) {
+    state.activeFilter = filter;
+    
+    // Atualiza os botões de filtro
+    document.querySelectorAll('.filter-button').forEach(button => {
+        button.classList.remove('active');
+    });
+    
+    document.querySelector(`.filter-button[data-filter="${filter}"]`).classList.add('active');
+    
+    // Aplica o filtro aos pedidos visíveis
+    const orderCards = document.querySelectorAll('.order-card');
+    
+    orderCards.forEach(card => {
+        if (filter === 'all') {
+            card.style.display = 'block';
+        } else {
+            // Lógica de filtro baseada no tipo de pagamento
+            const paymentType = card.getAttribute('data-payment-type') || '';
+            
+            if (filter === 'cash' && paymentType.includes('dinheiro')) {
+                card.style.display = 'block';
+            } else if (filter === 'card' && paymentType.includes('cartão')) {
+                card.style.display = 'block';
+            } else if (filter === 'online' && paymentType.includes('online')) {
+                card.style.display = 'block';
+            } else {
+                card.style.display = 'none';
+            }
+        }
+    });
+}
+
+// Função para verificar se uma tab está vazia e mostrar mensagem apropriada
+function checkForEmptyTab(tabId) {
+    const ordersContainer = document.getElementById(`${tabId}-orders`);
+    const emptyMessage = document.querySelector(`.${tabId}-empty`);
+    
+    if (ordersContainer && emptyMessage) {
+        const visibleOrders = ordersContainer.querySelectorAll('.order-card:not([style*="display: none"])');
+        
+        if (visibleOrders.length === 0) {
+            emptyMessage.classList.remove('hidden');
+        } else {
+            emptyMessage.classList.add('hidden');
+        }
+    }
+}
+
+// Função de busca de pedidos
+function searchOrders(query) {
+    query = query.toLowerCase().trim();
+    
+    const orderCards = document.querySelectorAll('.order-card');
+    
+    orderCards.forEach(card => {
+        const orderText = card.textContent.toLowerCase();
+        const orderId = card.getAttribute('data-order-id') || '';
+        const customerName = card.querySelector('.customer-name')?.textContent.toLowerCase() || '';
+        
+        if (query === '' || 
+            orderText.includes(query) || 
+            orderId.includes(query) || 
+            customerName.includes(query)) {
+            card.style.display = 'block';
+        } else {
+            card.style.display = 'none';
+        }
+    });
+    
+    // Verifica status de tabs vazias
+    checkForEmptyTab('preparation');
+    checkForEmptyTab('dispatched');
+    checkForEmptyTab('completed');
+    checkForEmptyTab('cancelled');
+}
 
 // Função de autenticação
 async function authenticate() {
@@ -265,140 +397,6 @@ async function handleEvent(event) {
     }
 }
 
-// Função modificada para atualizar o status apenas quando explicitamente solicitado
-function updateOrderStatus(orderId, status) {
-    console.log(`Atualizando status do pedido ${orderId} para ${status}`);
-
-    // Busca o card do pedido pelo data-order-id exato
-    const card = document.querySelector(`.order-card[data-order-id="${orderId}"]`);
-
-    if (card) {
-        // Atualiza o status
-        const statusElement = card.querySelector('.order-status');
-        if (statusElement) {
-            statusElement.textContent = getStatusText(status);
-        }
-
-        // Atualiza as ações disponíveis
-        const actionsContainer = card.querySelector('.order-actions');
-        if (actionsContainer) {
-            // Adiciona novas ações baseadas no status atualizado
-            addActionButtons(actionsContainer, { id: orderId, status });
-        }
-        
-        // Atualiza classes do card baseado no status
-        // Primeiro remove todas as classes de status existentes
-        const statusClasses = Array.from(card.classList)
-            .filter(className => className.startsWith('status-'));
-        
-        statusClasses.forEach(className => {
-            card.classList.remove(className);
-        });
-        
-        // Adiciona a nova classe de status
-        if (status) {
-            card.classList.add(`status-${status.toLowerCase()}`);
-        }
-    } else {
-        console.log(`Pedido ${orderId} não encontrado na interface. Buscando detalhes...`);
-        makeAuthorizedRequest(`/order/v1.0/orders/${orderId}`, 'GET')
-            .then(order => {
-                displayOrder(order);
-            })
-            .catch(error => {
-                console.error(`Erro ao buscar detalhes do pedido ${orderId}:`, error);
-            });
-    }
-}
-
-// Função modificada de exibição de pedido para garantir que cada pedido tem um atributo data-order-id
-function displayOrder(order) {
-    const template = document.getElementById('order-modal-template');
-    const orderElement = template.content.cloneNode(true);
-
-    // Preenche informações básicas
-    orderElement.querySelector('.order-number').textContent = `#${order.displayId || order.id.substring(0, 8)}`;
-    orderElement.querySelector('.order-status').textContent = getStatusText(order.status);
-    orderElement.querySelector('.customer-name').textContent = `Cliente: ${order.customer?.name || 'N/A'}`;
-    
-    // Adaptação para diferentes formatos de telefone
-    let phoneText = 'Tel: N/A';
-    if (order.customer?.phone) {
-        if (typeof order.customer.phone === 'string') {
-            phoneText = `Tel: ${order.customer.phone}`;
-        } else if (order.customer.phone.number) {
-            phoneText = `Tel: ${order.customer.phone.number}`;
-        }
-    }
-    orderElement.querySelector('.customer-phone').textContent = phoneText;
-
-    // Preenche itens do pedido
-    const itemsList = orderElement.querySelector('.items-list');
-    if (order.items && Array.isArray(order.items)) {
-        order.items.forEach(item => {
-            const li = document.createElement('li');
-            
-            // Adaptação para diferentes formatos de preço
-            let itemPrice;
-            if (typeof item.price === 'number' && typeof item.quantity === 'number') {
-                itemPrice = (item.price * item.quantity).toFixed(2);
-            } else if (item.totalPrice) {
-                itemPrice = item.totalPrice.toFixed(2);
-            } else {
-                itemPrice = '0.00';
-            }
-            
-            li.textContent = `${item.quantity}x ${item.name} - R$ ${itemPrice}`;
-            itemsList.appendChild(li);
-        });
-    } else {
-        const li = document.createElement('li');
-        li.textContent = 'Nenhum item encontrado';
-        itemsList.appendChild(li);
-    }
-
-    // Preenche total - adaptação para diferentes formatos
-    const totalAmount = orderElement.querySelector('.total-amount');
-    if (typeof order.total === 'number') {
-        totalAmount.textContent = `R$ ${order.total.toFixed(2)}`;
-    } else if (order.total && typeof order.total.value === 'number') {
-        totalAmount.textContent = `R$ ${order.total.value.toFixed(2)}`;
-    } else if (order.total && (order.total.subTotal || order.total.orderAmount)) {
-        // Usa orderAmount ou subTotal + deliveryFee
-        const totalValue = order.total.orderAmount || 
-                          (order.total.subTotal + (order.total.deliveryFee || 0));
-        totalAmount.textContent = `R$ ${totalValue.toFixed(2)}`;
-    } else {
-        // Tenta calcular o total a partir dos itens
-        let calculatedTotal = 0;
-        if (order.items && Array.isArray(order.items)) {
-            calculatedTotal = order.items.reduce((sum, item) => {
-                let itemTotal = 0;
-                if (item.totalPrice) {
-                    itemTotal = item.totalPrice;
-                } else if (typeof item.price === 'number' && typeof item.quantity === 'number') {
-                    itemTotal = item.price * item.quantity;
-                }
-                return sum + itemTotal;
-            }, 0);
-        }
-        totalAmount.textContent = `R$ ${calculatedTotal.toFixed(2)}`;
-    }
-
-    // Adiciona botões de ação
-    const actionsContainer = orderElement.querySelector('.order-actions');
-    addActionButtons(actionsContainer, order);
-
-    // IMPORTANTE: Adiciona um data-attribute com o ID do pedido para facilitar atualizações e evitar duplicações
-    const orderCard = orderElement.querySelector('.order-card');
-    orderCard.setAttribute('data-order-id', order.id);
-
-    // Adiciona ao grid de pedidos
-    document.getElementById('orders-grid').appendChild(orderElement);
-    
-    console.log('Pedido exibido com sucesso:', order.id);
-}
-
 // Função para limpar pedidos processados (opção para depuração)
 function clearProcessedOrders() {
     processedOrderIds.clear();
@@ -463,7 +461,7 @@ async function toggleStoreStatus() {
     }
 }
 
-// Exibe o pedido na interface
+// Exibe o pedido na interface com organização por categorias
 function displayOrder(order) {
     const template = document.getElementById('order-modal-template');
     const orderElement = template.content.cloneNode(true);
@@ -538,7 +536,9 @@ function displayOrder(order) {
     const customerInfo = orderElement.querySelector('.customer-info');
     customerInfo.parentNode.insertBefore(orderTypeDiv, customerInfo.nextSibling);
     
-    // Adiciona informações de pagamento
+    // Adiciona informações de pagamento e define o tipo para filtros
+    let paymentType = 'desconhecido';
+    
     if (order.payments && order.payments.methods && order.payments.methods.length > 0) {
         const paymentDiv = document.createElement('div');
         paymentDiv.className = 'payment-info';
@@ -552,6 +552,15 @@ function displayOrder(order) {
         order.payments.methods.forEach(payment => {
             const paymentItem = document.createElement('li');
             let paymentText = payment.method || 'Método desconhecido';
+            
+            // Define o tipo de pagamento para filtros
+            if (payment.method && payment.method.toLowerCase().includes('dinheiro')) {
+                paymentType = 'dinheiro';
+            } else if (payment.method && payment.method.toLowerCase().includes('cartão')) {
+                paymentType = 'cartão';
+            } else if (payment.type && payment.type.toLowerCase().includes('online')) {
+                paymentType = 'online';
+            }
             
             if (payment.type) {
                 paymentText += ` (${payment.type})`;
@@ -582,7 +591,7 @@ function displayOrder(order) {
             const li = document.createElement('li');
             // Usa totalPrice se disponível, senão calcula a partir do preço unitário e quantidade
             const itemPrice = item.totalPrice || (item.price * item.quantity);
-            li.textContent = `${item.quantity}x ${item.name} - R$ ${itemPrice.toFixed(2)}`;
+            li.textContent = `${item.quantity}x ${item.name} - R$ ${typeof itemPrice === 'number' ? itemPrice.toFixed(2) : '0.00'}`;
             
             // Adiciona observações se houver
             if (item.observations) {
@@ -600,7 +609,7 @@ function displayOrder(order) {
                 
                 item.options.forEach(option => {
                     const optionLi = document.createElement('li');
-                    optionLi.textContent = `${option.quantity}x ${option.name} (+R$ ${option.addition || option.price || 0})`;
+                    optionLi.textContent = `${option.quantity}x ${option.name} (+R$ ${(option.addition || option.price || 0).toFixed(2)})`;
                     optionsList.appendChild(optionLi);
                 });
                 
@@ -633,19 +642,19 @@ function displayOrder(order) {
             
             if (order.total.subTotal) {
                 const subTotal = document.createElement('p');
-                subTotal.textContent = `Subtotal: R$ ${order.total.subTotal.toFixed(2)}`;
+                subTotal.innerHTML = `<span>Subtotal:</span> <span>R$ ${order.total.subTotal.toFixed(2)}</span>`;
                 totalDetails.appendChild(subTotal);
             }
             
             if (order.total.deliveryFee) {
                 const deliveryFee = document.createElement('p');
-                deliveryFee.textContent = `Taxa de entrega: R$ ${order.total.deliveryFee.toFixed(2)}`;
+                deliveryFee.innerHTML = `<span>Taxa de entrega:</span> <span>R$ ${order.total.deliveryFee.toFixed(2)}</span>`;
                 totalDetails.appendChild(deliveryFee);
             }
             
             if (order.total.benefits && order.total.benefits > 0) {
                 const benefits = document.createElement('p');
-                benefits.textContent = `Descontos: -R$ ${order.total.benefits.toFixed(2)}`;
+                benefits.innerHTML = `<span>Descontos:</span> <span>-R$ ${order.total.benefits.toFixed(2)}</span>`;
                 totalDetails.appendChild(benefits);
             }
             
@@ -690,15 +699,122 @@ function displayOrder(order) {
     const orderCard = orderElement.querySelector('.order-card');
     orderCard.setAttribute('data-order-id', order.id);
     
+    // Adiciona atributo de tipo de pagamento para filtros
+    orderCard.setAttribute('data-payment-type', paymentType);
+    
     // Adiciona classe baseada no status
     if (order.status) {
         orderCard.classList.add(`status-${order.status.toLowerCase()}`);
     }
 
-    // Adiciona ao grid de pedidos
-    document.getElementById('orders-grid').appendChild(orderElement);
+    // Determina em qual tab o pedido deve ser exibido
+    let targetContainer;
+    const status = order.status || 'PLACED';
+    
+    if (status === 'CANCELLED' || status === 'CANC') {
+        targetContainer = document.getElementById('cancelled-orders');
+    } else if (status === 'CONCLUDED' || status === 'CONC') {
+        targetContainer = document.getElementById('completed-orders');
+    } else if (status === 'DISPATCHED' || status === 'DDCR') {
+        targetContainer = document.getElementById('dispatched-orders');
+    } else {
+        // Todos os outros statuses (PLACED, CONFIRMED, IN_PREPARATION, etc)
+        targetContainer = document.getElementById('preparation-orders');
+    }
+
+// Adiciona ao container apropriado
+    if (targetContainer) {
+        targetContainer.appendChild(orderElement);
+        // Verifica se a mensagem de "sem pedidos" deve ser ocultada
+        const tabId = targetContainer.id.replace('-orders', '');
+        checkForEmptyTab(tabId);
+    }
     
     console.log('Pedido exibido com sucesso:', order.id);
+}
+
+// Função modificada para atualizar o status apenas quando explicitamente solicitado
+function updateOrderStatus(orderId, status) {
+    console.log(`Atualizando status do pedido ${orderId} para ${status}`);
+
+    // Busca o card do pedido pelo data-order-id exato
+    const card = document.querySelector(`.order-card[data-order-id="${orderId}"]`);
+
+    if (card) {
+        // Atualiza o status
+        const statusElement = card.querySelector('.order-status');
+        if (statusElement) {
+            statusElement.textContent = getStatusText(status);
+        }
+
+        // Atualiza as ações disponíveis
+        const actionsContainer = card.querySelector('.order-actions');
+        if (actionsContainer) {
+            // Adiciona novas ações baseadas no status atualizado
+            addActionButtons(actionsContainer, { id: orderId, status });
+        }
+        
+        // Atualiza classes do card baseado no status
+        // Primeiro remove todas as classes de status existentes
+        const statusClasses = Array.from(card.classList)
+            .filter(className => className.startsWith('status-'));
+        
+        statusClasses.forEach(className => {
+            card.classList.remove(className);
+        });
+        
+        // Adiciona a nova classe de status
+        if (status) {
+            card.classList.add(`status-${status.toLowerCase()}`);
+        }
+        
+        // Move o card para a tab correta baseado no novo status
+        moveCardToCorrectTab(card, status);
+    } else {
+        console.log(`Pedido ${orderId} não encontrado na interface. Buscando detalhes...`);
+        makeAuthorizedRequest(`/order/v1.0/orders/${orderId}`, 'GET')
+            .then(order => {
+                displayOrder(order);
+            })
+            .catch(error => {
+                console.error(`Erro ao buscar detalhes do pedido ${orderId}:`, error);
+            });
+    }
+}
+
+// Função para mover o card para a tab correta após atualização de status
+function moveCardToCorrectTab(card, status) {
+    let targetContainerId;
+    
+    if (status === 'CANCELLED' || status === 'CANC') {
+        targetContainerId = 'cancelled-orders';
+    } else if (status === 'CONCLUDED' || status === 'CONC') {
+        targetContainerId = 'completed-orders';
+    } else if (status === 'DISPATCHED' || status === 'DDCR') {
+        targetContainerId = 'dispatched-orders';
+    } else {
+        // Todos os outros statuses (PLACED, CONFIRMED, IN_PREPARATION, etc)
+        targetContainerId = 'preparation-orders';
+    }
+    
+    const targetContainer = document.getElementById(targetContainerId);
+    const currentParent = card.parentElement;
+    
+    if (targetContainer && currentParent && currentParent.id !== targetContainerId) {
+        // Move o card para o container correto
+        targetContainer.appendChild(card);
+        
+        // Verifica se as tabs antigas e novas devem mostrar a mensagem "sem pedidos"
+        const oldTabId = currentParent.id.replace('-orders', '');
+        const newTabId = targetContainerId.replace('-orders', '');
+        
+        checkForEmptyTab(oldTabId);
+        checkForEmptyTab(newTabId);
+        
+        // Mostra um toast informando sobre a mudança
+        const statusText = getStatusText(status);
+        showToast(`Pedido movido para "${statusText}"`, 'info');
+    }
 }
 
 // Adiciona botões de ação baseado no status do pedido
@@ -831,6 +947,9 @@ async function fetchActiveOrders() {
         // Precisamos declarar esta variável, estava sendo usada sem declaração
         const successfulOrders = [];
         
+        // Limpa os containers de pedidos
+        clearOrdersContainers();
+        
         // Buscar eventos recentes
         const events = await makeAuthorizedRequest('/events/v1.0/events:polling', 'GET');
         
@@ -898,89 +1017,37 @@ async function fetchActiveOrders() {
             console.log('Nenhum evento recebido');
             showToast('Nenhum pedido ativo no momento', 'info');
         }
+        
+        // Verifica se há pedidos em cada tab
+        checkForEmptyTab('preparation');
+        checkForEmptyTab('dispatched');
+        checkForEmptyTab('completed');
+        checkForEmptyTab('cancelled');
+        
     } catch (error) {
         console.error('Erro ao buscar pedidos ativos:', error);
         showToast('Erro ao buscar pedidos', 'error');
     }
 }
 
-// Função para limpar o grid de pedidos
-function clearOrdersGrid() {
-    const ordersGrid = document.getElementById('orders-grid');
-    while (ordersGrid.firstChild) {
-        ordersGrid.removeChild(ordersGrid.firstChild);
-    }
-}
-
-// Função para atualizar o status da loja - nova tentativa com endpoint correto
-async function updateStoreStatus() {
-    try {
-        console.log('Atualizando status da loja...');
-        
-        // Tenta obter o status da loja usando o endpoint correto da documentação
-        try {
-            // Nota: Usando apenas merchantId (numérico), não UUID
-            const response = await makeAuthorizedRequest(`/merchant/v1.0/merchants/${CONFIG.merchantId}/status`, 'GET');
-            console.log('Resposta completa do status da loja:', response);
-            
-            const statusElement = document.getElementById('store-status');
-            
-            // Verificar se recebemos uma resposta válida
-            if (response && Array.isArray(response) && response.length > 0) {
-                // Procura pelo status DEFAULT ou qualquer outra operação disponível
-                const defaultStatus = response.find(s => s.operation === 'DEFAULT') || response[0];
-                
-                if (defaultStatus && defaultStatus.available) {
-                    statusElement.textContent = 'Online';
-                    statusElement.className = 'status-badge online';
-                } else {
-                    statusElement.textContent = 'Offline';
-                    statusElement.className = 'status-badge offline';
-                }
-            } else {
-                // Se não receber dados válidos
-                statusElement.textContent = 'Status desconhecido';
-                statusElement.className = 'status-badge';
-            }
-        } catch (error) {
-            console.error('Erro detalhado ao buscar status da loja:', error);
-            console.log('Tentando abordagem alternativa...');
-            
-            // ALTERNATIVA: tentar outro endpoint que não exija permissões especiais
-            try {
-                // Tentar obter detalhes básicos do merchant que também podem indicar status
-                const merchantDetails = await makeAuthorizedRequest(`/merchant/v1.0/merchants/${CONFIG.merchantId}`, 'GET');
-                console.log('Detalhes do merchant:', merchantDetails);
-                
-                const statusElement = document.getElementById('store-status');
-                
-                if (merchantDetails && merchantDetails.status) {
-                    // Se obtivermos um status dos detalhes do merchant
-                    const isActive = merchantDetails.status === 'ACTIVE';
-                    statusElement.textContent = isActive ? 'Online' : 'Offline';
-                    statusElement.className = isActive ? 'status-badge online' : 'status-badge offline';
-                } else {
-                    // Assume online se conseguimos obter os detalhes
-                    statusElement.textContent = 'Online (assumido)';
-                    statusElement.className = 'status-badge online';
-                }
-            } catch (altError) {
-                console.error('Erro também na abordagem alternativa:', altError);
-                
-                // Última alternativa: assumir status com base no token
-                const statusElement = document.getElementById('store-status');
-                statusElement.textContent = 'Online (assumido)';
-                statusElement.className = 'status-badge online';
+// Função para limpar os containers de pedidos
+function clearOrdersContainers() {
+    const containers = [
+        'preparation-orders',
+        'dispatched-orders',
+        'completed-orders',
+        'cancelled-orders'
+    ];
+    
+    containers.forEach(containerId => {
+        const container = document.getElementById(containerId);
+        if (container) {
+            while (container.firstChild) {
+                container.removeChild(container.firstChild);
             }
         }
-    } catch (error) {
-        console.error('Erro geral ao atualizar status da loja:', error);
-    }
+    });
 }
-
-// Variáveis globais para controle de cancelamento
-let currentCancellationOrderId = null;
-let cancellationReasons = [];
 
 // Manipula ações do pedido
 async function handleOrderAction(orderId, action) {
@@ -1076,6 +1143,10 @@ async function handleOrderAction(orderId, action) {
     }
 }
 
+// Variáveis globais para controle de cancelamento
+let currentCancellationOrderId = null;
+let cancellationReasons = [];
+
 // Função para confirmar o cancelamento com o motivo selecionado
 async function confirmCancellation() {
     if (!currentCancellationOrderId) {
@@ -1140,9 +1211,18 @@ function getStatusText(status) {
         'CONFIRMED': 'Confirmado',
         'IN_PREPARATION': 'Em Preparação',
         'READY_TO_PICKUP': 'Pronto para Retirada',
-        'DISPATCHED': 'Despachado',
+        'DISPATCHED': 'A Caminho',
         'CONCLUDED': 'Concluído',
-        'CANCELLED': 'Cancelado'
+        'CANCELLED': 'Cancelado',
+        'PLC': 'Novo',
+        'CFM': 'Confirmado',
+        'PREP': 'Em Preparação',
+        'PRS': 'Em Preparação',
+        'RTP': 'Pronto para Retirada',
+        'DDCR': 'A Caminho',
+        'CONC': 'Concluído',
+        'CANC': 'Cancelado',
+        'CANR': 'Cancelamento Solicitado'
     };
     return statusMap[status] || status;
 }
@@ -1155,6 +1235,44 @@ function startPolling() {
 
 // Event Listeners
 document.addEventListener('DOMContentLoaded', () => {
+    // Eventos para navegação entre seções principais
+    document.querySelectorAll('.sidebar-item').forEach(item => {
+        item.addEventListener('click', () => {
+            const targetSection = item.getAttribute('data-target');
+            if (targetSection) {
+                switchMainTab(targetSection);
+            }
+        });
+    });
+    
+    // Eventos para navegação entre tabs de pedidos
+    document.querySelectorAll('.tab-item').forEach(tab => {
+        tab.addEventListener('click', () => {
+            const targetTab = tab.getAttribute('data-tab');
+            if (targetTab) {
+                switchOrderTab(targetTab);
+            }
+        });
+    });
+    
+    // Eventos para filtros
+    document.querySelectorAll('.filter-button').forEach(button => {
+        button.addEventListener('click', () => {
+            const filter = button.getAttribute('data-filter');
+            if (filter) {
+                applyFilter(filter);
+            }
+        });
+    });
+    
+    // Evento para busca
+    const searchInput = document.getElementById('search-orders');
+    if (searchInput) {
+        searchInput.addEventListener('input', () => {
+            searchOrders(searchInput.value);
+        });
+    }
+
     // Botão para atualizar pedidos
     document.getElementById('poll-orders').addEventListener('click', async () => {
         if (!state.accessToken) {
@@ -1176,6 +1294,28 @@ document.addEventListener('DOMContentLoaded', () => {
             await authenticate();
         } else {
             await toggleStoreStatus();
+        }
+    });
+
+    // Botão de confirmar cancelamento
+    document.getElementById('confirm-cancellation').addEventListener('click', () => {
+        confirmCancellation();
+    });
+    
+    // Botão de cancelar cancelamento
+    document.getElementById('cancel-cancellation').addEventListener('click', () => {
+        closeCancellationModal();
+    });
+    
+    // Botão X para fechar o modal
+    document.querySelector('.close-modal').addEventListener('click', () => {
+        closeCancellationModal();
+    });
+    
+    // Fechar o modal ao clicar fora dele
+    document.getElementById('cancellation-modal').addEventListener('click', (event) => {
+        if (event.target === document.getElementById('cancellation-modal')) {
+            closeCancellationModal();
         }
     });
 
@@ -1206,31 +1346,3 @@ async function initialize() {
         hideLoading();
     }
 }
-
-// Adicione estes event listeners no final do seu arquivo script.js
-// ou dentro da função de inicialização
-
-// Event listeners para o modal de cancelamento
-document.addEventListener('DOMContentLoaded', () => {
-    // Botão de confirmar cancelamento
-    document.getElementById('confirm-cancellation').addEventListener('click', () => {
-        confirmCancellation();
-    });
-    
-    // Botão de cancelar cancelamento
-    document.getElementById('cancel-cancellation').addEventListener('click', () => {
-        closeCancellationModal();
-    });
-    
-    // Botão X para fechar o modal
-    document.querySelector('.close-modal').addEventListener('click', () => {
-        closeCancellationModal();
-    });
-    
-    // Fechar o modal ao clicar fora dele
-    document.getElementById('cancellation-modal').addEventListener('click', (event) => {
-        if (event.target === document.getElementById('cancellation-modal')) {
-            closeCancellationModal();
-        }
-    });
-});
