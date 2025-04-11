@@ -1049,6 +1049,10 @@ function clearOrdersContainers() {
     });
 }
 
+// Variáveis globais para controle de cancelamento
+let currentCancellationOrderId = null;
+let cancellationReasons = [];
+
 // Manipula ações do pedido
 async function handleOrderAction(orderId, action) {
     try {
@@ -1076,7 +1080,10 @@ async function handleOrderAction(orderId, action) {
                 console.log('Motivos de cancelamento disponíveis:', cancellationReasons);
                 
                 if (cancellationReasons && cancellationReasons.length > 0) {
+                    // Atualiza a variável global
                     currentCancellationOrderId = orderId;
+                    
+                    // Preenche o select com os motivos
                     const select = document.getElementById('cancellation-reason');
                     select.innerHTML = '';
                     
@@ -1088,7 +1095,12 @@ async function handleOrderAction(orderId, action) {
                     });
                     
                     hideLoading();
-                    document.getElementById('cancellation-modal').classList.remove('hidden');
+                    
+                    // Exibe o modal com um pequeno atraso para garantir que tudo esteja pronto
+                    setTimeout(() => {
+                        const modal = document.getElementById('cancellation-modal');
+                        if (modal) modal.classList.remove('hidden');
+                    }, 100);
                 } else {
                     hideLoading();
                     showToast('Não foi possível obter os motivos de cancelamento', 'error');
@@ -1143,14 +1155,24 @@ async function handleOrderAction(orderId, action) {
     }
 }
 
-// Variáveis globais para controle de cancelamento
-let currentCancellationOrderId = null;
-let cancellationReasons = [];
+// Função melhorada para fechar o modal de cancelamento
+function closeCancellationModal() {
+    console.log('Fechando modal de cancelamento');
+    const modal = document.getElementById('cancellation-modal');
+    if (modal) {
+        modal.classList.add('hidden');
+        currentCancellationOrderId = null;
+    }
+}
 
-// Função para confirmar o cancelamento com o motivo selecionado
-async function confirmCancellation() {
+// Função modificada para confirmar cancelamento
+function confirmCancellation() {
+    console.log('Confirmando cancelamento...');
+    const modal = document.getElementById('cancellation-modal');
+    
     if (!currentCancellationOrderId) {
         showToast('Erro: ID do pedido não encontrado', 'error');
+        if (modal) modal.classList.add('hidden');
         return;
     }
     
@@ -1162,29 +1184,37 @@ async function confirmCancellation() {
         return;
     }
     
+    // Oculta o modal antes de continuar
+    if (modal) modal.classList.add('hidden');
+    
     // Encontra a descrição do motivo selecionado
     const selectedReason = cancellationReasons.find(r => r.cancelCodeId === selectedReasonId);
     
     if (!selectedReason) {
         showToast('Motivo inválido', 'error');
+        currentCancellationOrderId = null;
         return;
     }
     
+    // Continua com o processo de cancelamento...
+    processCancellation(currentCancellationOrderId, selectedReason);
+}
+
+// Nova função para processar o cancelamento após confirmação
+async function processCancellation(orderId, reason) {
     try {
         showLoading();
-        // Fecha o modal
-        document.getElementById('cancellation-modal').classList.add('hidden');
         
         // Envia a requisição de cancelamento com o motivo
-        const response = await makeAuthorizedRequest(`/order/v1.0/orders/${currentCancellationOrderId}/requestCancellation`, 'POST', {
-            cancellationCode: selectedReason.cancelCodeId,
-            reason: selectedReason.description
+        const response = await makeAuthorizedRequest(`/order/v1.0/orders/${orderId}/requestCancellation`, 'POST', {
+            cancellationCode: reason.cancelCodeId,
+            reason: reason.description
         });
         
         console.log('Resposta do cancelamento:', response);
         
         // Atualiza o status do pedido na interface
-        updateOrderStatus(currentCancellationOrderId, 'CANCELLED');
+        updateOrderStatus(orderId, 'CANCELLED');
         
         hideLoading();
         showToast(`Pedido cancelado com sucesso!`, 'success');
@@ -1196,12 +1226,6 @@ async function confirmCancellation() {
         // Limpa o ID do pedido atual
         currentCancellationOrderId = null;
     }
-}
-
-// Função para fechar o modal de cancelamento
-function closeCancellationModal() {
-    document.getElementById('cancellation-modal').classList.add('hidden');
-    currentCancellationOrderId = null;
 }
 
 // Converte status para texto amigável
@@ -1235,6 +1259,58 @@ function startPolling() {
 
 // Event Listeners
 document.addEventListener('DOMContentLoaded', () => {
+    // Garantir que o modal de cancelamento esteja oculto inicialmente
+    const cancelModal = document.getElementById('cancellation-modal');
+    if (cancelModal) {
+        cancelModal.classList.add('hidden');
+    }
+    
+    // Corrigir os listeners de eventos para os botões do modal
+    const confirmButton = document.getElementById('confirm-cancellation');
+    if (confirmButton) {
+        // Remover quaisquer listeners existentes
+        const newConfirmButton = confirmButton.cloneNode(true);
+        confirmButton.parentNode.replaceChild(newConfirmButton, confirmButton);
+        
+        // Adicionar o listener corretamente
+        newConfirmButton.addEventListener('click', function() {
+            confirmCancellation();
+        });
+    }
+    
+    const cancelButton = document.getElementById('cancel-cancellation');
+    if (cancelButton) {
+        // Remover quaisquer listeners existentes
+        const newCancelButton = cancelButton.cloneNode(true);
+        cancelButton.parentNode.replaceChild(newCancelButton, cancelButton);
+        
+        // Adicionar o listener corretamente
+        newCancelButton.addEventListener('click', function() {
+            closeCancellationModal();
+        });
+    }
+    
+    const closeModalX = document.querySelector('.close-modal');
+    if (closeModalX) {
+        // Remover quaisquer listeners existentes
+        const newCloseModalX = closeModalX.cloneNode(true);
+        closeModalX.parentNode.replaceChild(newCloseModalX, closeModalX);
+        
+        // Adicionar o listener corretamente
+        newCloseModalX.addEventListener('click', function() {
+            closeCancellationModal();
+        });
+    }
+    
+    // Adicionar evento para fechar o modal ao clicar no fundo
+    if (cancelModal) {
+        cancelModal.addEventListener('click', function(event) {
+            if (event.target === cancelModal) {
+                closeCancellationModal();
+            }
+        });
+    }
+
     // Eventos para navegação entre seções principais
     document.querySelectorAll('.sidebar-item').forEach(item => {
         item.addEventListener('click', () => {
@@ -1294,28 +1370,6 @@ document.addEventListener('DOMContentLoaded', () => {
             await authenticate();
         } else {
             await toggleStoreStatus();
-        }
-    });
-
-    // Botão de confirmar cancelamento
-    document.getElementById('confirm-cancellation').addEventListener('click', () => {
-        confirmCancellation();
-    });
-    
-    // Botão de cancelar cancelamento
-    document.getElementById('cancel-cancellation').addEventListener('click', () => {
-        closeCancellationModal();
-    });
-    
-    // Botão X para fechar o modal
-    document.querySelector('.close-modal').addEventListener('click', () => {
-        closeCancellationModal();
-    });
-    
-    // Fechar o modal ao clicar fora dele
-    document.getElementById('cancellation-modal').addEventListener('click', (event) => {
-        if (event.target === document.getElementById('cancellation-modal')) {
-            closeCancellationModal();
         }
     });
 
