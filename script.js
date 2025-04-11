@@ -1155,12 +1155,14 @@ async function handleOrderAction(orderId, action) {
    }
 }
 
-// Função modificada para garantir que o modal fique oculto
 function closeCancellationModal() {
    console.log('Fechando modal de cancelamento');
    const modal = document.getElementById('cancellation-modal');
    if (modal) {
+       // Múltiplas formas de garantir que o modal fique oculto
        modal.classList.add('hidden');
+       modal.style.display = 'none';
+       modal.setAttribute('hidden', 'true');
        currentCancellationOrderId = null;
    }
 }
@@ -1259,11 +1261,12 @@ function startPolling() {
 
 // Event Listeners
 document.addEventListener('DOMContentLoaded', () => {
-   // Garantir que o modal de cancelamento esteja oculto inicialmente
    const cancelModal = document.getElementById('cancellation-modal');
    if (cancelModal) {
        cancelModal.classList.add('hidden');
-       console.log("Modal escondido na inicialização");
+       cancelModal.style.display = 'none';
+       cancelModal.setAttribute('hidden', 'true');
+       console.log("Modal escondido na inicialização do DOMContentLoaded");
    }
    
    // Corrigir os listeners do modal de cancelamento
@@ -1376,13 +1379,14 @@ document.addEventListener('DOMContentLoaded', () => {
    initialize();
 });
 
-// Função de inicialização modificada
 async function initialize() {
    try {
        // Garantir que o modal de cancelamento esteja SEMPRE oculto
        const cancelModal = document.getElementById('cancellation-modal');
        if (cancelModal) {
            cancelModal.classList.add('hidden');
+           cancelModal.style.display = 'none';
+           cancelModal.setAttribute('hidden', 'true');
            console.log("Modal escondido na inicialização");
        }
        
@@ -1409,6 +1413,19 @@ async function initialize() {
        const cancelModal = document.getElementById('cancellation-modal');
        if (cancelModal) {
            cancelModal.classList.add('hidden');
+           cancelModal.style.display = 'none';
+           cancelModal.setAttribute('hidden', 'true');
        }
    }
 }
+
+// Adicione isso no final do seu script.js
+window.addEventListener('load', () => {
+   const cancelModal = document.getElementById('cancellation-modal');
+   if (cancelModal) {
+       cancelModal.classList.add('hidden');
+       cancelModal.style.display = 'none';
+       cancelModal.setAttribute('hidden', 'true');
+       console.log("Modal escondido no evento de carregamento da janela");
+   }
+});
