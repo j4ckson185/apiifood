@@ -1118,7 +1118,42 @@ async function handleOrderAction(orderId, action) {
                showToast('Erro ao obter motivos de cancelamento', 'error');
            }
        } else {
-           // Outras ações normais...
+           // Todas as outras ações normais
+           showLoading();
+           const response = await makeAuthorizedRequest(`/order/v1.0/orders/${orderId}${endpoint}`, 'POST');
+           console.log(`Resposta da ação ${action}:`, response);
+
+           // Atualizar o status manualmente na interface de acordo com a ação executada
+           let newStatus;
+           switch(action) {
+               case 'confirm':
+                   newStatus = 'CONFIRMED';
+                   break;
+               case 'startPreparation':
+                   newStatus = 'IN_PREPARATION';
+                   break;
+               case 'readyToPickup':
+                   newStatus = 'READY_TO_PICKUP';
+                   break;
+               case 'dispatch':
+                   newStatus = 'DISPATCHED';
+                   break;
+               default:
+                   // Para outros casos, buscamos o status atual
+                   const updatedOrder = await makeAuthorizedRequest(`/order/v1.0/orders/${orderId}`, 'GET');
+                   newStatus = updatedOrder.status;
+           }
+
+           // Atualiza a UI com o novo status
+           updateOrderStatus(orderId, newStatus);
+
+           if (!processedOrderIds.has(orderId)) {
+               processedOrderIds.add(orderId);
+               saveProcessedIds();
+           }
+
+           hideLoading();
+           showToast(`Ação "${action}" realizada com sucesso!`, 'success');
        }
    } catch (error) {
        hideLoading();
