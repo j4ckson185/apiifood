@@ -1012,32 +1012,18 @@ async function handleOrderAction(orderId, action) {
             const response = await makeAuthorizedRequest(`/order/v1.0/orders/${orderId}${endpoint}`, 'POST');
             console.log(`Resposta da ação ${action}:`, response);
             
-            // Atualiza o status do pedido na interface
-            let newStatus;
-            switch (action) {
-                case 'confirm':
-                    newStatus = 'CONFIRMED';
-                    break;
-                case 'startPreparation':
-                    newStatus = 'IN_PREPARATION';
-                    break;
-                case 'readyToPickup':
-                    newStatus = 'READY_TO_PICKUP';
-                    break;
-                case 'dispatch':
-                    newStatus = 'DISPATCHED';
-                    break;
-            }
-            
-if (newStatus) {
-    updateOrderStatus(orderId, newStatus);
+// Após ação, recarrega os detalhes do pedido para pegar o status real da API
+try {
+    const updatedOrder = await makeAuthorizedRequest(`/order/v1.0/orders/${orderId}`, 'GET');
+    updateOrderStatus(orderId, updatedOrder.status);
 
-    // Evita duplicação futura do mesmo pedido
     if (!processedOrderIds.has(orderId)) {
         processedOrderIds.add(orderId);
         saveProcessedIds();
     }
-} 
+} catch (error) {
+    console.error(`Erro ao buscar pedido atualizado ${orderId}:`, error);
+}
             hideLoading();
             showToast(`Ação "${action}" realizada com sucesso!`, 'success');
         }
