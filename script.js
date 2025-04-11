@@ -1265,6 +1265,81 @@ function startPolling() {
    pollEvents();
 }
 
+// Variáveis para controle de paginação
+let currentPage = 1;
+const pageSize = 10;
+let totalStores = 0;
+
+// Função para listar lojas
+async function fetchStores(page = 1) {
+    try {
+        showLoading();
+        const response = await makeAuthorizedRequest(`/merchant/v1.0/merchants?page=${page}&size=${pageSize}`, 'GET');
+        
+        const storesList = document.getElementById('stores-list');
+        storesList.innerHTML = '';
+        
+        if (response && Array.isArray(response)) {
+            response.forEach(store => {
+                const storeCard = document.createElement('div');
+                storeCard.className = 'store-card';
+                storeCard.innerHTML = `
+                    <h3>${store.name || 'Nome não disponível'}</h3>
+                    <p>${store.corporateName || 'Razão social não disponível'}</p>
+                `;
+                
+                storeCard.onclick = () => fetchStoreDetails(store.id);
+                storesList.appendChild(storeCard);
+            });
+            
+            // Atualiza informações de paginação
+            document.getElementById('page-info').textContent = `Página ${page}`;
+            currentPage = page;
+        }
+    } catch (error) {
+        console.error('Erro ao buscar lojas:', error);
+        showToast('Erro ao carregar lista de lojas', 'error');
+    } finally {
+        hideLoading();
+    }
+}
+
+// Função para buscar detalhes da loja
+async function fetchStoreDetails(merchantId) {
+    try {
+        showLoading();
+        const response = await makeAuthorizedRequest(`/merchant/v1.0/merchants/${merchantId}`, 'GET');
+        
+        const storeDetails = document.getElementById('store-details');
+        storeDetails.innerHTML = `
+            <h2>Detalhes da Loja</h2>
+            <div class="store-detail-row">
+                <span class="store-detail-label">Nome:</span>
+                <span class="store-detail-value">${response.name || 'N/A'}</span>
+            </div>
+            <div class="store-detail-row">
+                <span class="store-detail-label">Razão Social:</span>
+                <span class="store-detail-value">${response.corporateName || 'N/A'}</span>
+            </div>
+            <div class="store-detail-row">
+                <span class="store-detail-label">CNPJ:</span>
+                <span class="store-detail-value">${response.cnpj || 'N/A'}</span>
+            </div>
+            <div class="store-detail-row">
+                <span class="store-detail-label">Endereço:</span>
+                <span class="store-detail-value">${response.address || 'N/A'}</span>
+            </div>
+        `;
+        
+        storeDetails.classList.remove('hidden');
+    } catch (error) {
+        console.error('Erro ao buscar detalhes da loja:', error);
+        showToast('Erro ao carregar detalhes da loja', 'error');
+    } finally {
+        hideLoading();
+    }
+}
+
 // Event Listeners
 document.addEventListener('DOMContentLoaded', () => {
    const cancelModal = document.getElementById('cancellation-modal');
@@ -1338,6 +1413,23 @@ document.addEventListener('DOMContentLoaded', () => {
            }
        });
    });
+
+    // Event Listeners para paginação
+document.getElementById('prev-page')?.addEventListener('click', () => {
+    if (currentPage > 1) {
+        fetchStores(currentPage - 1);
+    }
+});
+
+document.getElementById('next-page')?.addEventListener('click', () => {
+    fetchStores(currentPage + 1);
+});
+
+// Adiciona o listener para a nova aba de lojas
+document.querySelector('.sidebar-item[data-target="stores"]')?.addEventListener('click', () => {
+    switchMainTab('stores');
+    fetchStores(1); // Carrega a primeira página ao abrir a aba
+});
    
    // Eventos para filtros
    document.querySelectorAll('.filter-button').forEach(button => {
