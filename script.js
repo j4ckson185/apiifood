@@ -15,6 +15,10 @@ let state = {
     activeFilter: 'all' // Filtro atual (all, cash, card, online)
 };
 
+// Variáveis globais para controle de cancelamento
+let currentCancellationOrderId = null;
+let cancellationReasons = [];
+
 // Funções de utilidade
 const showLoading = () => document.getElementById('loading-overlay').classList.remove('hidden');
 const hideLoading = () => document.getElementById('loading-overlay').classList.add('hidden');
@@ -723,680 +727,715 @@ function displayOrder(order) {
     }
 
 // Adiciona ao container apropriado
-    if (targetContainer) {
-        targetContainer.appendChild(orderElement);
-        // Verifica se a mensagem de "sem pedidos" deve ser ocultada
-        const tabId = targetContainer.id.replace('-orders', '');
-        checkForEmptyTab(tabId);
-    }
-    
-    console.log('Pedido exibido com sucesso:', order.id);
+   if (targetContainer) {
+       targetContainer.appendChild(orderElement);
+       // Verifica se a mensagem de "sem pedidos" deve ser ocultada
+       const tabId = targetContainer.id.replace('-orders', '');
+       checkForEmptyTab(tabId);
+   }
+   
+   console.log('Pedido exibido com sucesso:', order.id);
 }
 
 // Função modificada para atualizar o status apenas quando explicitamente solicitado
 function updateOrderStatus(orderId, status) {
-    console.log(`Atualizando status do pedido ${orderId} para ${status}`);
+   console.log(`Atualizando status do pedido ${orderId} para ${status}`);
 
-    // Busca o card do pedido pelo data-order-id exato
-    const card = document.querySelector(`.order-card[data-order-id="${orderId}"]`);
+   // Busca o card do pedido pelo data-order-id exato
+   const card = document.querySelector(`.order-card[data-order-id="${orderId}"]`);
 
-    if (card) {
-        // Atualiza o status
-        const statusElement = card.querySelector('.order-status');
-        if (statusElement) {
-            statusElement.textContent = getStatusText(status);
-        }
+   if (card) {
+       // Atualiza o status
+       const statusElement = card.querySelector('.order-status');
+       if (statusElement) {
+           statusElement.textContent = getStatusText(status);
+       }
 
-        // Atualiza as ações disponíveis
-        const actionsContainer = card.querySelector('.order-actions');
-        if (actionsContainer) {
-            // Adiciona novas ações baseadas no status atualizado
-            addActionButtons(actionsContainer, { id: orderId, status });
-        }
-        
-        // Atualiza classes do card baseado no status
-        // Primeiro remove todas as classes de status existentes
-        const statusClasses = Array.from(card.classList)
-            .filter(className => className.startsWith('status-'));
-        
-        statusClasses.forEach(className => {
-            card.classList.remove(className);
-        });
-        
-        // Adiciona a nova classe de status
-        if (status) {
-            card.classList.add(`status-${status.toLowerCase()}`);
-        }
-        
-        // Move o card para a tab correta baseado no novo status
-        moveCardToCorrectTab(card, status);
-    } else {
-        console.log(`Pedido ${orderId} não encontrado na interface. Buscando detalhes...`);
-        makeAuthorizedRequest(`/order/v1.0/orders/${orderId}`, 'GET')
-            .then(order => {
-                displayOrder(order);
-            })
-            .catch(error => {
-                console.error(`Erro ao buscar detalhes do pedido ${orderId}:`, error);
-            });
-    }
+       // Atualiza as ações disponíveis
+       const actionsContainer = card.querySelector('.order-actions');
+       if (actionsContainer) {
+           // Adiciona novas ações baseadas no status atualizado
+           addActionButtons(actionsContainer, { id: orderId, status });
+       }
+       
+       // Atualiza classes do card baseado no status
+       // Primeiro remove todas as classes de status existentes
+       const statusClasses = Array.from(card.classList)
+           .filter(className => className.startsWith('status-'));
+       
+       statusClasses.forEach(className => {
+           card.classList.remove(className);
+       });
+       
+       // Adiciona a nova classe de status
+       if (status) {
+           card.classList.add(`status-${status.toLowerCase()}`);
+       }
+       
+       // Move o card para a tab correta baseado no novo status
+       moveCardToCorrectTab(card, status);
+   } else {
+       console.log(`Pedido ${orderId} não encontrado na interface. Buscando detalhes...`);
+       makeAuthorizedRequest(`/order/v1.0/orders/${orderId}`, 'GET')
+           .then(order => {
+               displayOrder(order);
+           })
+           .catch(error => {
+               console.error(`Erro ao buscar detalhes do pedido ${orderId}:`, error);
+           });
+   }
 }
 
 // Função para mover o card para a tab correta após atualização de status
 function moveCardToCorrectTab(card, status) {
-    let targetContainerId;
-    
-    if (status === 'CANCELLED' || status === 'CANC') {
-        targetContainerId = 'cancelled-orders';
-    } else if (status === 'CONCLUDED' || status === 'CONC') {
-        targetContainerId = 'completed-orders';
-    } else if (status === 'DISPATCHED' || status === 'DDCR') {
-        targetContainerId = 'dispatched-orders';
-    } else {
-        // Todos os outros statuses (PLACED, CONFIRMED, IN_PREPARATION, etc)
-        targetContainerId = 'preparation-orders';
-    }
-    
-    const targetContainer = document.getElementById(targetContainerId);
-    const currentParent = card.parentElement;
-    
-    if (targetContainer && currentParent && currentParent.id !== targetContainerId) {
-        // Move o card para o container correto
-        targetContainer.appendChild(card);
-        
-        // Verifica se as tabs antigas e novas devem mostrar a mensagem "sem pedidos"
-        const oldTabId = currentParent.id.replace('-orders', '');
-        const newTabId = targetContainerId.replace('-orders', '');
-        
-        checkForEmptyTab(oldTabId);
-        checkForEmptyTab(newTabId);
-        
-        // Mostra um toast informando sobre a mudança
-        const statusText = getStatusText(status);
-        showToast(`Pedido movido para "${statusText}"`, 'info');
-    }
+   let targetContainerId;
+   
+   if (status === 'CANCELLED' || status === 'CANC') {
+       targetContainerId = 'cancelled-orders';
+   } else if (status === 'CONCLUDED' || status === 'CONC') {
+       targetContainerId = 'completed-orders';
+   } else if (status === 'DISPATCHED' || status === 'DDCR') {
+       targetContainerId = 'dispatched-orders';
+   } else {
+       // Todos os outros statuses (PLACED, CONFIRMED, IN_PREPARATION, etc)
+       targetContainerId = 'preparation-orders';
+   }
+   
+   const targetContainer = document.getElementById(targetContainerId);
+   const currentParent = card.parentElement;
+   
+   if (targetContainer && currentParent && currentParent.id !== targetContainerId) {
+       // Move o card para o container correto
+       targetContainer.appendChild(card);
+       
+       // Verifica se as tabs antigas e novas devem mostrar a mensagem "sem pedidos"
+       const oldTabId = currentParent.id.replace('-orders', '');
+       const newTabId = targetContainerId.replace('-orders', '');
+       
+       checkForEmptyTab(oldTabId);
+       checkForEmptyTab(newTabId);
+       
+       // Mostra um toast informando sobre a mudança
+       const statusText = getStatusText(status);
+       showToast(`Pedido movido para "${statusText}"`, 'info');
+   }
 }
 
 // Adiciona botões de ação baseado no status do pedido
 function addActionButtons(container, order) {
-    console.log('Adicionando botões de ação para pedido com status:', order.status);
-    
-    // Limpa botões existentes
-    while (container.firstChild) {
-        container.removeChild(container.firstChild);
-    }
-    
-    // Mapeamento detalhado de status para ações
-    const actions = {
-        'PLACED': [
-            { label: 'Confirmar', action: 'confirm', class: 'confirm' },
-            { label: 'Cancelar', action: 'requestCancellation', class: 'cancel' }
-        ],
-        'CONFIRMED': [
-            { label: 'Despachar', action: 'dispatch', class: 'dispatch' },
-            { label: 'Cancelar', action: 'requestCancellation', class: 'cancel' }
-        ],
-        'IN_PREPARATION': [
-            { label: 'Despachar', action: 'dispatch', class: 'dispatch' },
-            { label: 'Cancelar', action: 'requestCancellation', class: 'cancel' }
-        ],
-        'READY_TO_PICKUP': [
-            { label: 'Despachar', action: 'dispatch', class: 'dispatch' },
-            { label: 'Cancelar', action: 'requestCancellation', class: 'cancel' }
-        ],
-        'DISPATCHED': [
-            { label: 'Cancelar', action: 'requestCancellation', class: 'cancel' }
-        ],
-        'CANCELLATION_REQUESTED': [
-            { label: 'Cancelamento Solicitado', action: null, class: 'disabled' }
-        ],
-        'CANCELLED': [
-            { label: 'Pedido Cancelado', action: null, class: 'disabled' }
-        ],
-        'CONCLUDED': [
-            { label: 'Pedido Concluído', action: null, class: 'disabled' }
-        ]
-    };
-    
-    // Determina o tipo de pedido (delivery ou para retirar)
-    let isDelivery = true;
-    if (order.orderType === 'TAKEOUT' || (order.takeout && order.takeout.mode)) {
-        isDelivery = false;
-    }
-    
-    // Pega o status normalizado
-    let orderStatus = order.status;
-    if (!orderStatus && order.id) {
-        // Se não tiver status mas tiver ID, considera como PLACED
-        orderStatus = 'PLACED';
-    }
-    
-    // Mapeamento de códigos de status para status normalizados
-    const statusMap = {
-        'PLC': 'PLACED',
-        'CFM': 'CONFIRMED',
-        'PREP': 'IN_PREPARATION',
-        'PRS': 'IN_PREPARATION', // Adicional para lidar com 'PRS'
-        'RTP': 'READY_TO_PICKUP',
-        'DDCR': 'DISPATCHED',
-        'CONC': 'CONCLUDED',
-        'CANC': 'CANCELLED',
-        'CANR': 'CANCELLATION_REQUESTED'
-    };
+   console.log('Adicionando botões de ação para pedido com status:', order.status);
+   
+   // Limpa botões existentes
+   while (container.firstChild) {
+       container.removeChild(container.firstChild);
+   }
+   
+   // Mapeamento detalhado de status para ações
+   const actions = {
+       'PLACED': [
+           { label: 'Confirmar', action: 'confirm', class: 'confirm' },
+           { label: 'Cancelar', action: 'requestCancellation', class: 'cancel' }
+       ],
+       'CONFIRMED': [
+           { label: 'Despachar', action: 'dispatch', class: 'dispatch' },
+           { label: 'Cancelar', action: 'requestCancellation', class: 'cancel' }
+       ],
+       'IN_PREPARATION': [
+           { label: 'Despachar', action: 'dispatch', class: 'dispatch' },
+           { label: 'Cancelar', action: 'requestCancellation', class: 'cancel' }
+       ],
+       'READY_TO_PICKUP': [
+           { label: 'Despachar', action: 'dispatch', class: 'dispatch' },
+           { label: 'Cancelar', action: 'requestCancellation', class: 'cancel' }
+       ],
+       'DISPATCHED': [
+           { label: 'Cancelar', action: 'requestCancellation', class: 'cancel' }
+       ],
+       'CANCELLATION_REQUESTED': [
+           { label: 'Cancelamento Solicitado', action: null, class: 'disabled' }
+       ],
+       'CANCELLED': [
+           { label: 'Pedido Cancelado', action: null, class: 'disabled' }
+       ],
+       'CONCLUDED': [
+           { label: 'Pedido Concluído', action: null, class: 'disabled' }
+       ]
+   };
+   
+   // Determina o tipo de pedido (delivery ou para retirar)
+   let isDelivery = true;
+   if (order.orderType === 'TAKEOUT' || (order.takeout && order.takeout.mode)) {
+       isDelivery = false;
+   }
+   
+   // Pega o status normalizado
+   let orderStatus = order.status;
+   if (!orderStatus && order.id) {
+       // Se não tiver status mas tiver ID, considera como PLACED
+       orderStatus = 'PLACED';
+   }
+   
+   // Mapeamento de códigos de status para status normalizados
+   const statusMap = {
+       'PLC': 'PLACED',
+       'CFM': 'CONFIRMED',
+       'PREP': 'IN_PREPARATION',
+       'PRS': 'IN_PREPARATION', // Adicional para lidar com 'PRS'
+       'RTP': 'READY_TO_PICKUP',
+       'DDCR': 'DISPATCHED',
+       'CONC': 'CONCLUDED',
+       'CANC': 'CANCELLED',
+       'CANR': 'CANCELLATION_REQUESTED'
+   };
 
-    const normalizedStatus = statusMap[orderStatus] || orderStatus;
-    
-    // Usar o status normalizado para buscar as ações
-    let orderActions = actions[normalizedStatus] || [];
-    
-    if (orderActions.length === 0) {
-        if (orderStatus && typeof orderStatus === 'string') {
-            // Tenta encontrar ações para status similares
-            const statusLower = orderStatus.toLowerCase();
-            
-            if (statusLower.includes('placed') || statusLower.includes('new')) {
-                orderActions = actions['PLACED'];
-            } else if (statusLower.includes('confirm') || statusLower.includes('cfm')) {
-                orderActions = actions['CONFIRMED'];
-            } else if (statusLower.includes('prepar') || statusLower.includes('prs')) {
-                orderActions = actions['IN_PREPARATION'];
-            } else if (statusLower.includes('ready') || statusLower.includes('pickup')) {
-                orderActions = actions['READY_TO_PICKUP'];
-            } else if (statusLower.includes('dispatch') || statusLower.includes('ddcr')) {
-                orderActions = actions['DISPATCHED'];
-            } else if (statusLower.includes('cancel')) {
-                orderActions = actions['CANCELLED'];
-            } else if (statusLower.includes('conclud')) {
-                orderActions = actions['CONCLUDED'];
-            }
-        }
-    }
-    
-    console.log(`Encontradas ${orderActions.length} ações para o status ${orderStatus}`);
-    
-    // Adiciona os botões de ação
-    orderActions.forEach(({label, action, class: buttonClass}) => {
-        const button = document.createElement('button');
-        button.className = `action-button ${buttonClass || action}`;
-        button.textContent = label;
-        
-        if (action) {
-            button.onclick = () => handleOrderAction(order.id, action);
-        } else {
-            button.disabled = true;
-        }
-        
-        container.appendChild(button);
-    });
-    
-    // Se não houver ações disponíveis, mostra uma mensagem
-    if (orderActions.length === 0) {
-        const messageSpan = document.createElement('span');
-        messageSpan.className = 'no-actions';
-        messageSpan.textContent = 'Nenhuma ação disponível';
-        container.appendChild(messageSpan);
-    }
+   const normalizedStatus = statusMap[orderStatus] || orderStatus;
+   
+   // Usar o status normalizado para buscar as ações
+   let orderActions = actions[normalizedStatus] || [];
+   
+   if (orderActions.length === 0) {
+       if (orderStatus && typeof orderStatus === 'string') {
+           // Tenta encontrar ações para status similares
+           const statusLower = orderStatus.toLowerCase();
+           
+           if (statusLower.includes('placed') || statusLower.includes('new')) {
+               orderActions = actions['PLACED'];
+           } else if (statusLower.includes('confirm') || statusLower.includes('cfm')) {
+               orderActions = actions['CONFIRMED'];
+           } else if (statusLower.includes('prepar') || statusLower.includes('prs')) {
+               orderActions = actions['IN_PREPARATION'];
+           } else if (statusLower.includes('ready') || statusLower.includes('pickup')) {
+               orderActions = actions['READY_TO_PICKUP'];
+           } else if (statusLower.includes('dispatch') || statusLower.includes('ddcr')) {
+               orderActions = actions['DISPATCHED'];
+           } else if (statusLower.includes('cancel')) {
+               orderActions = actions['CANCELLED'];
+           } else if (statusLower.includes('conclud')) {
+               orderActions = actions['CONCLUDED'];
+           }
+       }
+   }
+   
+   console.log(`Encontradas ${orderActions.length} ações para o status ${orderStatus}`);
+   
+   // Adiciona os botões de ação
+   orderActions.forEach(({label, action, class: buttonClass}) => {
+       const button = document.createElement('button');
+       button.className = `action-button ${buttonClass || action}`;
+       button.textContent = label;
+       
+       if (action) {
+           button.onclick = () => handleOrderAction(order.id, action);
+       } else {
+           button.disabled = true;
+       }
+       
+       container.appendChild(button);
+   });
+   
+   // Se não houver ações disponíveis, mostra uma mensagem
+   if (orderActions.length === 0) {
+       const messageSpan = document.createElement('span');
+       messageSpan.className = 'no-actions';
+       messageSpan.textContent = 'Nenhuma ação disponível';
+       container.appendChild(messageSpan);
+   }
 }
 
 // Função para buscar pedidos ativos usando eventos
 async function fetchActiveOrders() {
-    try {
-        console.log('Buscando pedidos ativos via eventos...');
-        showToast('Buscando pedidos ativos...', 'info');
-        
-        // Precisamos declarar esta variável, estava sendo usada sem declaração
-        const successfulOrders = [];
-        
-        // Limpa os containers de pedidos
-        clearOrdersContainers();
-        
-        // Buscar eventos recentes
-        const events = await makeAuthorizedRequest('/events/v1.0/events:polling', 'GET');
-        
-        if (events && Array.isArray(events) && events.length > 0) {
-            console.log('Eventos recebidos:', events);
-            
-            // Filtra eventos relacionados a pedidos - aceitamos todos os tipos de eventos
-            const orderEvents = events.filter(event => event.orderId);
-            
-            if (orderEvents.length > 0) {
-                // Conjunto para rastrear pedidos já processados nesta busca
-                const processedInThisFetch = new Set();
-                
-                for (const event of orderEvents) {
-                    // Evita processar o mesmo pedido múltiplas vezes nesta busca
-                    if (!processedInThisFetch.has(event.orderId)) {
-                        processedInThisFetch.add(event.orderId);
-                        
-                        try {
-                            console.log(`Buscando detalhes do pedido ${event.orderId}`);
-                            const orderDetails = await makeAuthorizedRequest(`/order/v1.0/orders/${event.orderId}`, 'GET');
-                            console.log(`Detalhes recebidos para pedido ${event.orderId}:`, orderDetails);
-                            
-                            // Verifica se o pedido já existe na interface
-                            const existingOrder = document.querySelector(`.order-card[data-order-id="${orderDetails.id}"]`);
-                            if (!existingOrder) {
-                                displayOrder(orderDetails);
-                                successfulOrders.push(orderDetails);
-                                
-                                // Adiciona aos pedidos processados para evitar processamento futuro
-                                if (!processedOrderIds.has(event.orderId)) {
-                                    processedOrderIds.add(event.orderId);
-                                    saveProcessedIds();
-                                }
-                            } else {
-                                console.log(`Pedido ${orderDetails.id} já está na interface, ignorando`);
-                            }
-                        } catch (orderError) {
-                            console.error(`Erro ao buscar detalhes do pedido ${event.orderId}:`, orderError);
-                        }
-                    }
-                }
-                
-                // Fazer acknowledgment dos eventos processados
-                if (events.length > 0) {
-                    try {
-                        const acknowledgmentFormat = events.map(event => ({ id: event.id }));
-                        await makeAuthorizedRequest('/events/v1.0/events/acknowledgment', 'POST', acknowledgmentFormat);
-                        console.log('Acknowledgment enviado com sucesso para eventos:', events.map(e => e.id));
-                    } catch (ackError) {
-                        console.error('Erro ao enviar acknowledgment:', ackError);
-                    }
-                }
-                
-                if (successfulOrders.length > 0) {
-                    showToast(`${successfulOrders.length} pedidos carregados`, 'success');
-                } else {
-                    showToast('Nenhum pedido ativo encontrado', 'info');
-                }
-            } else {
-                console.log('Nenhum evento de pedido encontrado');
-                showToast('Nenhum pedido ativo no momento', 'info');
-            }
-        } else {
-            console.log('Nenhum evento recebido');
-            showToast('Nenhum pedido ativo no momento', 'info');
-        }
-        
-        // Verifica se há pedidos em cada tab
-        checkForEmptyTab('preparation');
-        checkForEmptyTab('dispatched');
-        checkForEmptyTab('completed');
-        checkForEmptyTab('cancelled');
-        
-    } catch (error) {
-        console.error('Erro ao buscar pedidos ativos:', error);
-        showToast('Erro ao buscar pedidos', 'error');
-    }
+   try {
+       console.log('Buscando pedidos ativos via eventos...');
+       showToast('Buscando pedidos ativos...', 'info');
+       
+       // Precisamos declarar esta variável, estava sendo usada sem declaração
+       const successfulOrders = [];
+       
+       // Limpa os containers de pedidos
+       clearOrdersContainers();
+       
+       // Buscar eventos recentes
+       const events = await makeAuthorizedRequest('/events/v1.0/events:polling', 'GET');
+       
+       if (events && Array.isArray(events) && events.length > 0) {
+           console.log('Eventos recebidos:', events);
+           
+           // Filtra eventos relacionados a pedidos - aceitamos todos os tipos de eventos
+           const orderEvents = events.filter(event => event.orderId);
+           
+           if (orderEvents.length > 0) {
+               // Conjunto para rastrear pedidos já processados nesta busca
+               const processedInThisFetch = new Set();
+               
+               for (const event of orderEvents) {
+                   // Evita processar o mesmo pedido múltiplas vezes nesta busca
+                   if (!processedInThisFetch.has(event.orderId)) {
+                       processedInThisFetch.add(event.orderId);
+                       
+                       try {
+                           console.log(`Buscando detalhes do pedido ${event.orderId}`);
+                           const orderDetails = await makeAuthorizedRequest(`/order/v1.0/orders/${event.orderId}`, 'GET');
+                           console.log(`Detalhes recebidos para pedido ${event.orderId}:`, orderDetails);
+                           
+                           // Verifica se o pedido já existe na interface
+                           const existingOrder = document.querySelector(`.order-card[data-order-id="${orderDetails.id}"]`);
+                           if (!existingOrder) {
+                               displayOrder(orderDetails);
+                               successfulOrders.push(orderDetails);
+                               
+                               // Adiciona aos pedidos processados para evitar processamento futuro
+                               if (!processedOrderIds.has(event.orderId)) {
+                                   processedOrderIds.add(event.orderId);
+                                   saveProcessedIds();
+                               }
+                           } else {
+                               console.log(`Pedido ${orderDetails.id} já está na interface, ignorando`);
+                           }
+                       } catch (orderError) {
+                           console.error(`Erro ao buscar detalhes do pedido ${event.orderId}:`, orderError);
+                       }
+                   }
+               }
+               
+               // Fazer acknowledgment dos eventos processados
+               if (events.length > 0) {
+                   try {
+                       const acknowledgmentFormat = events.map(event => ({ id: event.id }));
+                       await makeAuthorizedRequest('/events/v1.0/events/acknowledgment', 'POST', acknowledgmentFormat);
+                       console.log('Acknowledgment enviado com sucesso para eventos:', events.map(e => e.id));
+                   } catch (ackError) {
+                       console.error('Erro ao enviar acknowledgment:', ackError);
+                   }
+               }
+               
+               if (successfulOrders.length > 0) {
+                   showToast(`${successfulOrders.length} pedidos carregados`, 'success');
+               } else {
+                   showToast('Nenhum pedido ativo encontrado', 'info');
+               }
+           } else {
+               console.log('Nenhum evento de pedido encontrado');
+               showToast('Nenhum pedido ativo no momento', 'info');
+           }
+       } else {
+           console.log('Nenhum evento recebido');
+           showToast('Nenhum pedido ativo no momento', 'info');
+       }
+       
+       // Verifica se há pedidos em cada tab
+       checkForEmptyTab('preparation');
+       checkForEmptyTab('dispatched');
+       checkForEmptyTab('completed');
+       checkForEmptyTab('cancelled');
+       
+   } catch (error) {
+       console.error('Erro ao buscar pedidos ativos:', error);
+       showToast('Erro ao buscar pedidos', 'error');
+   }
 }
 
 // Função para limpar os containers de pedidos
 function clearOrdersContainers() {
-    const containers = [
-        'preparation-orders',
-        'dispatched-orders',
-        'completed-orders',
-        'cancelled-orders'
-    ];
-    
-    containers.forEach(containerId => {
-        const container = document.getElementById(containerId);
-        if (container) {
-            while (container.firstChild) {
-                container.removeChild(container.firstChild);
-            }
-        }
-    });
+   const containers = [
+       'preparation-orders',
+       'dispatched-orders',
+       'completed-orders',
+       'cancelled-orders'
+   ];
+   
+   containers.forEach(containerId => {
+       const container = document.getElementById(containerId);
+       if (container) {
+           while (container.firstChild) {
+               container.removeChild(container.firstChild);
+           }
+       }
+   });
 }
-
-// Variáveis globais para controle de cancelamento
-let currentCancellationOrderId = null;
-let cancellationReasons = [];
 
 // Manipula ações do pedido
 async function handleOrderAction(orderId, action) {
-    try {
-        console.log(`Executando ação ${action} para o pedido ${orderId}`);
-        
-        // Mapeamento de ações para endpoints da API
-        const actionEndpoints = {
-            'confirm': '/confirm',
-            'startPreparation': '/startPreparation',
-            'readyToPickup': '/readyToPickup',
-            'dispatch': '/dispatch',
-            'requestCancellation': '/requestCancellation'
-        };
-        
-        const endpoint = actionEndpoints[action];
-        if (!endpoint) {
-            throw new Error(`Ação desconhecida: ${action}`);
-        }
+   try {
+       console.log(`Executando ação ${action} para o pedido ${orderId}`);
+       
+       // Mapeamento de ações para endpoints da API
+       const actionEndpoints = {
+           'confirm': '/confirm',
+           'startPreparation': '/startPreparation',
+           'readyToPickup': '/readyToPickup',
+           'dispatch': '/dispatch',
+           'requestCancellation': '/requestCancellation'
+       };
+       
+       const endpoint = actionEndpoints[action];
+       if (!endpoint) {
+           throw new Error(`Ação desconhecida: ${action}`);
+       }
 
-        // Tratamento especial para cancelamento
-        if (action === 'requestCancellation') {
-            showLoading();
-            try {
-                cancellationReasons = await makeAuthorizedRequest(`/order/v1.0/orders/${orderId}/cancellationReasons`, 'GET');
-                console.log('Motivos de cancelamento disponíveis:', cancellationReasons);
-                
-                if (cancellationReasons && cancellationReasons.length > 0) {
-                    // Atualiza a variável global
-                    currentCancellationOrderId = orderId;
-                    
-                    // Preenche o select com os motivos
-                    const select = document.getElementById('cancellation-reason');
-                    select.innerHTML = '';
-                    
-                    cancellationReasons.forEach(reason => {
-                        const option = document.createElement('option');
-                        option.value = reason.cancelCodeId;
-                        option.textContent = reason.description;
-                        select.appendChild(option);
-                    });
-                    
-                    hideLoading();
-                    
-                    // Exibe o modal com um pequeno atraso para garantir que tudo esteja pronto
-                    setTimeout(() => {
-                        const modal = document.getElementById('cancellation-modal');
-                        if (modal) modal.classList.remove('hidden');
-                    }, 100);
-                } else {
-                    hideLoading();
-                    showToast('Não foi possível obter os motivos de cancelamento', 'error');
-                }
-            } catch (cancelError) {
-                hideLoading();
-                console.error('Erro ao obter motivos de cancelamento:', cancelError);
-                showToast('Erro ao obter motivos de cancelamento', 'error');
-            }
-        } else {
-            // Todas as outras ações normais
-            showLoading();
-            const response = await makeAuthorizedRequest(`/order/v1.0/orders/${orderId}${endpoint}`, 'POST');
-            console.log(`Resposta da ação ${action}:`, response);
+       // Tratamento especial para cancelamento
+       if (action === 'requestCancellation') {
+           showLoading();
+           try {
+               cancellationReasons = await makeAuthorizedRequest(`/order/v1.0/orders/${orderId}/cancellationReasons`, 'GET');
+               console.log('Motivos de cancelamento disponíveis:', cancellationReasons);
+               
+               if (cancellationReasons && cancellationReasons.length > 0) {
+                   // Atualiza a variável global
+                   currentCancellationOrderId = orderId;
+                   
+                   // Preenche o select com os motivos
+                   const select = document.getElementById('cancellation-reason');
+                   select.innerHTML = '';
+                   
+                   cancellationReasons.forEach(reason => {
+                       const option = document.createElement('option');
+                       option.value = reason.cancelCodeId;
+                       option.textContent = reason.description;
+                       select.appendChild(option);
+                   });
+                   
+                   hideLoading();
+                   
+                   // Exibe o modal com um pequeno atraso para garantir que tudo esteja pronto
+                   setTimeout(() => {
+                       const modal = document.getElementById('cancellation-modal');
+                       if (modal) modal.classList.remove('hidden');
+                   }, 100);
+               } else {
+                   hideLoading();
+                   showToast('Não foi possível obter os motivos de cancelamento', 'error');
+               }
+           } catch (cancelError) {
+               hideLoading();
+               console.error('Erro ao obter motivos de cancelamento:', cancelError);
+               showToast('Erro ao obter motivos de cancelamento', 'error');
+           }
+       } else {
+           // Todas as outras ações normais
+           showLoading();
+           const response = await makeAuthorizedRequest(`/order/v1.0/orders/${orderId}${endpoint}`, 'POST');
+           console.log(`Resposta da ação ${action}:`, response);
 
-            // Atualizar o status manualmente na interface de acordo com a ação executada
-            let newStatus;
-            switch(action) {
-                case 'confirm':
-                    newStatus = 'CONFIRMED';
-                    break;
-                case 'startPreparation':
-                    newStatus = 'IN_PREPARATION';
-                    break;
-                case 'readyToPickup':
-                    newStatus = 'READY_TO_PICKUP';
-                    break;
-                case 'dispatch':
-                    newStatus = 'DISPATCHED';
-                    break;
-                default:
-                    // Para outros casos, buscamos o status atual
-                    const updatedOrder = await makeAuthorizedRequest(`/order/v1.0/orders/${orderId}`, 'GET');
-                    newStatus = updatedOrder.status;
-            }
+           // Atualizar o status manualmente na interface de acordo com a ação executada
+           let newStatus;
+           switch(action) {
+               case 'confirm':
+                   newStatus = 'CONFIRMED';
+                   break;
+               case 'startPreparation':
+                   newStatus = 'IN_PREPARATION';
+                   break;
+               case 'readyToPickup':
+                   newStatus = 'READY_TO_PICKUP';
+                   break;
+               case 'dispatch':
+                   newStatus = 'DISPATCHED';
+                   break;
+               default:
+                   // Para outros casos, buscamos o status atual
+                   const updatedOrder = await makeAuthorizedRequest(`/order/v1.0/orders/${orderId}`, 'GET');
+                   newStatus = updatedOrder.status;
+           }
 
-            // Atualiza a UI com o novo status
-            updateOrderStatus(orderId, newStatus);
+           // Atualiza a UI com o novo status
+           updateOrderStatus(orderId, newStatus);
 
-            if (!processedOrderIds.has(orderId)) {
-                processedOrderIds.add(orderId);
-                saveProcessedIds();
-            }
+           if (!processedOrderIds.has(orderId)) {
+               processedOrderIds.add(orderId);
+               saveProcessedIds();
+           }
 
-            hideLoading();
-            showToast(`Ação "${action}" realizada com sucesso!`, 'success');
-        }
-    } catch (error) {
-        hideLoading();
-        console.error(`Erro ao realizar ação ${action} para o pedido ${orderId}:`, error);
-        showToast(`Erro ao realizar ação: ${error.message}`, 'error');
-    }
+           hideLoading();
+           showToast(`Ação "${action}" realizada com sucesso!`, 'success');
+       }
+   } catch (error) {
+       hideLoading();
+       console.error(`Erro ao realizar ação ${action} para o pedido ${orderId}:`, error);
+       showToast(`Erro ao realizar ação: ${error.message}`, 'error');
+   }
 }
 
 // Função melhorada para fechar o modal de cancelamento
 function closeCancellationModal() {
-    console.log('Fechando modal de cancelamento');
-    const modal = document.getElementById('cancellation-modal');
-    if (modal) {
-        modal.classList.add('hidden');
-        currentCancellationOrderId = null;
-    }
+   console.log('Fechando modal de cancelamento');
+   const modal = document.getElementById('cancellation-modal');
+   if (modal) {
+       modal.classList.add('hidden');
+       currentCancellationOrderId = null;
+   }
 }
 
 // Função modificada para confirmar cancelamento
 function confirmCancellation() {
-    console.log('Confirmando cancelamento...');
-    const modal = document.getElementById('cancellation-modal');
-    
-    if (!currentCancellationOrderId) {
-        showToast('Erro: ID do pedido não encontrado', 'error');
-        if (modal) modal.classList.add('hidden');
-        return;
-    }
-    
-    const select = document.getElementById('cancellation-reason');
-    const selectedReasonId = select.value;
-    
-    if (!selectedReasonId) {
-        showToast('Selecione um motivo para cancelar', 'warning');
-        return;
-    }
-    
-    // Oculta o modal antes de continuar
-    if (modal) modal.classList.add('hidden');
-    
-    // Encontra a descrição do motivo selecionado
-    const selectedReason = cancellationReasons.find(r => r.cancelCodeId === selectedReasonId);
-    
-    if (!selectedReason) {
-        showToast('Motivo inválido', 'error');
-        currentCancellationOrderId = null;
-        return;
-    }
-    
-    // Continua com o processo de cancelamento...
-    processCancellation(currentCancellationOrderId, selectedReason);
+   console.log('Confirmando cancelamento...');
+   const modal = document.getElementById('cancellation-modal');
+   
+   if (!currentCancellationOrderId) {
+       showToast('Erro: ID do pedido não encontrado', 'error');
+       if (modal) modal.classList.add('hidden');
+       return;
+   }
+   
+   const select = document.getElementById('cancellation-reason');
+   const selectedReasonId = select.value;
+   
+   if (!selectedReasonId) {
+       showToast('Selecione um motivo para cancelar', 'warning');
+       return;
+   }
+   
+   // Oculta o modal antes de continuar
+   if (modal) modal.classList.add('hidden');
+   
+   // Encontra a descrição do motivo selecionado
+   const selectedReason = cancellationReasons.find(r => r.cancelCodeId === selectedReasonId);
+   
+   if (!selectedReason) {
+       showToast('Motivo inválido', 'error');
+       currentCancellationOrderId = null;
+       return;
+   }
+   
+   // Continua com o processo de cancelamento...
+   processCancellation(currentCancellationOrderId, selectedReason);
 }
 
 // Nova função para processar o cancelamento após confirmação
 async function processCancellation(orderId, reason) {
-    try {
-        showLoading();
-        
-        // Envia a requisição de cancelamento com o motivo
-        const response = await makeAuthorizedRequest(`/order/v1.0/orders/${orderId}/requestCancellation`, 'POST', {
-            cancellationCode: reason.cancelCodeId,
-            reason: reason.description
-        });
-        
-        console.log('Resposta do cancelamento:', response);
-        
-        // Atualiza o status do pedido na interface
-        updateOrderStatus(orderId, 'CANCELLED');
-        
-        hideLoading();
-        showToast(`Pedido cancelado com sucesso!`, 'success');
-    } catch (error) {
-        hideLoading();
-        console.error('Erro ao cancelar pedido:', error);
-        showToast(`Erro ao cancelar pedido: ${error.message}`, 'error');
-    } finally {
-        // Limpa o ID do pedido atual
-        currentCancellationOrderId = null;
-    }
+   try {
+       showLoading();
+       
+       // Envia a requisição de cancelamento com o motivo
+       const response = await makeAuthorizedRequest(`/order/v1.0/orders/${orderId}/requestCancellation`, 'POST', {
+           cancellationCode: reason.cancelCodeId,
+           reason: reason.description
+       });
+       
+       console.log('Resposta do cancelamento:', response);
+       
+       // Atualiza o status do pedido na interface
+       updateOrderStatus(orderId, 'CANCELLED');
+       
+       hideLoading();
+       showToast(`Pedido cancelado com sucesso!`, 'success');
+   } catch (error) {
+       hideLoading();
+       console.error('Erro ao cancelar pedido:', error);
+       showToast(`Erro ao cancelar pedido: ${error.message}`, 'error');
+   } finally {
+       // Limpa o ID do pedido atual
+       currentCancellationOrderId = null;
+   }
 }
 
 // Converte status para texto amigável
 function getStatusText(status) {
-    const statusMap = {
-        'PLACED': 'Novo',
-        'CONFIRMED': 'Confirmado',
-        'IN_PREPARATION': 'Em Preparação',
-        'READY_TO_PICKUP': 'Pronto para Retirada',
-        'DISPATCHED': 'A Caminho',
-        'CONCLUDED': 'Concluído',
-        'CANCELLED': 'Cancelado',
-        'PLC': 'Novo',
-        'CFM': 'Confirmado',
-        'PREP': 'Em Preparação',
-        'PRS': 'Em Preparação',
-        'RTP': 'Pronto para Retirada',
-        'DDCR': 'A Caminho',
-        'CONC': 'Concluído',
-        'CANC': 'Cancelado',
-        'CANR': 'Cancelamento Solicitado'
-    };
-    return statusMap[status] || status;
+   const statusMap = {
+       'PLACED': 'Novo',
+       'CONFIRMED': 'Confirmado',
+       'IN_PREPARATION': 'Em Preparação',
+       'READY_TO_PICKUP': 'Pronto para Retirada',
+       'DISPATCHED': 'A Caminho',
+       'CONCLUDED': 'Concluído',
+       'CANCELLED': 'Cancelado',
+       'PLC': 'Novo',
+       'CFM': 'Confirmado',
+       'PREP': 'Em Preparação',
+       'PRS': 'Em Preparação',
+       'RTP': 'Pronto para Retirada',
+       'DDCR': 'A Caminho',
+       'CONC': 'Concluído',
+       'CANC': 'Cancelado',
+       'CANR': 'Cancelamento Solicitado'
+   };
+   return statusMap[status] || status;
 }
 
 // Inicia o polling de eventos
 function startPolling() {
-    state.isPolling = true;
-    pollEvents();
+   state.isPolling = true;
+   pollEvents();
 }
 
 // Event Listeners
 document.addEventListener('DOMContentLoaded', () => {
-    // Garantir que o modal de cancelamento esteja oculto inicialmente
-    const cancelModal = document.getElementById('cancellation-modal');
-    if (cancelModal) {
-        cancelModal.classList.add('hidden');
-    }
-    
-    // Corrigir os listeners de eventos para os botões do modal
-    const confirmButton = document.getElementById('confirm-cancellation');
-    if (confirmButton) {
-        // Remover quaisquer listeners existentes
-        const newConfirmButton = confirmButton.cloneNode(true);
-        confirmButton.parentNode.replaceChild(newConfirmButton, confirmButton);
-        
-        // Adicionar o listener corretamente
-        newConfirmButton.addEventListener('click', function() {
-            confirmCancellation();
-        });
-    }
-    
-    const cancelButton = document.getElementById('cancel-cancellation');
-    if (cancelButton) {
-        // Remover quaisquer listeners existentes
-        const newCancelButton = cancelButton.cloneNode(true);
-        cancelButton.parentNode.replaceChild(newCancelButton, cancelButton);
-        
-        // Adicionar o listener corretamente
-        newCancelButton.addEventListener('click', function() {
-            closeCancellationModal();
-        });
-    }
-    
-    const closeModalX = document.querySelector('.close-modal');
-    if (closeModalX) {
-        // Remover quaisquer listeners existentes
-        const newCloseModalX = closeModalX.cloneNode(true);
-        closeModalX.parentNode.replaceChild(newCloseModalX, closeModalX);
-        
-        // Adicionar o listener corretamente
-        newCloseModalX.addEventListener('click', function() {
-            closeCancellationModal();
-        });
-    }
-    
-    // Adicionar evento para fechar o modal ao clicar no fundo
-    if (cancelModal) {
-        cancelModal.addEventListener('click', function(event) {
-            if (event.target === cancelModal) {
-                closeCancellationModal();
-            }
-        });
-    }
+   // Garantir que o modal de cancelamento esteja oculto inicialmente
+   const cancelModal = document.getElementById('cancellation-modal');
+   console.log("Modal encontrado:", cancelModal);
+   if (cancelModal) {
+       cancelModal.classList.add('hidden');
+       console.log("Modal escondido na inicialização");
+   }
+   
+   // Remover e readicionar todos os event listeners para garantir funcionamento correto
+   
+   // Corrigir os listeners do modal de cancelamento
+   const confirmButton = document.getElementById('confirm-cancellation');
+   if (confirmButton) {
+       const newConfirmButton = confirmButton.cloneNode(true);
+       confirmButton.parentNode.replaceChild(newConfirmButton, confirmButton);
+       
+       newConfirmButton.addEventListener('click', function() {
+           console.log("Botão confirmar cancelamento clicado");
+           confirmCancellation();
+       });
+   }
+   
+   const cancelButton = document.getElementById('cancel-cancellation');
+   if (cancelButton) {
+       const newCancelButton = cancelButton.cloneNode(true);
+       cancelButton.parentNode.replaceChild(newCancelButton, cancelButton);
+       
+       newCancelButton.addEventListener('click', function() {
+           console.log("Botão cancelar cancelamento clicado");
+           closeCancellationModal();
+       });
+   }
+   
+   const closeModalX = document.querySelector('.close-modal');
+   if (closeModalX) {
+       const newCloseModalX = closeModalX.cloneNode(true);
+       closeModalX.parentNode.replaceChild(newCloseModalX, closeModalX);
+       
+       newCloseModalX.addEventListener('click', function() {
+           console.log("Botão X para fechar o modal clicado");
+           closeCancellationModal();
+       });
+   }
+   
+   // Adicionar evento para fechar o modal ao clicar no fundo
+   if (cancelModal) {
+       // Remover qualquer listener existente
+       const newModal = cancelModal.cloneNode(true);
+       cancelModal.parentNode.replaceChild(newModal, cancelModal);
+       
+       // Adicionar o novo listener
+       newModal.addEventListener('click', function(event) {
+           if (event.target === newModal) {
+               console.log("Clique fora do modal detectado, fechando modal");
+               closeCancellationModal();
+           }
+       });
+       
+       // Readicionar os listeners para os botões dentro do novo modal
+       const newConfirmBtn = newModal.querySelector('#confirm-cancellation');
+       if (newConfirmBtn) {
+           newConfirmBtn.addEventListener('click', function() {
+               console.log("Botão confirmar cancelamento clicado (novo modal)");
+               confirmCancellation();
+           });
+       }
+       
+       const newCancelBtn = newModal.querySelector('#cancel-cancellation');
+       if (newCancelBtn) {
+           newCancelBtn.addEventListener('click', function() {
+               console.log("Botão cancelar cancelamento clicado (novo modal)");
+               closeCancellationModal();
+           });
+       }
+       
+       const newCloseX = newModal.querySelector('.close-modal');
+       if (newCloseX) {
+           newCloseX.addEventListener('click', function() {
+               console.log("Botão X para fechar o modal clicado (novo modal)");
+               closeCancellationModal();
+           });
+       }
+   }
 
-    // Eventos para navegação entre seções principais
-    document.querySelectorAll('.sidebar-item').forEach(item => {
-        item.addEventListener('click', () => {
-            const targetSection = item.getAttribute('data-target');
-            if (targetSection) {
-                switchMainTab(targetSection);
-            }
-        });
-    });
-    
-    // Eventos para navegação entre tabs de pedidos
-    document.querySelectorAll('.tab-item').forEach(tab => {
-        tab.addEventListener('click', () => {
-            const targetTab = tab.getAttribute('data-tab');
-            if (targetTab) {
-                switchOrderTab(targetTab);
-            }
-        });
-    });
-    
-    // Eventos para filtros
-    document.querySelectorAll('.filter-button').forEach(button => {
-        button.addEventListener('click', () => {
-            const filter = button.getAttribute('data-filter');
-            if (filter) {
-                applyFilter(filter);
-            }
-        });
-    });
-    
-    // Evento para busca
-    const searchInput = document.getElementById('search-orders');
-    if (searchInput) {
-        searchInput.addEventListener('input', () => {
-            searchOrders(searchInput.value);
-        });
-    }
+   // Eventos para navegação entre seções principais
+   document.querySelectorAll('.sidebar-item').forEach(item => {
+       item.addEventListener('click', () => {
+           const targetSection = item.getAttribute('data-target');
+           if (targetSection) {
+               switchMainTab(targetSection);
+           }
+       });
+   });
+   
+   // Eventos para navegação entre tabs de pedidos
+   document.querySelectorAll('.tab-item').forEach(tab => {
+       tab.addEventListener('click', () => {
+           const targetTab = tab.getAttribute('data-tab');
+           if (targetTab) {
+               switchOrderTab(targetTab);
+           }
+       });
+   });
+   
+   // Eventos para filtros
+   document.querySelectorAll('.filter-button').forEach(button => {
+       button.addEventListener('click', () => {
+           const filter = button.getAttribute('data-filter');
+           if (filter) {
+               applyFilter(filter);
+           }
+       });
+   });
+   
+   // Evento para busca
+   const searchInput = document.getElementById('search-orders');
+   if (searchInput) {
+       searchInput.addEventListener('input', () => {
+           searchOrders(searchInput.value);
+       });
+   }
 
-    // Botão para atualizar pedidos
-    document.getElementById('poll-orders').addEventListener('click', async () => {
-        if (!state.accessToken) {
-            await authenticate();
-        }
-        
-        showLoading();
-        try {
-            await fetchActiveOrders();
-            startPolling();
-        } finally {
-            hideLoading();
-        }
-    });
+   // Botão para atualizar pedidos
+   document.getElementById('poll-orders').addEventListener('click', async () => {
+       if (!state.accessToken) {
+           await authenticate();
+       }
+       
+       showLoading();
+       try {
+           await fetchActiveOrders();
+           startPolling();
+       } finally {
+           hideLoading();
+       }
+   });
 
-    // Botão para alternar status da loja
-    document.getElementById('toggle-store').addEventListener('click', async () => {
-        if (!state.accessToken) {
-            await authenticate();
-        } else {
-            await toggleStoreStatus();
-        }
-    });
+   // Botão para alternar status da loja
+   document.getElementById('toggle-store').addEventListener('click', async () => {
+       if (!state.accessToken) {
+           await authenticate();
+       } else {
+           await toggleStoreStatus();
+       }
+   });
 
-    // Inicialização
-    initialize();
+   // Inicialização
+   initialize();
 });
 
 // Função de inicialização
 async function initialize() {
-    try {
-        showLoading();
-        
-        // Autenticação inicial
-        await authenticate();
-        
-        // Atualiza status da loja
-        await updateStoreStatus();
-        
-        // Carrega pedidos ativos iniciais
-        await fetchActiveOrders();
-        
-        // Inicia polling de eventos
-        startPolling();
-    } catch (error) {
-        console.error('Erro na inicialização:', error);
-        showToast('Erro ao inicializar aplicação', 'error');
-    } finally {
-        hideLoading();
-    }
+   try {
+       // Garantir que o modal de cancelamento esteja oculto antes de qualquer operação
+       const cancelModal = document.getElementById('cancellation-modal');
+       if (cancelModal) {
+           cancelModal.classList.add('hidden');
+           console.log("Modal escondido na inicialização da função initialize");
+       }
+       
+       showLoading();
+       
+       // Autenticação inicial
+       await authenticate();
+       
+       // Atualiza status da loja
+       await updateStoreStatus();
+       
+       // Carrega pedidos ativos iniciais
+       await fetchActiveOrders();
+       
+       // Inicia polling de eventos
+       startPolling();
+   } catch (error) {
+       console.error('Erro na inicialização:', error);
+       showToast('Erro ao inicializar aplicação', 'error');
+   } finally {
+       hideLoading();
+   }
 }
