@@ -161,8 +161,7 @@ function saveProcessedIds() {
     localStorage.setItem('processedOrderIds', JSON.stringify([...processedOrderIds]));
 }
 
-// Polling de eventos melhorado para evitar duplicações
-// Polling de eventos melhorado para evitar duplicações
+// Polling de eventos corrigido para receber pedidos novamente
 async function pollEvents() {
     if (!state.isPolling || !state.accessToken) return;
 
@@ -173,20 +172,17 @@ async function pollEvents() {
         if (events && Array.isArray(events) && events.length > 0) {
             console.log('Eventos recebidos:', events);
             
-            // Filtra os eventos: aceita apenas PLACED (novos pedidos) e ignora atualizações de status
-            const newOrderEvents = events.filter(event => event.code === 'PLACED');
-            
-            // Processa apenas os eventos de novos pedidos
-            for (const event of newOrderEvents) {
+            // Processa todos os eventos, mas lida com eles de forma seletiva em handleEvent
+            for (const event of events) {
                 await handleEvent(event);
             }
 
-            // Reconhece todos os eventos para evitar recebê-los novamente
+            // Formato correto para acknowledgment
             const acknowledgmentFormat = events.map(event => ({ id: event.id }));
             console.log('📤 Enviando acknowledgment com formato:', acknowledgmentFormat);
 
             try {
-                // Envia acknowledgment
+                // Envia acknowledgment para todos os eventos
                 await makeAuthorizedRequest('/events/v1.0/events/acknowledgment', 'POST', acknowledgmentFormat);
                 console.log('✅ Acknowledgment enviado com sucesso');
             } catch (ackError) {
@@ -211,7 +207,7 @@ async function pollEvents() {
     }
 }
 
-// Manipulador de eventos melhorado para evitar duplicações
+// Manipulador de eventos corrigido para receber pedidos novamente
 async function handleEvent(event) {
     try {
         console.log(`Processando evento: ${event.code} para pedido ${event.orderId}`);
@@ -222,8 +218,8 @@ async function handleEvent(event) {
             return;
         }
         
-        // Para eventos PLACED (novos pedidos)
-        if (event.code === 'PLACED') {
+        // Para eventos PLACED (novos pedidos) - processa normalmente para exibir novos pedidos
+        if (event.code === 'PLACED' || event.code === 'PLC') {
             // Checa se já processamos este pedido antes
             if (processedOrderIds.has(event.orderId)) {
                 console.log(`Pedido ${event.orderId} já foi processado anteriormente, ignorando`);
@@ -246,15 +242,23 @@ async function handleEvent(event) {
                     processedOrderIds.add(event.orderId);
                     saveProcessedIds();
                 } else {
-                    console.log(`Pedido ${order.id} já está na interface, mantendo status atual`);
+                    console.log(`Pedido ${order.id} já está na interface, ignorando duplicação`);
                 }
             } catch (orderError) {
                 console.error(`Erro ao buscar detalhes do pedido ${event.orderId}:`, orderError);
             }
-        } else {
-            // Para outros tipos de evento, NÃO atualizamos automaticamente o status
-            // Isso evita que a interface seja alterada sem ação do usuário
-            console.log(`Ignorando atualização automática de status para o evento ${event.code}`);
+        } 
+        // Processar eventos de CANCELAMENTO para manter a interface sincronizada
+        else if (event.code === 'CANCELLED' || event.code === 'CANC' || 
+                 event.code === 'CANCELLATION_REQUESTED' || event.code === 'CANR') {
+            // Atualiza o status para cancelado
+            updateOrderStatus(event.orderId, 'CANCELLED');
+            console.log(`Pedido ${event.orderId} foi cancelado, atualizando interface`);
+        }
+        // Para os outros eventos de status, registramos mas NÃO atualizamos a interface
+        // para evitar mudanças automáticas de status após confirmação
+        else {
+            console.log(`Recebido evento de status ${event.code} para pedido ${event.orderId} - ignorando atualização automática`);
         }
     } catch (error) {
         console.error('Erro ao processar evento:', error);
@@ -819,11 +823,13 @@ function addActionButtons(container, order) {
 }
 
 // Função para buscar pedidos ativos usando eventos
-// Função para buscar pedidos ativos usando eventos
 async function fetchActiveOrders() {
     try {
         console.log('Buscando pedidos ativos via eventos...');
         showToast('Buscando pedidos ativos...', 'info');
+        
+        // Precisamos declarar esta variável, estava sendo usada sem declaração
+        const successfulOrders = [];
         
         // Buscar eventos recentes
         const events = await makeAuthorizedRequest('/events/v1.0/events:polling', 'GET');
@@ -831,25 +837,37 @@ async function fetchActiveOrders() {
         if (events && Array.isArray(events) && events.length > 0) {
             console.log('Eventos recebidos:', events);
             
-            // Filtra eventos relacionados a pedidos
+            // Filtra eventos relacionados a pedidos - aceitamos todos os tipos de eventos
             const orderEvents = events.filter(event => event.orderId);
             
             if (orderEvents.length > 0) {
-                // Limpa grid de pedidos existentes para evitar duplicações
-                clearOrdersGrid();
+                // Conjunto para rastrear pedidos já processados nesta busca
+                const processedInThisFetch = new Set();
                 
                 for (const event of orderEvents) {
-                    // Evita processar o mesmo pedido múltiplas vezes
-                    if (!processedOrderIds.has(event.orderId)) {
-                        processedOrderIds.add(event.orderId);
+                    // Evita processar o mesmo pedido múltiplas vezes nesta busca
+                    if (!processedInThisFetch.has(event.orderId)) {
+                        processedInThisFetch.add(event.orderId);
                         
                         try {
                             console.log(`Buscando detalhes do pedido ${event.orderId}`);
                             const orderDetails = await makeAuthorizedRequest(`/order/v1.0/orders/${event.orderId}`, 'GET');
                             console.log(`Detalhes recebidos para pedido ${event.orderId}:`, orderDetails);
                             
-                            displayOrder(orderDetails);
-                            successfulOrders.push(orderDetails);
+                            // Verifica se o pedido já existe na interface
+                            const existingOrder = document.querySelector(`.order-card[data-order-id="${orderDetails.id}"]`);
+                            if (!existingOrder) {
+                                displayOrder(orderDetails);
+                                successfulOrders.push(orderDetails);
+                                
+                                // Adiciona aos pedidos processados para evitar processamento futuro
+                                if (!processedOrderIds.has(event.orderId)) {
+                                    processedOrderIds.add(event.orderId);
+                                    saveProcessedIds();
+                                }
+                            } else {
+                                console.log(`Pedido ${orderDetails.id} já está na interface, ignorando`);
+                            }
                         } catch (orderError) {
                             console.error(`Erro ao buscar detalhes do pedido ${event.orderId}:`, orderError);
                         }
