@@ -1354,6 +1354,133 @@ async function fetchStoreDetails(merchantId) {
     }
 }
 
+// Função auxiliar para adicionar minutos a um horário
+function addMinutesToTime(timeStr, minutes) {
+    const [hours, mins] = timeStr.split(':').map(Number);
+    const date = new Date();
+    date.setHours(hours, mins);
+    date.setMinutes(date.getMinutes() + minutes);
+    return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+}
+
+// Função para criar editor de turno
+function createShiftEditor(day, shift) {
+    const shiftDiv = document.createElement('div');
+    shiftDiv.className = 'day-shift';
+    
+    shiftDiv.innerHTML = `
+        <input type="time" class="shift-input start-time" value="${shift.start.substring(0, 5)}" required>
+        <input type="number" class="shift-input duration" value="${shift.duration}" min="30" step="30" required>
+        <span class="end-time">${addMinutesToTime(shift.start, shift.duration)}</span>
+        <button class="remove-shift"><i class="fas fa-times"></i></button>
+    `;
+    
+    // Atualiza o horário final quando start ou duration mudam
+    const updateEndTime = () => {
+        const startInput = shiftDiv.querySelector('.start-time');
+        const durationInput = shiftDiv.querySelector('.duration');
+        const endTimeSpan = shiftDiv.querySelector('.end-time');
+        
+        if (startInput.value && durationInput.value) {
+            endTimeSpan.textContent = addMinutesToTime(startInput.value + ':00', parseInt(durationInput.value));
+        }
+    };
+    
+    shiftDiv.querySelector('.start-time').addEventListener('change', updateEndTime);
+    shiftDiv.querySelector('.duration').addEventListener('change', updateEndTime);
+    
+    shiftDiv.querySelector('.remove-shift').onclick = () => shiftDiv.remove();
+    
+    return shiftDiv;
+}
+
+// Função para salvar os horários
+async function saveOpeningHours() {
+    try {
+        showLoading();
+        
+        const shifts = [];
+        document.querySelectorAll('.shifts-container').forEach(container => {
+            const day = container.getAttribute('data-day');
+            
+            container.querySelectorAll('.day-shift').forEach(shiftDiv => {
+                const startTime = shiftDiv.querySelector('.start-time').value + ':00';
+                const duration = parseInt(shiftDiv.querySelector('.duration').value);
+                
+                shifts.push({
+                    dayOfWeek: day,
+                    start: startTime,
+                    duration: duration
+                });
+            });
+        });
+        
+        const payload = {
+            storeId: currentMerchantId,
+            shifts: shifts
+        };
+        
+        await makeAuthorizedRequest(`/merchant/v1.0/merchants/${currentMerchantId}/opening-hours`, 'PUT', payload);
+        
+        showToast('Horários atualizados com sucesso!', 'success');
+        document.getElementById('hours-modal').classList.remove('show');
+        
+        // Atualiza a exibição
+        await fetchOpeningHours(currentMerchantId);
+    } catch (error) {
+        console.error('Erro ao salvar horários:', error);
+        showToast('Erro ao salvar horários', 'error');
+    } finally {
+        hideLoading();
+    }
+}
+
+// Função para mostrar o modal de edição
+function showEditModal() {
+    const modal = document.getElementById('hours-modal');
+    const editor = document.getElementById('schedule-editor');
+    if (!modal || !editor) return;
+    
+    // Limpa o editor
+    editor.innerHTML = '';
+    
+    const daysOfWeek = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY'];
+    const dayNames = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado', 'Domingo'];
+    
+    daysOfWeek.forEach((day, index) => {
+        const dayShifts = currentOpeningHours.shifts.filter(shift => shift.dayOfWeek === day);
+        
+        const daySection = document.createElement('div');
+        daySection.className = 'day-section';
+        daySection.innerHTML = `<h3>${dayNames[index]}</h3>`;
+        
+        const shiftsContainer = document.createElement('div');
+        shiftsContainer.className = 'shifts-container';
+        shiftsContainer.setAttribute('data-day', day);
+        
+        // Adiciona os turnos existentes
+        dayShifts.forEach(shift => {
+            shiftsContainer.appendChild(createShiftEditor(day, shift));
+        });
+        
+        // Botão para adicionar novo turno
+        const addButton = document.createElement('button');
+        addButton.className = 'add-shift';
+        addButton.innerHTML = '<i class="fas fa-plus"></i> Adicionar Turno';
+        addButton.onclick = () => {
+            const newShift = { dayOfWeek: day, start: '09:00:00', duration: 360 };
+            shiftsContainer.appendChild(createShiftEditor(day, newShift));
+        };
+        
+        daySection.appendChild(shiftsContainer);
+        daySection.appendChild(addButton);
+        editor.appendChild(daySection);
+    });
+    
+    modal.classList.remove('hidden');
+    modal.classList.add('show');
+}
+
 // Função para mostrar o modal de edição
 function showEditModal() {
     const modal = document.getElementById('hours-modal');
