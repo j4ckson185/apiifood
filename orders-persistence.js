@@ -217,108 +217,92 @@ window.pollEvents = async function() {
 const originalHandleEvent = handleEvent;
 window.handleEvent = async function(event) {
     try {
-        console.log('==== INÍCIO DO PROCESSAMENTO DE EVENTO ====');
-        console.log(`Timestamp: ${new Date().toLocaleString()}`);
-        console.log(`Código do evento: ${event.code}`);
-        console.log(`ID do pedido: ${event.orderId}`);
-        console.log(`Data de criação do evento: ${new Date(event.createdAt).toLocaleString()}`);
-        console.log('Dados completos do evento:', event);
+        console.log(`Processando evento: ${event.code} para pedido ${event.orderId}`);
         
+        // Verifica se é um evento relacionado a pedido
         if (!event.orderId) {
-            console.log('Evento sem orderId, ignorando');
-            console.log('==== FIM DO PROCESSAMENTO ====\n');
+            console.log('Evento sem orderId, ignorando:', event);
             return;
         }
         
+        // Para eventos PLACED (novos pedidos) - mantém comportamento original
         if (event.code === 'PLACED' || event.code === 'PLC') {
-            console.log('Detectado evento de novo pedido');
-            
+            // Checa se já processamos este pedido antes
             if (processedOrderIds.has(event.orderId)) {
                 console.log(`Pedido ${event.orderId} já foi processado anteriormente, ignorando`);
-                console.log('==== FIM DO PROCESSAMENTO ====\n');
                 return;
             }
             
+            // Tenta buscar detalhes do pedido
             try {
-                console.log('Buscando detalhes do pedido na API...');
                 const order = await makeAuthorizedRequest(`/order/v1.0/orders/${event.orderId}`, 'GET');
-                console.log('Detalhes do pedido recebidos:', order);
+                console.log('Detalhes do pedido recebido:', order);
                 
+                // Verifica se o pedido já existe na interface pelo atributo data-order-id
                 const existingOrder = document.querySelector(`.order-card[data-order-id="${order.id}"]`);
                 if (!existingOrder) {
-                    console.log('Pedido não existe na interface, exibindo...');
+                    // Exibe o pedido na interface
                     displayOrder(order);
                     showToast('Novo pedido recebido!', 'success');
                     
+                    // Marca o pedido como processado
                     processedOrderIds.add(event.orderId);
                     saveProcessedIds();
-                    console.log('Pedido marcado como processado');
                 } else {
                     console.log(`Pedido ${order.id} já está na interface, ignorando duplicação`);
                 }
             } catch (orderError) {
-                console.error('ERRO ao buscar detalhes do pedido:', orderError);
+                console.error(`Erro ao buscar detalhes do pedido ${event.orderId}:`, orderError);
             }
         } 
-        else {
-            console.log('Processando evento de atualização de status');
-            const eventToStatusMap = {
-                'CONFIRMED': 'READY_TO_PICKUP',
-                'CFM': 'READY_TO_PICKUP',
-                'READY_TO_PICKUP': 'READY_TO_PICKUP',
-                'RTP': 'READY_TO_PICKUP',
-                'DISPATCHED': 'DISPATCHED',
-                'DDCR': 'DISPATCHED',
-                'CONCLUDED': 'CONCLUDED',
-                'CONC': 'CONCLUDED',
-                'CANCELLED': 'CANCELLED',
-                'CANC': 'CANCELLED',
-                'CANCELLATION_REQUESTED': 'CANCELLATION_REQUESTED',
-                'CANR': 'CANCELLATION_REQUESTED'
-            };
-            
-            if (event.code in eventToStatusMap) {
-                const newStatus = eventToStatusMap[event.code];
-                console.log(`Mapeamento de status: ${event.code} -> ${newStatus}`);
-                
-                try {
-                    console.log('Buscando status atual do pedido...');
-                    const orderDetails = await makeAuthorizedRequest(`/order/v1.0/orders/${event.orderId}`, 'GET');
-                    console.log('Status atual na API:', orderDetails.status);
-                    
-                    const existingOrder = document.querySelector(`.order-card[data-order-id="${event.orderId}"]`);
-                    if (existingOrder) {
-                        const currentStatus = existingOrder.querySelector('.order-status')?.textContent;
-                        console.log('Status atual na interface:', currentStatus);
-                        
-                        // Verificar se é evento DDCR muito próximo ao CFM
-                        if (event.code === 'DDCR') {
-                            console.log('Verificando tempo desde última atualização...');
-                            if (orderDetails.status === 'READY_TO_PICKUP') {
-                                console.log('Atualizando para DISPATCHED...');
-                                updateOrderStatus(event.orderId, newStatus);
-                            } else {
-                                console.log('Ignorando DDCR pois pedido não está em READY_TO_PICKUP');
-                            }
-                        } else {
-                            console.log('Atualizando status na interface...');
-                            updateOrderStatus(event.orderId, newStatus);
-                        }
-                    } else {
-                        console.log('Pedido não encontrado na interface, buscando detalhes completos...');
-                        displayOrder(orderDetails);
-                    }
-                } catch (statusError) {
-                    console.error('ERRO ao atualizar status:', statusError);
-                }
-            } else {
-                console.log(`Código de evento não mapeado: ${event.code}`);
+else {
+    console.log('Processando evento de atualização de status');
+    const eventToStatusMap = {
+        'CONFIRMED': 'READY_TO_PICKUP',
+        'CFM': 'READY_TO_PICKUP',
+        'READY_TO_PICKUP': 'READY_TO_PICKUP',
+        'RTP': 'READY_TO_PICKUP',
+        'DISPATCHED': 'DISPATCHED',
+        'DDCR': 'DISPATCHED',
+        'CONCLUDED': 'CONCLUDED',
+        'CONC': 'CONCLUDED',
+        'CANCELLED': 'CANCELLED',
+        'CANC': 'CANCELLED',
+        'CANCELLATION_REQUESTED': 'CANCELLATION_REQUESTED',
+        'CANR': 'CANCELLATION_REQUESTED'
+    };
+    
+    // Se for um evento de status conhecido, atualiza a interface
+    if (event.code in eventToStatusMap) {
+        const newStatus = eventToStatusMap[event.code];
+        console.log(`=== EVENTO DE STATUS RECEBIDO ===`);
+        console.log(`Timestamp: ${new Date().toLocaleString()}`);
+        console.log(`Tipo de evento: ${event.code}`);
+        console.log(`Novo status mapeado: ${newStatus}`);
+        console.log(`ID do pedido: ${event.orderId}`);
+        
+        // Verifica se o pedido está na interface pelo atributo data-order-id
+        const existingOrder = document.querySelector(`.order-card[data-order-id="${event.orderId}"]`);
+        
+        if (existingOrder) {
+            // Pedido está na interface, atualiza seu status
+            const currentStatus = existingOrder.querySelector('.order-status')?.textContent;
+            console.log(`Status atual na interface: ${currentStatus}`);
+            console.log(`Atualizando status para: ${newStatus}`);
+            updateOrderStatus(event.orderId, newStatus);
+        } else {
+            // Pedido não está na interface, busca detalhes e exibe
+            console.log('Pedido não encontrado na interface, buscando detalhes...');
+            try {
+                const order = await makeAuthorizedRequest(`/order/v1.0/orders/${event.orderId}`, 'GET');
+                console.log('Detalhes do pedido recebido:', order);
+                displayOrder(order);
+                processedOrderIds.add(event.orderId);
+                saveProcessedIds();
+            } catch (orderError) {
+                console.error(`Erro ao buscar detalhes do pedido ${event.orderId}:`, orderError);
             }
         }
-        
-        console.log('==== FIM DO PROCESSAMENTO ====\n');
-    } catch (error) {
-        console.error('ERRO GERAL no processamento do evento:', error);
-        console.log('==== FIM DO PROCESSAMENTO COM ERRO ====\n');
+        console.log('=== FIM DO PROCESSAMENTO ===\n');
     }
-};
+}
