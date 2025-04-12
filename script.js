@@ -337,50 +337,97 @@ function saveProcessedIds() {
     localStorage.setItem('processedOrderIds', JSON.stringify([...processedOrderIds]));
 }
 
-// Polling de eventos corrigido para receber pedidos novamente
 async function pollEvents() {
     if (!state.isPolling || !state.accessToken) return;
 
     try {
-        console.log('Iniciando polling...');
+        console.log('Iniciando polling de eventos...');
         const events = await makeAuthorizedRequest('/events/v1.0/events:polling', 'GET', null);
         
         if (events && Array.isArray(events) && events.length > 0) {
             console.log('Eventos recebidos:', events);
             
-            // Processa todos os eventos, mas lida com eles de forma seletiva em handleEvent
+            // Array para armazenar IDs de eventos para acknowledgment
+            const eventsToAcknowledge = [];
+            
+            // Processa cada evento
             for (const event of events) {
-                await handleEvent(event);
+                if (event.orderId) {
+                    eventsToAcknowledge.push({ id: event.id });
+                    
+                    try {
+                        // Busca detalhes atualizados do pedido
+                        const orderDetails = await makeAuthorizedRequest(`/order/v1.0/orders/${event.orderId}`, 'GET');
+                        console.log(`Detalhes atualizados do pedido ${event.orderId}:`, orderDetails);
+
+                        // Verifica se o pedido já existe na interface
+                        const existingOrder = document.querySelector(`.order-card[data-order-id="${event.orderId}"]`);
+                        
+                        if (existingOrder) {
+                            // Atualiza o status se o pedido já existe
+                            if (orderDetails.status) {
+                                console.log(`Atualizando status do pedido ${event.orderId} para ${orderDetails.status}`);
+                                updateOrderStatus(event.orderId, orderDetails.status);
+                            }
+                        } else if (event.code === 'PLACED' || event.code === 'PLC') {
+                            // Se é um pedido novo, exibe na interface
+                            console.log(`Exibindo novo pedido ${event.orderId}`);
+                            displayOrder(orderDetails);
+                            showToast('Novo pedido recebido!', 'success');
+                        }
+                    } catch (orderError) {
+                        console.error(`Erro ao processar pedido ${event.orderId}:`, orderError);
+                    }
+                }
             }
-
-            // Formato correto para acknowledgment
-            const acknowledgmentFormat = events.map(event => ({ id: event.id }));
-            console.log('📤 Enviando acknowledgment com formato:', acknowledgmentFormat);
-
-            try {
-                // Envia acknowledgment para todos os eventos
-                await makeAuthorizedRequest('/events/v1.0/events/acknowledgment', 'POST', acknowledgmentFormat);
-                console.log('✅ Acknowledgment enviado com sucesso');
-            } catch (ackError) {
-                console.error('❌ Erro ao enviar acknowledgment:', ackError);
+            
+            // Envia acknowledgment para todos os eventos processados
+            if (eventsToAcknowledge.length > 0) {
+                try {
+                    await makeAuthorizedRequest('/events/v1.0/events/acknowledgment', 'POST', eventsToAcknowledge);
+                    console.log('Acknowledgment enviado com sucesso');
+                } catch (ackError) {
+                    console.error('Erro ao enviar acknowledgment:', ackError);
+                }
             }
         } else {
-            console.log('Nenhum evento recebido neste polling');
+            console.log('Nenhum evento novo encontrado');
         }
     } catch (error) {
         console.error('Erro no polling:', error);
         
-        // Verificar se o token expirou e renovar se necessário
         if (error.message && error.message.includes('401')) {
-            console.log('🔑 Token possivelmente expirado. Tentando renovar...');
+            console.log('Token expirado, renovando autenticação...');
             state.accessToken = null;
             await authenticate();
         }
     } finally {
+        // Agenda próximo polling se ainda estiver ativo
         if (state.isPolling) {
             setTimeout(pollEvents, CONFIG.pollingInterval);
         }
     }
+}
+
+function areStatusesEquivalent(status1, status2) {
+    // Mapeamento de status equivalentes
+    const statusMap = {
+        'PLC': 'PLACED',
+        'CFM': 'CONFIRMED',
+        'PREP': 'IN_PREPARATION',
+        'PRS': 'IN_PREPARATION',
+        'RTP': 'READY_TO_PICKUP',
+        'DDCR': 'DISPATCHED',
+        'CONC': 'CONCLUDED',
+        'CANC': 'CANCELLED',
+        'CANR': 'CANCELLATION_REQUESTED'
+    };
+
+    // Normaliza os status
+    const normalizedStatus1 = statusMap[status1] || status1;
+    const normalizedStatus2 = statusMap[status2] || status2;
+
+    return normalizedStatus1 === normalizedStatus2;
 }
 
 async function handleEvent(event) {
