@@ -948,3 +948,12 @@ main {
     gap: 0.5rem;
     margin-top: 1rem;
 }
+
+.filter-button.danger {
+    background-color: var(--danger-color);
+    color: white;
+}
+
+.filter-button.danger:hover {
+    background-color: #bd2130;
+}
