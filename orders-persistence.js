@@ -252,62 +252,60 @@ window.handleEvent = async function(event) {
             console.log(`Timestamp: ${new Date().toLocaleString()}`);
             console.log(`Tipo de evento: ${event.code}`);
             
-            const eventToStatusMap = {
-                'CONFIRMED': 'READY_TO_PICKUP',
-                'CFM': 'READY_TO_PICKUP',
-                'READY_TO_PICKUP': 'READY_TO_PICKUP',
-                'RTP': 'READY_TO_PICKUP',
-                'DISPATCHED': 'DISPATCHED',
-                'DDCR': 'DISPATCHED',
-                'CONCLUDED': 'CONCLUDED',
-                'CONC': 'CONCLUDED',
-                'CANCELLED': 'CANCELLED',
-                'CANC': 'CANCELLED',
-                'CANCELLATION_REQUESTED': 'CANCELLATION_REQUESTED',
-                'CANR': 'CANCELLATION_REQUESTED'
-            };
+const eventToStatusMap = {
+    'CONFIRMED': 'CONFIRMED', // Alterado
+    'CFM': 'CONFIRMED',      // Alterado
+    'READY_TO_PICKUP': 'READY_TO_PICKUP',
+    'RTP': 'READY_TO_PICKUP',
+    'DISPATCHED': 'DISPATCHED',
+    'DDCR': 'DISPATCHED',
+    'DSP': 'DISPATCHED',      // Adicionado
+    'CONCLUDED': 'CONCLUDED',
+    'CONC': 'CONCLUDED',
+    'CANCELLED': 'CANCELLED',
+    'CANC': 'CANCELLED',
+    'CANCELLATION_REQUESTED': 'CANCELLATION_REQUESTED',
+    'CANR': 'CANCELLATION_REQUESTED'
+};
             
 if (event.code in eventToStatusMap) {
     const newStatus = eventToStatusMap[event.code];
+    console.log(`=== PROCESSANDO MUDANÇA DE STATUS ===`);
+    console.log(`Timestamp: ${new Date().toLocaleString()}`);
+    console.log(`Tipo de evento: ${event.code}`);
+    console.log(`FullCode do evento: ${event.fullCode || event.code}`);
     console.log(`Novo status mapeado: ${newStatus}`);
     console.log(`ID do pedido: ${event.orderId}`);
-    
-    // Adiciona verificação especial para DDCR
-    if (event.code === 'DDCR') {
-        // Aguarda um tempo após qualquer mudança de status anterior
-        const waitTime = 5000; // 5 segundos
-        console.log(`Aguardando ${waitTime/1000} segundos antes de processar DDCR...`);
-        await new Promise(resolve => setTimeout(resolve, waitTime));
-        
-        // Verificar status atual do pedido
+
+    try {
+        // Busca status atual da API
         const orderDetails = await makeAuthorizedRequest(`/order/v1.0/orders/${event.orderId}`, 'GET');
-        if (orderDetails.status !== 'READY_TO_PICKUP') {
-            console.log('Ignorando DDCR pois pedido não está em READY_TO_PICKUP');
-            return;
+        console.log(`Status atual na API: ${orderDetails.status}`);
+
+        const existingOrder = document.querySelector(`.order-card[data-order-id="${event.orderId}"]`);
+        if (existingOrder) {
+            const currentStatus = existingOrder.querySelector('.order-status')?.textContent;
+            console.log(`Status atual na interface: ${currentStatus}`);
+
+            // Verifica se precisa atualizar
+            if (currentStatus !== getStatusText(newStatus)) {
+                console.log(`Atualizando status para: ${newStatus}`);
+                updateOrderStatus(event.orderId, newStatus);
+            } else {
+                console.log('Status já está atualizado na interface');
+            }
+        } else {
+            console.log('Pedido não encontrado na interface, buscando detalhes...');
+            displayOrder(orderDetails);
+            processedOrderIds.add(event.orderId);
+            saveProcessedIds();
         }
+    } catch (error) {
+        console.error(`Erro ao processar mudança de status: ${error}`);
     }
     
-    const existingOrder = document.querySelector(`.order-card[data-order-id="${event.orderId}"]`);
-                
-                if (existingOrder) {
-                    const currentStatus = existingOrder.querySelector('.order-status')?.textContent;
-                    console.log(`Status atual na interface: ${currentStatus}`);
-                    console.log(`Atualizando status para: ${newStatus}`);
-                    updateOrderStatus(event.orderId, newStatus);
-                } else {
-                    console.log('Pedido não encontrado na interface, buscando detalhes...');
-                    try {
-                        const order = await makeAuthorizedRequest(`/order/v1.0/orders/${event.orderId}`, 'GET');
-                        console.log('Detalhes do pedido recebido:', order);
-                        displayOrder(order);
-                        processedOrderIds.add(event.orderId);
-                        saveProcessedIds();
-                    } catch (orderError) {
-                        console.error(`Erro ao buscar detalhes do pedido ${event.orderId}:`, orderError);
-                    }
-                }
-                console.log('=== FIM DO PROCESSAMENTO ===\n');
-            }
+    console.log('=== FIM DO PROCESSAMENTO ===\n');
+}
         }
     } catch (error) {
         console.error('Erro ao processar evento:', error);
