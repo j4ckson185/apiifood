@@ -1,3 +1,6 @@
+// Adicione no topo do arquivo:
+const processingOrders = new Map(); // Para controlar pedidos em processamento
+
 // Cache para armazenar os dados completos dos pedidos
 const ordersCache = {};
 
@@ -221,92 +224,90 @@ window.handleEvent = async function(event) {
             console.log('Evento sem orderId, ignorando:', event);
             return;
         }
-        
-        if (event.code === 'PLACED' || event.code === 'PLC') {
-            if (processedOrderIds.has(event.orderId)) {
-                console.log(`Pedido ${event.orderId} já foi processado anteriormente, ignorando`);
-                return;
-            }
-            
+
+        // Verifica se o pedido já está sendo processado
+        if (processingOrders.has(event.orderId)) {
+            console.log(`Pedido ${event.orderId} já está em processamento, aguardando...`);
+            await processingOrders.get(event.orderId);
+            console.log(`Processamento anterior de ${event.orderId} concluído`);
+        }
+
+        // Cria uma Promise para este processamento
+        const processPromise = (async () => {
             try {
-                const order = await makeAuthorizedRequest(`/order/v1.0/orders/${event.orderId}`, 'GET');
-                console.log('Detalhes do pedido recebido:', order);
-                
-                const existingOrder = document.querySelector(`.order-card[data-order-id="${order.id}"]`);
-                if (!existingOrder) {
-                    displayOrder(order);
-                    showToast('Novo pedido recebido!', 'success');
-                    
-                    processedOrderIds.add(event.orderId);
-                    saveProcessedIds();
-                } else {
-                    console.log(`Pedido ${order.id} já está na interface, ignorando duplicação`);
+                if (event.code === 'PLACED' || event.code === 'PLC') {
+                    // ... código existente para PLACED ...
+                } 
+                else {
+                    console.log(`=== PROCESSANDO MUDANÇA DE STATUS ===`);
+                    console.log(`Timestamp: ${new Date().toLocaleString()}`);
+                    console.log(`Tipo de evento: ${event.code}`);
+                    console.log(`FullCode do evento: ${event.fullCode || event.code}`);
+
+                    const eventToStatusMap = {
+                        'CONFIRMED': 'CONFIRMED',
+                        'CFM': 'CONFIRMED',
+                        'READY_TO_PICKUP': 'READY_TO_PICKUP',
+                        'RTP': 'READY_TO_PICKUP',
+                        'DISPATCHED': 'DISPATCHED',
+                        'DDCR': 'DISPATCHED',
+                        'DSP': 'DISPATCHED',
+                        'CONCLUDED': 'CONCLUDED',
+                        'CONC': 'CONCLUDED',
+                        'CANCELLED': 'CANCELLED',
+                        'CANC': 'CANCELLED',
+                        'CANCELLATION_REQUESTED': 'CANCELLATION_REQUESTED',
+                        'CANR': 'CANCELLATION_REQUESTED'
+                    };
+
+                    if (event.code in eventToStatusMap) {
+                        const newStatus = eventToStatusMap[event.code];
+                        console.log(`Novo status mapeado: ${newStatus}`);
+
+                        // Busca status atual da API
+                        try {
+                            const orderDetails = await makeAuthorizedRequest(`/order/v1.0/orders/${event.orderId}`, 'GET');
+                            console.log(`Status atual na API: ${orderDetails.status}`);
+
+                            // Aguarda um breve momento para evitar atualizações muito rápidas
+                            await new Promise(resolve => setTimeout(resolve, 1000));
+
+                            const existingOrder = document.querySelector(`.order-card[data-order-id="${event.orderId}"]`);
+                            if (existingOrder) {
+                                const currentStatus = existingOrder.querySelector('.order-status')?.textContent;
+                                console.log(`Status atual na interface: ${currentStatus}`);
+
+                                // Se o status da API for diferente do novo status, usa o da API
+                                const finalStatus = orderDetails.status || newStatus;
+                                console.log(`Status final a ser aplicado: ${finalStatus}`);
+
+                                if (currentStatus !== getStatusText(finalStatus)) {
+                                    updateOrderStatus(event.orderId, finalStatus);
+                                } else {
+                                    console.log('Status já está atualizado');
+                                }
+                            } else {
+                                displayOrder(orderDetails);
+                            }
+                        } catch (error) {
+                            console.error('Erro ao buscar status da API:', error);
+                            // Se falhar em obter da API, usa o status mapeado
+                            updateOrderStatus(event.orderId, newStatus);
+                        }
+                    }
                 }
-            } catch (orderError) {
-                console.error(`Erro ao buscar detalhes do pedido ${event.orderId}:`, orderError);
+            } finally {
+                // Remove o pedido do mapa de processamento
+                processingOrders.delete(event.orderId);
             }
-        } 
-        else {
-            console.log('Processando evento de atualização de status');
-            console.log(`=== EVENTO DE STATUS RECEBIDO ===`);
-            console.log(`Timestamp: ${new Date().toLocaleString()}`);
-            console.log(`Tipo de evento: ${event.code}`);
-            
-const eventToStatusMap = {
-    'CONFIRMED': 'CONFIRMED', // Alterado
-    'CFM': 'CONFIRMED',      // Alterado
-    'READY_TO_PICKUP': 'READY_TO_PICKUP',
-    'RTP': 'READY_TO_PICKUP',
-    'DISPATCHED': 'DISPATCHED',
-    'DDCR': 'DISPATCHED',
-    'DSP': 'DISPATCHED',      // Adicionado
-    'CONCLUDED': 'CONCLUDED',
-    'CONC': 'CONCLUDED',
-    'CANCELLED': 'CANCELLED',
-    'CANC': 'CANCELLED',
-    'CANCELLATION_REQUESTED': 'CANCELLATION_REQUESTED',
-    'CANR': 'CANCELLATION_REQUESTED'
-};
-            
-if (event.code in eventToStatusMap) {
-    const newStatus = eventToStatusMap[event.code];
-    console.log(`=== PROCESSANDO MUDANÇA DE STATUS ===`);
-    console.log(`Timestamp: ${new Date().toLocaleString()}`);
-    console.log(`Tipo de evento: ${event.code}`);
-    console.log(`FullCode do evento: ${event.fullCode || event.code}`);
-    console.log(`Novo status mapeado: ${newStatus}`);
-    console.log(`ID do pedido: ${event.orderId}`);
+        })();
 
-    try {
-        // Busca status atual da API
-        const orderDetails = await makeAuthorizedRequest(`/order/v1.0/orders/${event.orderId}`, 'GET');
-        console.log(`Status atual na API: ${orderDetails.status}`);
+        // Adiciona a Promise ao mapa
+        processingOrders.set(event.orderId, processPromise);
 
-        const existingOrder = document.querySelector(`.order-card[data-order-id="${event.orderId}"]`);
-        if (existingOrder) {
-            const currentStatus = existingOrder.querySelector('.order-status')?.textContent;
-            console.log(`Status atual na interface: ${currentStatus}`);
+        // Aguarda o processamento
+        await processPromise;
 
-            // Verifica se precisa atualizar
-            if (currentStatus !== getStatusText(newStatus)) {
-                console.log(`Atualizando status para: ${newStatus}`);
-                updateOrderStatus(event.orderId, newStatus);
-            } else {
-                console.log('Status já está atualizado na interface');
-            }
-        } else {
-            console.log('Pedido não encontrado na interface, buscando detalhes...');
-            displayOrder(orderDetails);
-            processedOrderIds.add(event.orderId);
-            saveProcessedIds();
-        }
-    } catch (error) {
-        console.error(`Erro ao processar mudança de status: ${error}`);
-    }
-    
-    console.log('=== FIM DO PROCESSAMENTO ===\n');
-}
-        }
     } catch (error) {
         console.error('Erro ao processar evento:', error);
     }
