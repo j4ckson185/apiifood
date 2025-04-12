@@ -1592,6 +1592,40 @@ function showEditModal() {
     modal.classList.add('show');
 }
 
+// Função para limpar pedidos do localStorage
+function clearAllOrders() {
+    try {
+        // Confirma se o usuário realmente quer limpar todos os pedidos
+        if (confirm('Tem certeza que deseja limpar todos os pedidos? Esta ação não pode ser desfeita.')) {
+            // Remove do localStorage
+            localStorage.removeItem('savedOrders');
+            
+            // Limpa processedOrderIds
+            processedOrderIds.clear();
+            localStorage.removeItem('processedOrderIds');
+            
+            // Limpa cache de pedidos
+            for (const key in ordersCache) {
+                delete ordersCache[key];
+            }
+            
+            // Limpa os containers na interface
+            clearOrdersContainers();
+            
+            // Verifica cada tab para exibir a mensagem "sem pedidos"
+            checkForEmptyTab('preparation');
+            checkForEmptyTab('dispatched');
+            checkForEmptyTab('completed');
+            checkForEmptyTab('cancelled');
+            
+            showToast('Todos os pedidos foram removidos com sucesso', 'success');
+        }
+    } catch (error) {
+        console.error('Erro ao limpar pedidos:', error);
+        showToast('Erro ao limpar pedidos', 'error');
+    }
+}
+
 // Event Listeners
 document.addEventListener('DOMContentLoaded', () => {
     // Event listeners do cancelamento
@@ -1725,6 +1759,9 @@ document.querySelectorAll('.sidebar-item').forEach(item => {
             searchOrders(searchInput.value);
         });
     }
+
+    // Botão para limpar todos os pedidos
+document.getElementById('clear-orders')?.addEventListener('click', clearAllOrders);
 
     // Botão para atualizar pedidos
     document.getElementById('poll-orders').addEventListener('click', async () => {
