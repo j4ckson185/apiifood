@@ -267,12 +267,27 @@ window.handleEvent = async function(event) {
                 'CANR': 'CANCELLATION_REQUESTED'
             };
             
-            if (event.code in eventToStatusMap) {
-                const newStatus = eventToStatusMap[event.code];
-                console.log(`Novo status mapeado: ${newStatus}`);
-                console.log(`ID do pedido: ${event.orderId}`);
-                
-                const existingOrder = document.querySelector(`.order-card[data-order-id="${event.orderId}"]`);
+if (event.code in eventToStatusMap) {
+    const newStatus = eventToStatusMap[event.code];
+    console.log(`Novo status mapeado: ${newStatus}`);
+    console.log(`ID do pedido: ${event.orderId}`);
+    
+    // Adiciona verificação especial para DDCR
+    if (event.code === 'DDCR') {
+        // Aguarda um tempo após qualquer mudança de status anterior
+        const waitTime = 5000; // 5 segundos
+        console.log(`Aguardando ${waitTime/1000} segundos antes de processar DDCR...`);
+        await new Promise(resolve => setTimeout(resolve, waitTime));
+        
+        // Verificar status atual do pedido
+        const orderDetails = await makeAuthorizedRequest(`/order/v1.0/orders/${event.orderId}`, 'GET');
+        if (orderDetails.status !== 'READY_TO_PICKUP') {
+            console.log('Ignorando DDCR pois pedido não está em READY_TO_PICKUP');
+            return;
+        }
+    }
+    
+    const existingOrder = document.querySelector(`.order-card[data-order-id="${event.orderId}"]`);
                 
                 if (existingOrder) {
                     const currentStatus = existingOrder.querySelector('.order-status')?.textContent;
