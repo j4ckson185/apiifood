@@ -43,90 +43,102 @@
             console.log(message, data);
         }
 
-        async function makeRequest(path, method = 'GET', body = null, isAuth = false) {
+        async function authenticate() {
             try {
+                log('Iniciando autenticação...');
+                
+                const formData = new URLSearchParams();
+                formData.append('grantType', 'client_credentials');
+                formData.append('clientId', CONFIG.clientId);
+                formData.append('clientSecret', CONFIG.clientSecret);
+
+                const response = await fetch('/.netlify/functions/ifood-proxy', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        path: '/authentication/v1.0/oauth/token',
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/x-www-form-urlencoded'
+                        },
+                        body: formData.toString(),
+                        isAuth: true
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const data = await response.json();
+                
+                if (data && data.accessToken) {
+                    accessToken = data.accessToken;
+                    tokenStatus.textContent = `Autenticado (${accessToken.substring(0, 10)}...)`;
+                    log('Autenticação bem sucedida', { token: `${accessToken.substring(0, 10)}...` });
+                    return true;
+                } else {
+                    throw new Error('Token não recebido');
+                }
+            } catch (error) {
+                log('Erro na autenticação:', error);
+                tokenStatus.textContent = 'Falha na autenticação';
+                return false;
+            }
+        }
+
+        async function makeAuthorizedRequest(path, method = 'GET', body = null) {
+            try {
+                if (!accessToken) {
+                    await authenticate();
+                }
+
                 const headers = {
-                    'Content-Type': 'application/json'
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${accessToken}`
                 };
 
-                if (!isAuth) {
-                    if (!accessToken) {
-                        log('Token não encontrado, tentando autenticar...');
-                        await authenticate();
-                    }
-                    headers['Authorization'] = `Bearer ${accessToken}`;
-                    if (path.includes('events')) {
-                        headers['x-polling-merchants'] = CONFIG.merchantUUID;
-                    }
+                if (path.includes('events')) {
+                    headers['x-polling-merchants'] = CONFIG.merchantUUID;
                 }
 
                 const requestBody = {
                     path,
                     method,
-                    headers,
-                    isAuth
+                    headers
                 };
 
                 if (body) {
-                    if (isAuth) {
-                        requestBody.body = body;
-                    } else {
-                        requestBody.body = typeof body === 'string' ? body : JSON.stringify(body);
-                    }
+                    requestBody.body = body;
                 }
 
                 log(`Enviando requisição para ${path}`, requestBody);
 
                 const response = await fetch('/.netlify/functions/ifood-proxy', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
                     body: JSON.stringify(requestBody)
                 });
-
-                const responseText = await response.text();
-                log(`Resposta de ${path}:`, responseText);
 
                 if (!response.ok) {
                     throw new Error(`HTTP error! status: ${response.status}`);
                 }
 
-                try {
-                    return responseText ? JSON.parse(responseText) : null;
-                } catch (e) {
-                    log('Erro ao processar resposta:', e);
-                    return null;
-                }
+                const data = await response.json();
+                log(`Resposta de ${path}:`, data);
+                return data;
             } catch (error) {
                 log('Erro na requisição:', error);
                 if (error.message.includes('401')) {
                     accessToken = null;
                     tokenStatus.textContent = 'Não autenticado';
+                    await authenticate();
                 }
                 throw error;
-            }
-        }
-
-        async function authenticate() {
-            log('Autenticando...');
-            const formData = new URLSearchParams();
-            formData.append('grantType', 'client_credentials');
-            formData.append('clientId', CONFIG.clientId);
-            formData.append('clientSecret', CONFIG.clientSecret);
-
-            const data = await makeRequest(
-                '/authentication/v1.0/oauth/token',
-                'POST',
-                formData.toString(),
-                true
-            );
-
-            if (data && data.accessToken) {
-                accessToken = data.accessToken;
-                tokenStatus.textContent = 'Autenticado';
-                log('Autenticado com sucesso. Token:', accessToken);
-            } else {
-                tokenStatus.textContent = 'Falha na autenticação';
-                log('Falha na autenticação');
             }
         }
 
@@ -142,20 +154,18 @@
             `;
             document.getElementById('orders').prepend(orderElement);
 
-            // Busca detalhes do pedido
-            const orderDetails = await makeRequest(`/order/v1.0/orders/${event.orderId}`);
+            const orderDetails = await makeAuthorizedRequest(`/order/v1.0/orders/${event.orderId}`);
             log(`Detalhes do pedido:`, orderDetails);
         }
 
         async function pollEvents() {
             try {
                 if (!accessToken) {
-                    log('Sem token, autenticando...');
                     await authenticate();
                 }
 
                 log('Buscando eventos...');
-                const events = await makeRequest('/events/v1.0/events:polling');
+                const events = await makeAuthorizedRequest('/events/v1.0/events:polling');
                 
                 if (events && Array.isArray(events) && events.length > 0) {
                     log(`${events.length} eventos recebidos`, events);
@@ -171,31 +181,21 @@
 
                     // Acknowledgment
                     const ackPayload = events.map(e => ({id: e.id}));
-                    log('Enviando acknowledgment:', ackPayload);
-                    
-                    const ackResult = await makeRequest(
-                        '/events/v1.0/events/acknowledgment',
-                        'POST',
-                        ackPayload
-                    );
-                    log('Acknowledgment enviado', ackResult);
+                    await makeAuthorizedRequest('/events/v1.0/events/acknowledgment', 'POST', ackPayload);
+                    log('Acknowledgment enviado');
                 } else {
                     log('Nenhum evento novo');
                 }
             } catch (error) {
                 log('Erro no polling:', error);
-                if (error.message?.includes('401')) {
-                    accessToken = null;
-                    tokenStatus.textContent = 'Não autenticado';
-                    await authenticate();
-                }
             }
         }
 
         async function init() {
-            await authenticate();
-            await pollEvents();
-            setInterval(pollEvents, CONFIG.pollingInterval);
+            if (await authenticate()) {
+                await pollEvents();
+                setInterval(pollEvents, CONFIG.pollingInterval);
+            }
         }
 
         init();
