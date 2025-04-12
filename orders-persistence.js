@@ -261,9 +261,6 @@ else {
     const eventToStatusMap = {
         'CONFIRMED': 'READY_TO_PICKUP', // Alterado para ir para READY_TO_PICKUP
         'CFM': 'READY_TO_PICKUP',       // Alterado para ir para READY_TO_PICKUP
-        'IN_PREPARATION': 'IN_PREPARATION',
-        'PREP': 'IN_PREPARATION',
-        'PRS': 'IN_PREPARATION',
         'READY_TO_PICKUP': 'READY_TO_PICKUP',
         'RTP': 'READY_TO_PICKUP',
         'DISPATCHED': 'DISPATCHED',
