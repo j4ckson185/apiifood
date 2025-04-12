@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Teste Events iFood</title>
+</head>
+<body>
+    <div id="orders"></div>
+    <script>
+        const CONFIG = {
+            merchantId: '2733980',
+            merchantUUID: '3a9fc83b-ffc3-43e9-aeb6-36c9e827a143',
+            clientId: 'e6415912-782e-4bd9-b6ea-af48c81ae323',
+            clientSecret: '137o75y57ug8fm55ubfoxlwjpl0xm25jxj18ne5mser23mbprj5nfncvfnr82utnzx73ij4h449o298370rjwpycppazsfyh2s0l',
+            pollingInterval: 30000
+        };
+
+        let accessToken = null;
+
+        async function authenticate() {
+            const formData = new URLSearchParams();
+            formData.append('grantType', 'client_credentials');
+            formData.append('clientId', CONFIG.clientId);
+            formData.append('clientSecret', CONFIG.clientSecret);
+
+            const response = await fetch('/.netlify/functions/ifood-proxy', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    path: '/authentication/v1.0/oauth/token',
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                    body: formData.toString(),
+                    isAuth: true
+                })
+            });
+
+            const data = await response.json();
+            accessToken = data.accessToken;
+        }
+
+        async function pollEvents() {
+            const events = await fetch('/.netlify/functions/ifood-proxy', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    path: '/events/v1.0/events:polling',
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${accessToken}`,
+                        'x-polling-merchants': CONFIG.merchantUUID
+                    }
+                })
+            }).then(r => r.json());
+
+            // Ordenar eventos por createdAt
+            events.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+
+            // Processar eventos um por um com delay
+            for (const event of events) {
+                await processEvent(event);
+                // Aguarda 5 segundos antes de processar próximo evento
+                await new Promise(resolve => setTimeout(resolve, 5000));
+            }
+
+            // Acknowledgment
+            if (events.length > 0) {
+                await fetch('/.netlify/functions/ifood-proxy', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        path: '/events/v1.0/events/acknowledgment',
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${accessToken}`,
+                            'x-polling-merchants': CONFIG.merchantUUID
+                        },
+                        body: events.map(e => ({id: e.id}))
+                    })
+                });
+            }
+        }
+
+        async function processEvent(event) {
+            console.log(`Processando evento: ${event.code} para pedido ${event.orderId} em ${event.createdAt}`);
+
+            // Ignorar eventos DDCR se o pedido não estiver em READY_TO_PICKUP
+            if (event.code === 'DDCR') {
+                const orderStatus = await getOrderStatus(event.orderId);
+                if (orderStatus !== 'READY_TO_PICKUP') {
+                    console.log(`Ignorando evento DDCR pois pedido está em ${orderStatus}`);
+                    return;
+                }
+            }
+
+            const statusMap = {
+                'CFM': 'READY_TO_PICKUP',
+                'RTP': 'READY_TO_PICKUP',
+                'DDCR': 'DISPATCHED',
+                'CANC': 'CANCELLED',
+                'CONC': 'CONCLUDED'
+            };
+
+            const newStatus = statusMap[event.code];
+            if (newStatus) {
+                document.getElementById('orders').innerHTML += 
+                    `<p>Pedido ${event.orderId}: ${newStatus} (${new Date().toLocaleTimeString()})</p>`;
+            }
+        }
+
+        async function getOrderStatus(orderId) {
+            const response = await fetch('/.netlify/functions/ifood-proxy', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    path: `/order/v1.0/orders/${orderId}`,
+                    method: 'GET',
+                    headers: {'Authorization': `Bearer ${accessToken}`}
+                })
+            });
+            const order = await response.json();
+            return order.status;
+        }
+
+        async function init() {
+            await authenticate();
+            setInterval(pollEvents, 30000);
+            pollEvents();
+        }
+
+        init();
+    </script>
+</body>
+</html>
