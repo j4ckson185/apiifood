@@ -262,10 +262,8 @@ const eventToStatusMap = {
     'DSP': 'DISPATCHED',
     'CONCLUDED': 'CONCLUDED',
     'CONC': 'CONCLUDED',
-    'CANCELLED': 'CANCELLED',
-    'CANC': 'CANCELLED',
-    'CANCELLATION_REQUESTED': 'CANCELLATION_REQUESTED',
-    'CANR': 'CANCELLATION_REQUESTED'
+    'CAR': 'CANCELLATION_REQUESTED',  // Código real do iFood para "cancelamento solicitado"
+    'CAN': 'CANCELLED'                // Código real do iFood para "cancelado"
 };
             
 if (event.code in eventToStatusMap) {
