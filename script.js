@@ -7,46 +7,6 @@ const CONFIG = {
     pollingInterval: 30000 // 30 segundos
 };
 
-const STORAGE_KEY = 'ifood_orders';
-const STATUS_CHECK_INTERVAL = 30000; // 30 segundos
-
-// Funções de armazenamento
-function saveOrderToStorage(order) {
-    try {
-        const orders = getOrdersFromStorage();
-        orders[order.id] = {
-            ...order,
-            lastUpdated: new Date().toISOString()
-        };
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(orders));
-    } catch (error) {
-        console.error('Erro ao salvar pedido:', error);
-    }
-}
-
-function getOrdersFromStorage() {
-    try {
-        const stored = localStorage.getItem(STORAGE_KEY);
-        return stored ? JSON.parse(stored) : {};
-    } catch (error) {
-        console.error('Erro ao carregar pedidos:', error);
-        return {};
-    }
-}
-
-function cleanOldOrders() {
-    const orders = getOrdersFromStorage();
-    const now = new Date();
-    const filtered = Object.entries(orders).reduce((acc, [id, order]) => {
-        const orderDate = new Date(order.lastUpdated);
-        if (now - orderDate < 24 * 60 * 60 * 1000) {
-            acc[id] = order;
-        }
-        return acc;
-    }, {});
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(filtered));
-}
-
 // Estado da aplicação
 let state = {
     accessToken: null,
@@ -337,125 +297,104 @@ function saveProcessedIds() {
     localStorage.setItem('processedOrderIds', JSON.stringify([...processedOrderIds]));
 }
 
+// Polling de eventos corrigido para receber pedidos novamente
 async function pollEvents() {
     if (!state.isPolling || !state.accessToken) return;
 
     try {
-        console.log('Iniciando polling de eventos...');
+        console.log('Iniciando polling...');
         const events = await makeAuthorizedRequest('/events/v1.0/events:polling', 'GET', null);
         
         if (events && Array.isArray(events) && events.length > 0) {
             console.log('Eventos recebidos:', events);
             
-            // Array para armazenar IDs de eventos para acknowledgment
-            const eventsToAcknowledge = [];
-            
-            // Processa cada evento
+            // Processa todos os eventos, mas lida com eles de forma seletiva em handleEvent
             for (const event of events) {
-                if (event.orderId) {
-                    eventsToAcknowledge.push({ id: event.id });
-                    
-                    try {
-                        // Busca detalhes atualizados do pedido
-                        const orderDetails = await makeAuthorizedRequest(`/order/v1.0/orders/${event.orderId}`, 'GET');
-                        console.log(`Detalhes atualizados do pedido ${event.orderId}:`, orderDetails);
-
-                        // Verifica se o pedido já existe na interface
-                        const existingOrder = document.querySelector(`.order-card[data-order-id="${event.orderId}"]`);
-                        
-                        if (existingOrder) {
-                            // Atualiza o status se o pedido já existe
-                            if (orderDetails.status) {
-                                console.log(`Atualizando status do pedido ${event.orderId} para ${orderDetails.status}`);
-                                updateOrderStatus(event.orderId, orderDetails.status);
-                            }
-                        } else if (event.code === 'PLACED' || event.code === 'PLC') {
-                            // Se é um pedido novo, exibe na interface
-                            console.log(`Exibindo novo pedido ${event.orderId}`);
-                            displayOrder(orderDetails);
-                            showToast('Novo pedido recebido!', 'success');
-                        }
-                    } catch (orderError) {
-                        console.error(`Erro ao processar pedido ${event.orderId}:`, orderError);
-                    }
-                }
+                await handleEvent(event);
             }
-            
-            // Envia acknowledgment para todos os eventos processados
-            if (eventsToAcknowledge.length > 0) {
-                try {
-                    await makeAuthorizedRequest('/events/v1.0/events/acknowledgment', 'POST', eventsToAcknowledge);
-                    console.log('Acknowledgment enviado com sucesso');
-                } catch (ackError) {
-                    console.error('Erro ao enviar acknowledgment:', ackError);
-                }
+
+            // Formato correto para acknowledgment
+            const acknowledgmentFormat = events.map(event => ({ id: event.id }));
+            console.log('📤 Enviando acknowledgment com formato:', acknowledgmentFormat);
+
+            try {
+                // Envia acknowledgment para todos os eventos
+                await makeAuthorizedRequest('/events/v1.0/events/acknowledgment', 'POST', acknowledgmentFormat);
+                console.log('✅ Acknowledgment enviado com sucesso');
+            } catch (ackError) {
+                console.error('❌ Erro ao enviar acknowledgment:', ackError);
             }
         } else {
-            console.log('Nenhum evento novo encontrado');
+            console.log('Nenhum evento recebido neste polling');
         }
     } catch (error) {
         console.error('Erro no polling:', error);
         
+        // Verificar se o token expirou e renovar se necessário
         if (error.message && error.message.includes('401')) {
-            console.log('Token expirado, renovando autenticação...');
+            console.log('🔑 Token possivelmente expirado. Tentando renovar...');
             state.accessToken = null;
             await authenticate();
         }
     } finally {
-        // Agenda próximo polling se ainda estiver ativo
         if (state.isPolling) {
             setTimeout(pollEvents, CONFIG.pollingInterval);
         }
     }
 }
 
-function areStatusesEquivalent(status1, status2) {
-    // Mapeamento de status equivalentes
-    const statusMap = {
-        'PLC': 'PLACED',
-        'CFM': 'CONFIRMED',
-        'PREP': 'IN_PREPARATION',
-        'PRS': 'IN_PREPARATION',
-        'RTP': 'READY_TO_PICKUP',
-        'DDCR': 'DISPATCHED',
-        'CONC': 'CONCLUDED',
-        'CANC': 'CANCELLED',
-        'CANR': 'CANCELLATION_REQUESTED'
-    };
-
-    // Normaliza os status
-    const normalizedStatus1 = statusMap[status1] || status1;
-    const normalizedStatus2 = statusMap[status2] || status2;
-
-    return normalizedStatus1 === normalizedStatus2;
-}
-
+// Manipulador de eventos corrigido para receber pedidos novamente
 async function handleEvent(event) {
     try {
         console.log(`Processando evento: ${event.code} para pedido ${event.orderId}`);
         
+        // Verifica se é um evento relacionado a pedido
         if (!event.orderId) {
             console.log('Evento sem orderId, ignorando:', event);
             return;
         }
         
-        // Busca detalhes atualizados do pedido
-        try {
-            const orderDetails = await makeAuthorizedRequest(`/order/v1.0/orders/${event.orderId}`, 'GET');
-            console.log('Detalhes do pedido recebido:', orderDetails);
-            
-            // Atualiza o storage e a interface
-            saveOrderToStorage(orderDetails);
-            
-            const existingOrder = document.querySelector(`.order-card[data-order-id="${orderDetails.id}"]`);
-            if (!existingOrder) {
-                displayOrder(orderDetails);
-                showToast('Novo pedido recebido!', 'success');
-            } else {
-                updateOrderStatus(orderDetails.id, orderDetails.status);
+        // Para eventos PLACED (novos pedidos) - processa normalmente para exibir novos pedidos
+        if (event.code === 'PLACED' || event.code === 'PLC') {
+            // Checa se já processamos este pedido antes
+            if (processedOrderIds.has(event.orderId)) {
+                console.log(`Pedido ${event.orderId} já foi processado anteriormente, ignorando`);
+                return;
             }
-        } catch (orderError) {
-            console.error(`Erro ao buscar detalhes do pedido ${event.orderId}:`, orderError);
+            
+            // Tenta buscar detalhes do pedido
+            try {
+                const order = await makeAuthorizedRequest(`/order/v1.0/orders/${event.orderId}`, 'GET');
+                console.log('Detalhes do pedido recebido:', order);
+                
+                // Verifica se o pedido já existe na interface pelo atributo data-order-id
+                const existingOrder = document.querySelector(`.order-card[data-order-id="${order.id}"]`);
+                if (!existingOrder) {
+                    // Exibe o pedido na interface
+                    displayOrder(order);
+                    showToast('Novo pedido recebido!', 'success');
+                    
+                    // Marca o pedido como processado
+                    processedOrderIds.add(event.orderId);
+                    saveProcessedIds();
+                } else {
+                    console.log(`Pedido ${order.id} já está na interface, ignorando duplicação`);
+                }
+            } catch (orderError) {
+                console.error(`Erro ao buscar detalhes do pedido ${event.orderId}:`, orderError);
+            }
+        } 
+        // Processar eventos de CANCELAMENTO para manter a interface sincronizada
+        else if (event.code === 'CANCELLED' || event.code === 'CANC' || 
+                 event.code === 'CANCELLATION_REQUESTED' || event.code === 'CANR') {
+            // Atualiza o status para cancelado
+            updateOrderStatus(event.orderId, 'CANCELLED');
+            console.log(`Pedido ${event.orderId} foi cancelado, atualizando interface`);
+        }
+        // Para os outros eventos de status, registramos mas NÃO atualizamos a interface
+        // para evitar mudanças automáticas de status após confirmação
+        else {
+            console.log(`Recebido evento de status ${event.code} para pedido ${event.orderId} - ignorando atualização automática`);
         }
     } catch (error) {
         console.error('Erro ao processar evento:', error);
@@ -528,7 +467,6 @@ async function toggleStoreStatus() {
 
 // Exibe o pedido na interface com organização por categorias
 function displayOrder(order) {
-    saveOrderToStorage(order);
     const template = document.getElementById('order-modal-template');
     const orderElement = template.content.cloneNode(true);
 
@@ -799,43 +737,53 @@ function displayOrder(order) {
    console.log('Pedido exibido com sucesso:', order.id);
 }
 
+// Função modificada para atualizar o status apenas quando explicitamente solicitado
 function updateOrderStatus(orderId, status) {
-    console.log(`Atualizando status do pedido ${orderId} para ${status}`);
-    
-    const orders = getOrdersFromStorage();
-    if (orders[orderId]) {
-        orders[orderId].status = status;
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(orders));
-    }
+   console.log(`Atualizando status do pedido ${orderId} para ${status}`);
 
-    const card = document.querySelector(`.order-card[data-order-id="${orderId}"]`);
-    
-    if (card) {
-        const statusElement = card.querySelector('.order-status');
-        if (statusElement) {
-            statusElement.textContent = getStatusText(status);
-        }
+   // Busca o card do pedido pelo data-order-id exato
+   const card = document.querySelector(`.order-card[data-order-id="${orderId}"]`);
 
-        const actionsContainer = card.querySelector('.order-actions');
-        if (actionsContainer) {
-            addActionButtons(actionsContainer, { id: orderId, status });
-        }
-        
-        // Remove classes de status existentes
-        const statusClasses = Array.from(card.classList)
-            .filter(className => className.startsWith('status-'));
-        statusClasses.forEach(className => {
-            card.classList.remove(className);
-        });
-        
-        // Adiciona nova classe de status
-        if (status) {
-            card.classList.add(`status-${status.toLowerCase()}`);
-        }
-        
-        // Move o card para a tab correta
-        moveCardToCorrectTab(card, status);
-    }
+   if (card) {
+       // Atualiza o status
+       const statusElement = card.querySelector('.order-status');
+       if (statusElement) {
+           statusElement.textContent = getStatusText(status);
+       }
+
+       // Atualiza as ações disponíveis
+       const actionsContainer = card.querySelector('.order-actions');
+       if (actionsContainer) {
+           // Adiciona novas ações baseadas no status atualizado
+           addActionButtons(actionsContainer, { id: orderId, status });
+       }
+       
+       // Atualiza classes do card baseado no status
+       // Primeiro remove todas as classes de status existentes
+       const statusClasses = Array.from(card.classList)
+           .filter(className => className.startsWith('status-'));
+       
+       statusClasses.forEach(className => {
+           card.classList.remove(className);
+       });
+       
+       // Adiciona a nova classe de status
+       if (status) {
+           card.classList.add(`status-${status.toLowerCase()}`);
+       }
+       
+       // Move o card para a tab correta baseado no novo status
+       moveCardToCorrectTab(card, status);
+   } else {
+       console.log(`Pedido ${orderId} não encontrado na interface. Buscando detalhes...`);
+       makeAuthorizedRequest(`/order/v1.0/orders/${orderId}`, 'GET')
+           .then(order => {
+               displayOrder(order);
+           })
+           .catch(error => {
+               console.error(`Erro ao buscar detalhes do pedido ${orderId}:`, error);
+           });
+   }
 }
 
 // Função para mover o card para a tab correta após atualização de status
@@ -1812,48 +1760,35 @@ document.querySelectorAll('.sidebar-item').forEach(item => {
 
 async function initialize() {
     try {
+        // Garantir que o modal de cancelamento esteja SEMPRE oculto
         const cancelModal = document.getElementById('cancellation-modal');
         if (cancelModal) {
             cancelModal.classList.add('hidden');
             cancelModal.style.display = 'none';
             cancelModal.setAttribute('hidden', 'true');
+            console.log("Modal escondido na inicialização");
         }
-        
+       
         showLoading();
-        
+       
         // Autenticação inicial
         await authenticate();
-        
+       
         // Atualiza status da loja
         await updateStoreStatus();
-        
-        // Carrega pedidos do storage antes de buscar novos
-        const savedOrders = getOrdersFromStorage();
-        Object.values(savedOrders).forEach(order => {
-            const existingOrder = document.querySelector(`.order-card[data-order-id="${order.id}"]`);
-            if (!existingOrder) {
-                displayOrder(order);
-            }
-        });
-        
-        // Limpa pedidos antigos
-        cleanOldOrders();
-        
-        // Carrega pedidos ativos
+       
+        // Carrega pedidos ativos iniciais
         await fetchActiveOrders();
-        
+       
         // Inicia polling de eventos
         startPolling();
-        
-        // Inicia verificação periódica de status
-        startStatusChecking();
-        
     } catch (error) {
         console.error('Erro na inicialização:', error);
         showToast('Erro ao inicializar aplicação', 'error');
     } finally {
         hideLoading();
-        
+       
+        // Adicional: Garantir que o modal esteja oculto após carregar
         const cancelModal = document.getElementById('cancellation-modal');
         if (cancelModal) {
             cancelModal.classList.add('hidden');
@@ -1861,28 +1796,6 @@ async function initialize() {
             cancelModal.setAttribute('hidden', 'true');
         }
     }
-}
-
-async function checkOrdersStatus() {
-    const orders = getOrdersFromStorage();
-    
-    for (const [orderId, order] of Object.entries(orders)) {
-        try {
-            const response = await makeAuthorizedRequest(`/order/v1.0/orders/${orderId}`, 'GET');
-            
-            if (response && response.status !== order.status) {
-                console.log(`Status atualizado para pedido ${orderId}: ${response.status}`);
-                updateOrderStatus(orderId, response.status);
-                saveOrderToStorage(response);
-            }
-        } catch (error) {
-            console.error(`Erro ao verificar status do pedido ${orderId}:`, error);
-        }
-    }
-}
-
-function startStatusChecking() {
-    setInterval(checkOrdersStatus, STATUS_CHECK_INTERVAL);
 }
 
 // Event listener de carregamento da janela
