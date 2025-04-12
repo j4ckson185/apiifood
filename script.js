@@ -1666,6 +1666,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    // Adicione este evento no bloco document.addEventListener('DOMContentLoaded', () => { ... });
+document.getElementById('clear-orders')?.addEventListener('click', clearAllOrders);
+
     // Event listeners de paginação
     document.getElementById('prev-page')?.addEventListener('click', () => {
         if (currentPage > 1) {
@@ -1791,6 +1794,40 @@ async function initialize() {
             cancelModal.style.display = 'none';
             cancelModal.setAttribute('hidden', 'true');
         }
+    }
+}
+
+// Função para limpar pedidos do localStorage
+function clearAllOrders() {
+    try {
+        // Confirma se o usuário realmente quer limpar todos os pedidos
+        if (confirm('Tem certeza que deseja limpar todos os pedidos? Esta ação não pode ser desfeita.')) {
+            // Remove do localStorage
+            localStorage.removeItem('savedOrders');
+            
+            // Limpa processedOrderIds
+            processedOrderIds.clear();
+            localStorage.removeItem('processedOrderIds');
+            
+            // Limpa cache de pedidos
+            for (const key in ordersCache) {
+                delete ordersCache[key];
+            }
+            
+            // Limpa os containers na interface
+            clearOrdersContainers();
+            
+            // Verifica cada tab para exibir a mensagem "sem pedidos"
+            checkForEmptyTab('preparation');
+            checkForEmptyTab('dispatched');
+            checkForEmptyTab('completed');
+            checkForEmptyTab('cancelled');
+            
+            showToast('Todos os pedidos foram removidos com sucesso', 'success');
+        }
+    } catch (error) {
+        console.error('Erro ao limpar pedidos:', error);
+        showToast('Erro ao limpar pedidos', 'error');
     }
 }
 
