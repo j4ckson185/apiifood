@@ -280,8 +280,23 @@ if (event.code in eventToStatusMap) {
 
     try {
         // Busca o status atual da API
-        const orderDetails = await makeAuthorizedRequest(`/order/v1.0/orders/${event.orderId}`, 'GET');
-        const statusNaAPI = orderDetails.status;
+const orderDetails = await makeAuthorizedRequest(`/order/v1.0/orders/${event.orderId}`, 'GET');
+
+// DEBUG: Mostra o retorno completo no log
+console.log('🧾 Detalhes do pedido recebidos da API:', orderDetails);
+
+// Tenta buscar o status de várias formas
+let statusNaAPI = orderDetails.status;
+
+if (!statusNaAPI && orderDetails.order && orderDetails.order.status) {
+    statusNaAPI = orderDetails.order.status;
+    console.log('✅ Status encontrado em orderDetails.order.status:', statusNaAPI);
+}
+
+if (!statusNaAPI) {
+    console.warn('⚠️ Status ainda undefined! Algo está errado na resposta da API!');
+}
+
 
         console.log(`Status atual na API: ${statusNaAPI}`);
 
