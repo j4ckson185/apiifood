@@ -253,13 +253,13 @@ window.handleEvent = async function(event) {
             console.log(`Tipo de evento: ${event.code}`);
             
 const eventToStatusMap = {
-    'CONFIRMED': 'CONFIRMED', // Alterado
-    'CFM': 'CONFIRMED',      // Alterado
+    'CONFIRMED': 'CONFIRMED',
+    'CFM': 'CONFIRMED',
     'READY_TO_PICKUP': 'READY_TO_PICKUP',
     'RTP': 'READY_TO_PICKUP',
     'DISPATCHED': 'DISPATCHED',
     'DDCR': 'DISPATCHED',
-    'DSP': 'DISPATCHED',      // Adicionado
+    'DSP': 'DISPATCHED',
     'CONCLUDED': 'CONCLUDED',
     'CONC': 'CONCLUDED',
     'CANCELLED': 'CANCELLED',
