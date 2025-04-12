@@ -269,33 +269,37 @@ const eventToStatusMap = {
 };
             
 if (event.code in eventToStatusMap) {
-    const newStatus = eventToStatusMap[event.code];
+    const mappedStatus = eventToStatusMap[event.code];
+
     console.log(`=== PROCESSANDO MUDANÇA DE STATUS ===`);
     console.log(`Timestamp: ${new Date().toLocaleString()}`);
     console.log(`Tipo de evento: ${event.code}`);
     console.log(`FullCode do evento: ${event.fullCode || event.code}`);
-    console.log(`Novo status mapeado: ${newStatus}`);
+    console.log(`Novo status mapeado: ${mappedStatus}`);
     console.log(`ID do pedido: ${event.orderId}`);
 
     try {
-        // Busca status atual da API
+        // Busca o status atual da API
         const orderDetails = await makeAuthorizedRequest(`/order/v1.0/orders/${event.orderId}`, 'GET');
-        console.log(`Status atual na API: ${orderDetails.status}`);
+        const statusNaAPI = orderDetails.status;
+
+        console.log(`Status atual na API: ${statusNaAPI}`);
 
         const existingOrder = document.querySelector(`.order-card[data-order-id="${event.orderId}"]`);
-        if (existingOrder) {
-            const currentStatus = existingOrder.querySelector('.order-status')?.textContent;
-            console.log(`Status atual na interface: ${currentStatus}`);
+        const statusNaInterface = existingOrder?.querySelector('.order-status')?.textContent;
 
-            // Verifica se precisa atualizar
-            if (currentStatus !== getStatusText(newStatus)) {
-                console.log(`Atualizando status para: ${newStatus}`);
-                updateOrderStatus(event.orderId, newStatus);
-            } else {
-                console.log('Status já está atualizado na interface');
-            }
+        console.log(`Status atual na interface: ${statusNaInterface}`);
+
+        // Só atualiza a interface se o status da API for igual ao mapeado
+        if (statusNaAPI === mappedStatus) {
+            console.log(`Status confirmado pela API. Atualizando interface para: ${mappedStatus}`);
+            updateOrderStatus(event.orderId, mappedStatus);
         } else {
-            console.log('Pedido não encontrado na interface, buscando detalhes...');
+            console.log(`Status da API (${statusNaAPI}) não confirma o status do evento (${mappedStatus}). Ignorando.`);
+        }
+
+        // Se o pedido ainda não estiver na interface, adiciona
+        if (!existingOrder) {
             displayOrder(orderDetails);
             processedOrderIds.add(event.orderId);
             saveProcessedIds();
@@ -303,9 +307,10 @@ if (event.code in eventToStatusMap) {
     } catch (error) {
         console.error(`Erro ao processar mudança de status: ${error}`);
     }
-    
+
     console.log('=== FIM DO PROCESSAMENTO ===\n');
 }
+
         }
     } catch (error) {
         console.error('Erro ao processar evento:', error);
