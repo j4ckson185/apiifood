@@ -831,36 +831,32 @@ function addActionButtons(container, order) {
    }
    
    // Mapeamento detalhado de status para ações
-   const actions = {
-       'PLACED': [
-           { label: 'Confirmar', action: 'confirm', class: 'confirm' },
-           { label: 'Cancelar', action: 'requestCancellation', class: 'cancel' }
-       ],
-       'CONFIRMED': [
-           { label: 'Despachar', action: 'dispatch', class: 'dispatch' },
-           { label: 'Cancelar', action: 'requestCancellation', class: 'cancel' }
-       ],
-       'IN_PREPARATION': [
-           { label: 'Despachar', action: 'dispatch', class: 'dispatch' },
-           { label: 'Cancelar', action: 'requestCancellation', class: 'cancel' }
-       ],
-       'READY_TO_PICKUP': [
-           { label: 'Despachar', action: 'dispatch', class: 'dispatch' },
-           { label: 'Cancelar', action: 'requestCancellation', class: 'cancel' }
-       ],
-       'DISPATCHED': [
-           { label: 'Cancelar', action: 'requestCancellation', class: 'cancel' }
-       ],
-       'CANCELLATION_REQUESTED': [
-           { label: 'Cancelamento Solicitado', action: null, class: 'disabled' }
-       ],
-       'CANCELLED': [
-           { label: 'Pedido Cancelado', action: null, class: 'disabled' }
-       ],
-       'CONCLUDED': [
-           { label: 'Pedido Concluído', action: null, class: 'disabled' }
-       ]
-   };
+const actions = {
+    'PLACED': [
+        { label: 'Confirmar', action: 'confirm', class: 'confirm' },
+        { label: 'Cancelar', action: 'requestCancellation', class: 'cancel' }
+    ],
+    'CONFIRMED': [
+        { label: 'Despachar', action: 'dispatch', class: 'dispatch' },
+        { label: 'Cancelar', action: 'requestCancellation', class: 'cancel' }
+    ],
+    'READY_TO_PICKUP': [
+        { label: 'Despachar', action: 'dispatch', class: 'dispatch' },
+        { label: 'Cancelar', action: 'requestCancellation', class: 'cancel' }
+    ],
+    'DISPATCHED': [
+        { label: 'Cancelar', action: 'requestCancellation', class: 'cancel' }
+    ],
+    'CANCELLATION_REQUESTED': [
+        { label: 'Cancelamento Solicitado', action: null, class: 'disabled' }
+    ],
+    'CANCELLED': [
+        { label: 'Pedido Cancelado', action: null, class: 'disabled' }
+    ],
+    'CONCLUDED': [
+        { label: 'Pedido Concluído', action: null, class: 'disabled' }
+    ]
+};
    
    // Determina o tipo de pedido (delivery ou para retirar)
    let isDelivery = true;
