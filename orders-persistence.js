@@ -256,8 +256,8 @@ const eventToStatusMap = {
     'PLC': 'PLACED',
     'CFM': 'CONFIRMED',
     'RTP': 'READY_TO_PICKUP',
-    'DSP': 'DISPATCHED',
-    'DDCR': 'DISPATCHED',
+    'DSP': 'DISPATCHED', // ← SOMENTE ESSE representa despacho real
+    // 'DDCR': 'DISPATCHED', ← REMOVA ESSE
     'CAR': 'CANCELLATION_REQUESTED',
     'CAN': 'CANCELLED',
     'CON': 'CONCLUDED'
