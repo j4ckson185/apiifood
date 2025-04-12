@@ -255,26 +255,26 @@ window.handleEvent = async function(event) {
                 console.error(`Erro ao buscar detalhes do pedido ${event.orderId}:`, orderError);
             }
         } 
-        else {
-            // IMPORTANTE: Para TODOS os eventos de status, atualizar a interface
-            // Mapeamento de códigos de evento para status
-            const eventToStatusMap = {
-                'CONFIRMED': 'CONFIRMED',
-                'CFM': 'CONFIRMED',
-                'IN_PREPARATION': 'IN_PREPARATION',
-                'PREP': 'IN_PREPARATION',
-                'PRS': 'IN_PREPARATION',
-                'READY_TO_PICKUP': 'READY_TO_PICKUP',
-                'RTP': 'READY_TO_PICKUP',
-                'DISPATCHED': 'DISPATCHED',
-                'DDCR': 'DISPATCHED',
-                'CONCLUDED': 'CONCLUDED',
-                'CONC': 'CONCLUDED',
-                'CANCELLED': 'CANCELLED',
-                'CANC': 'CANCELLED',
-                'CANCELLATION_REQUESTED': 'CANCELLATION_REQUESTED',
-                'CANR': 'CANCELLATION_REQUESTED',
-            };
+else {
+    // IMPORTANTE: Para TODOS os eventos de status, atualizar a interface
+    // Mapeamento de códigos de evento para status
+    const eventToStatusMap = {
+        'CONFIRMED': 'READY_TO_PICKUP', // Alterado para ir para READY_TO_PICKUP
+        'CFM': 'READY_TO_PICKUP',       // Alterado para ir para READY_TO_PICKUP
+        'IN_PREPARATION': 'IN_PREPARATION',
+        'PREP': 'IN_PREPARATION',
+        'PRS': 'IN_PREPARATION',
+        'READY_TO_PICKUP': 'READY_TO_PICKUP',
+        'RTP': 'READY_TO_PICKUP',
+        'DISPATCHED': 'DISPATCHED',
+        'DDCR': 'DISPATCHED',
+        'CONCLUDED': 'CONCLUDED',
+        'CONC': 'CONCLUDED',
+        'CANCELLED': 'CANCELLED',
+        'CANC': 'CANCELLED',
+        'CANCELLATION_REQUESTED': 'CANCELLATION_REQUESTED',
+        'CANR': 'CANCELLATION_REQUESTED',
+    };
             
             // Se for um evento de status conhecido, atualiza a interface
             if (event.code in eventToStatusMap) {
