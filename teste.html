@@ -15,6 +15,7 @@
     </style>
 </head>
 <body>
+    <h3>Token: <span id="token-status">Não autenticado</span></h3>
     <div id="orders"></div>
     <pre id="log" class="log"></pre>
 
@@ -29,6 +30,7 @@
 
         let accessToken = null;
         const logElement = document.getElementById('log');
+        const tokenStatus = document.getElementById('token-status');
 
         function log(message, data = null) {
             const timestamp = new Date().toLocaleTimeString();
@@ -42,41 +44,64 @@
         }
 
         async function makeRequest(path, method = 'GET', body = null, isAuth = false) {
-            const headers = {
-                'Content-Type': 'application/json'
-            };
-
-            if (!isAuth && accessToken) {
-                headers['Authorization'] = `Bearer ${accessToken}`;
-                if (path.includes('events')) {
-                    headers['x-polling-merchants'] = CONFIG.merchantUUID;
-                }
-            }
-
             try {
+                const headers = {
+                    'Content-Type': 'application/json'
+                };
+
+                if (!isAuth) {
+                    if (!accessToken) {
+                        log('Token não encontrado, tentando autenticar...');
+                        await authenticate();
+                    }
+                    headers['Authorization'] = `Bearer ${accessToken}`;
+                    if (path.includes('events')) {
+                        headers['x-polling-merchants'] = CONFIG.merchantUUID;
+                    }
+                }
+
+                const requestBody = {
+                    path,
+                    method,
+                    headers,
+                    isAuth
+                };
+
+                if (body) {
+                    if (isAuth) {
+                        requestBody.body = body;
+                    } else {
+                        requestBody.body = typeof body === 'string' ? body : JSON.stringify(body);
+                    }
+                }
+
+                log(`Enviando requisição para ${path}`, requestBody);
+
                 const response = await fetch('/.netlify/functions/ifood-proxy', {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        path,
-                        method,
-                        headers,
-                        body: body ? JSON.stringify(body) : null,
-                        isAuth
-                    })
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(requestBody)
                 });
 
                 const responseText = await response.text();
+                log(`Resposta de ${path}:`, responseText);
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
                 try {
                     return responseText ? JSON.parse(responseText) : null;
                 } catch (e) {
-                    log('Erro ao processar resposta:', responseText);
+                    log('Erro ao processar resposta:', e);
                     return null;
                 }
             } catch (error) {
                 log('Erro na requisição:', error);
+                if (error.message.includes('401')) {
+                    accessToken = null;
+                    tokenStatus.textContent = 'Não autenticado';
+                }
                 throw error;
             }
         }
@@ -97,8 +122,10 @@
 
             if (data && data.accessToken) {
                 accessToken = data.accessToken;
-                log('Autenticado com sucesso');
+                tokenStatus.textContent = 'Autenticado';
+                log('Autenticado com sucesso. Token:', accessToken);
             } else {
+                tokenStatus.textContent = 'Falha na autenticação';
                 log('Falha na autenticação');
             }
         }
@@ -122,6 +149,11 @@
 
         async function pollEvents() {
             try {
+                if (!accessToken) {
+                    log('Sem token, autenticando...');
+                    await authenticate();
+                }
+
                 log('Buscando eventos...');
                 const events = await makeRequest('/events/v1.0/events:polling');
                 
@@ -134,15 +166,17 @@
                     // Processar eventos sequencialmente
                     for (const event of events) {
                         await processEvent(event);
-                        // Aguarda 2 segundos entre eventos
                         await new Promise(resolve => setTimeout(resolve, 2000));
                     }
 
                     // Acknowledgment
+                    const ackPayload = events.map(e => ({id: e.id}));
+                    log('Enviando acknowledgment:', ackPayload);
+                    
                     const ackResult = await makeRequest(
                         '/events/v1.0/events/acknowledgment',
                         'POST',
-                        events.map(e => ({id: e.id}))
+                        ackPayload
                     );
                     log('Acknowledgment enviado', ackResult);
                 } else {
@@ -152,6 +186,7 @@
                 log('Erro no polling:', error);
                 if (error.message?.includes('401')) {
                     accessToken = null;
+                    tokenStatus.textContent = 'Não autenticado';
                     await authenticate();
                 }
             }
@@ -159,8 +194,8 @@
 
         async function init() {
             await authenticate();
+            await pollEvents();
             setInterval(pollEvents, CONFIG.pollingInterval);
-            pollEvents();
         }
 
         init();
