@@ -253,16 +253,21 @@ window.handleEvent = async function(event) {
             console.log(`Tipo de evento: ${event.code}`);
             
 const eventToStatusMap = {
-    'PLC': 'PLACED',
-    'CFM': 'CONFIRMED',
+    'CONFIRMED': 'CONFIRMED', // Alterado
+    'CFM': 'CONFIRMED',      // Alterado
+    'READY_TO_PICKUP': 'READY_TO_PICKUP',
     'RTP': 'READY_TO_PICKUP',
-    'DSP': 'DISPATCHED', // ← SOMENTE ESSE representa despacho real
-    // 'DDCR': 'DISPATCHED', ← REMOVA ESSE
-    'CAR': 'CANCELLATION_REQUESTED',
-    'CAN': 'CANCELLED',
-    'CON': 'CONCLUDED'
+    'DISPATCHED': 'DISPATCHED',
+    'DDCR': 'DISPATCHED',
+    'DSP': 'DISPATCHED',      // Adicionado
+    'CONCLUDED': 'CONCLUDED',
+    'CONC': 'CONCLUDED',
+    'CANCELLED': 'CANCELLED',
+    'CANC': 'CANCELLED',
+    'CANCELLATION_REQUESTED': 'CANCELLATION_REQUESTED',
+    'CANR': 'CANCELLATION_REQUESTED'
 };
-
+            
 if (event.code in eventToStatusMap) {
     const mappedStatus = eventToStatusMap[event.code];
 
@@ -276,21 +281,23 @@ if (event.code in eventToStatusMap) {
     const existingOrder = document.querySelector(`.order-card[data-order-id="${event.orderId}"]`);
     const statusNaInterface = existingOrder?.querySelector('.order-status')?.textContent;
 
-    // Se o pedido ainda não estiver na interface, exibe
-    if (!existingOrder) {
+    // Evita que DDCR/DSP atualizem automaticamente a interface
+    const isSensitiveStatus = ['DISPATCHED'].includes(mappedStatus);
+
+    if (isSensitiveStatus) {
+        console.log(`⚠️ Evento ${event.code} mapeado como ${mappedStatus}, mas não será aplicado automaticamente.`);
+    } else if (!existingOrder) {
         console.log('Pedido ainda não está na interface. Será exibido agora.');
+        // Busca detalhes completos apenas para exibição
         const orderDetails = await makeAuthorizedRequest(`/order/v1.0/orders/${event.orderId}`, 'GET');
         displayOrder(orderDetails);
         processedOrderIds.add(event.orderId);
         saveProcessedIds();
-    }
-
-    // Atualiza status se estiver diferente
-    if (existingOrder && statusNaInterface !== getStatusText(mappedStatus)) {
+    } else if (statusNaInterface !== getStatusText(mappedStatus)) {
         console.log(`Atualizando status na interface para: ${mappedStatus}`);
         updateOrderStatus(event.orderId, mappedStatus);
     } else {
-        console.log('Status já está atualizado na interface ou pedido ainda está sendo carregado.');
+        console.log('Status já está atualizado na interface.');
     }
 
     console.log('=== FIM DO PROCESSAMENTO ===\n');
