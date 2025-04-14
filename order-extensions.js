@@ -162,26 +162,20 @@ function enhanceTakeoutInfo(orderCard, order) {
 // 3. Adiciona código de coleta ao card do pedido
 function addPickupCode(orderCard, order) {
     try {
-// Verifica se o código existe em diferentes locais possíveis na API
-let pickupCode = null;
-
-if (order.delivery && order.delivery.pickupCode) {
-    pickupCode = order.pickupCode;
-} else if (order.takeout && order.takeout.code) {
-    pickupCode = order.takeout.code;
-} else if (order.displayId) {
-    pickupCode = order.displayId;
-} else if (order.code) {
-    pickupCode = order.code;
-} else if (order.shortId) {
-    pickupCode = order.shortId;
-}
+        // Verifica se o código existe em diferentes locais possíveis na API
+        let pickupCode = null;
         
-        // Se não encontrou código, usa os últimos 4 caracteres do ID
-        if (!pickupCode && order.id) {
-            pickupCode = order.id.substring(order.id.length - 4).toUpperCase();
+        if (order.delivery && order.delivery.pickupCode) {
+            pickupCode = order.delivery.pickupCode;
+        } else if (order.takeout && order.takeout.code) {
+            pickupCode = order.takeout.code;
+        } else if (order.displayId) {
+            pickupCode = order.displayId;
+        } else if (order.code) {
+            pickupCode = order.code;
         }
         
+        // Se não encontrou código, não exibe nada
         if (!pickupCode) return;
         
         // Cria elemento para o código de coleta
