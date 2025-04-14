@@ -1366,6 +1366,16 @@ async function fetchStoreDetails(merchantId) {
         
         // ADICIONE ESTA LINHA: Inicia o polling de status da loja
         startStatusPolling(merchantId);
+
+                // ADICIONAR AQUI: Busca as interrupções da loja
+        await fetchInterruptions(merchantId);
+        
+        // ADICIONAR AQUI: Exibe a seção de interrupções
+        const interruptionsSection = document.getElementById('interruptions-section');
+        if (interruptionsSection) {
+            interruptionsSection.classList.remove('hidden');
+        }
+        
     } catch (error) {
         console.error('Erro ao buscar detalhes da loja:', error);
         showToast('Erro ao carregar detalhes da loja', 'error');
@@ -1750,6 +1760,15 @@ document.querySelectorAll('.sidebar-item').forEach(item => {
             await authenticate();
         } else {
             await toggleStoreStatus();
+        }
+    });
+
+        // Adicione o novo event listener aqui, junto aos outros botões e controles da interface
+        document.getElementById('create-interruption')?.addEventListener('click', () => {
+        if (currentMerchantIdForInterruption) {
+            openCreateInterruptionModal();
+        } else {
+            showToast('Selecione uma loja primeiro', 'warning');
         }
     });
 
