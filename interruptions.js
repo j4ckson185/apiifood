@@ -52,14 +52,15 @@ async function createInterruption(merchantId, interruptionData) {
         }
         
         // Formatação das datas em ISO 8601
-const payload = {
-    ...interruptionData,
-    // Preserva o horário exato fornecido no formulário, sem ajustes de fuso
-    start: interruptionData.start.toISOString(),
-    end: interruptionData.end.toISOString()
-};
+        const payload = {
+            ...interruptionData,
+            start: interruptionData.start.toISOString(),
+            end: interruptionData.end.toISOString()
+        };
         
         console.log('📦 Payload formatado:', payload);
+        
+        showLoading();
         
         const response = await makeAuthorizedRequest(
             `/merchant/v1.0/merchants/${merchantId}/interruptions`, 
@@ -69,8 +70,14 @@ const payload = {
         
         console.log('✅ Interrupção criada:', response);
         
-        // Atualiza a lista de interrupções
-        await fetchInterruptions(merchantId);
+        // Adiciona a nova interrupção à lista atual
+        if (response && response.id) {
+            if (!Array.isArray(currentInterruptions)) {
+                currentInterruptions = [];
+            }
+            currentInterruptions.push(response);
+            displayInterruptions(currentInterruptions);
+        }
         
         showToast('Interrupção criada com sucesso!', 'success');
         
@@ -82,10 +89,11 @@ const payload = {
         console.error('❌ Erro ao criar interrupção:', error);
         showToast(`Erro ao criar interrupção: ${error.message}`, 'error');
         return null;
+    } finally {
+        hideLoading();
     }
 }
 
-// Função para remover uma interrupção
 async function removeInterruption(merchantId, interruptionId) {
     try {
         console.log(`🔍 Removendo interrupção ${interruptionId} do merchant ID: ${merchantId}`);
@@ -110,8 +118,9 @@ async function removeInterruption(merchantId, interruptionId) {
         
         console.log('✅ Interrupção removida com sucesso');
         
-        // Atualiza a lista de interrupções
-        await fetchInterruptions(merchantId);
+        // Remove diretamente da variável global e atualiza a interface
+        currentInterruptions = currentInterruptions.filter(item => item.id !== interruptionId);
+        displayInterruptions(currentInterruptions);
         
         showToast('Interrupção removida com sucesso!', 'success');
         
@@ -138,7 +147,8 @@ function displayInterruptions(interruptions) {
     // Limpa o container
     interruptionsContainer.innerHTML = '';
     
-    if (!interruptions || interruptions.length === 0) {
+    // Verifique se interruptions é um array
+    if (!interruptions || !Array.isArray(interruptions) || interruptions.length === 0) {
         // Caso não haja interrupções
         const emptyState = document.createElement('div');
         emptyState.className = 'empty-interruptions';
