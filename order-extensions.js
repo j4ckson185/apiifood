@@ -165,7 +165,7 @@ function addPickupCode(orderCard, order) {
 // Verifica se o código existe em diferentes locais possíveis na API
 let pickupCode = null;
 
-if (order.pickupCode) {
+if (order.delivery && order.delivery.pickupCode) {
     pickupCode = order.pickupCode;
 } else if (order.takeout && order.takeout.code) {
     pickupCode = order.takeout.code;
