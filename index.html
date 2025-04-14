@@ -199,6 +199,19 @@
                             </div>
                         </div>
                     </div>
+
+                    <!-- Seção de Interrupções a ser adicionada dentro do #stores-section, antes do </section> final -->
+<div id="interruptions-section" class="interruptions-section hidden">
+    <div class="interruptions-header">
+        <h2>Interrupções da Loja</h2>
+        <button id="create-interruption" class="action-button confirm">
+            <i class="fas fa-plus"></i> Nova Interrupção
+        </button>
+    </div>
+    <div id="interruptions-list" class="interruptions-list">
+        <!-- Lista de interrupções será carregada aqui -->
+    </div>
+</div>
             </section>
         </main>
     </div>
@@ -259,8 +272,45 @@
         </div>
     </div>
 
+    <!-- Modal de criação de interrupção -->
+<div id="interruption-modal" class="modal hidden">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>Nova Interrupção</h2>
+            <span class="close-modal">&times;</span>
+        </div>
+        <div class="modal-body">
+            <form id="interruption-form">
+                <div class="form-group">
+                    <label for="interruption-description">Descrição</label>
+                    <textarea id="interruption-description" rows="3" placeholder="Descreva o motivo da interrupção"></textarea>
+                </div>
+                <div class="form-group">
+                    <label>Data e Hora de Início</label>
+                    <div class="datetime-inputs">
+                        <input type="date" id="interruption-start-date" required>
+                        <input type="time" id="interruption-start-time" required>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Data e Hora de Fim</label>
+                    <div class="datetime-inputs">
+                        <input type="date" id="interruption-end-date" required>
+                        <input type="time" id="interruption-end-time" required>
+                    </div>
+                </div>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button id="submit-interruption" class="action-button confirm">Criar Interrupção</button>
+            <button id="cancel-interruption" class="action-button">Cancelar</button>
+        </div>
+    </div>
+</div>
+
     <script src="script.js"></script>
     <script src="store-status.js"></script>
     <script src="orders-persistence.js"></script>
+    <script src="interruptions.js"></script>
 </body>
 </html>
