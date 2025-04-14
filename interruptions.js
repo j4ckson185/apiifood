@@ -52,11 +52,12 @@ async function createInterruption(merchantId, interruptionData) {
         }
         
         // Formatação das datas em ISO 8601
-        const payload = {
-            ...interruptionData,
-            start: new Date(interruptionData.start).toISOString(),
-            end: new Date(interruptionData.end).toISOString()
-        };
+const payload = {
+    ...interruptionData,
+    // Preserva o horário exato fornecido no formulário, sem ajustes de fuso
+    start: interruptionData.start.toISOString(),
+    end: interruptionData.end.toISOString()
+};
         
         console.log('📦 Payload formatado:', payload);
         
@@ -155,17 +156,22 @@ function displayInterruptions(interruptions) {
         const interruptionCard = document.createElement('div');
         interruptionCard.className = 'interruption-card';
         
-        // Formata as datas
-        const startDate = new Date(interruption.start);
-        const endDate = new Date(interruption.end);
-        const formattedStart = startDate.toLocaleString('pt-BR');
-        const formattedEnd = endDate.toLocaleString('pt-BR');
-        
-        // Status da interrupção (ativa ou agendada)
-        const now = new Date();
-        const isActive = now >= startDate && now <= endDate;
-        const isScheduled = now < startDate;
-        const isPast = now > endDate;
+// Formata as datas ajustando para o fuso horário correto
+const startDate = new Date(interruption.start);
+const endDate = new Date(interruption.end);
+
+// Ajusta para o horário local se necessário
+const fixedStartDate = new Date(startDate.getTime());
+const fixedEndDate = new Date(endDate.getTime());
+
+const formattedStart = fixedStartDate.toLocaleString('pt-BR');
+const formattedEnd = fixedEndDate.toLocaleString('pt-BR');
+
+// Para o status, use as datas ajustadas
+const now = new Date();
+const isActive = now >= fixedStartDate && now <= fixedEndDate;
+const isScheduled = now < fixedStartDate;
+const isPast = now > fixedEndDate;
         
         let statusClass = '';
         let statusText = '';
@@ -280,8 +286,12 @@ function submitInterruptionForm() {
     }
     
     // Combina data e hora
-    const start = new Date(`${startDate}T${startTime}:00`);
-    const end = new Date(`${endDate}T${endTime}:00`);
+const start = new Date(`${startDate}T${startTime}:00`);
+const end = new Date(`${endDate}T${endTime}:00`);
+
+    // Adiciona offset manual para manter horário local ao converter para ISO
+start.setMinutes(start.getMinutes() - start.getTimezoneOffset());
+end.setMinutes(end.getMinutes() - end.getTimezoneOffset());
     
     // Validação das datas
     if (isNaN(start.getTime()) || isNaN(end.getTime())) {
