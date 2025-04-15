@@ -262,6 +262,7 @@ const eventToStatusMap = {
     'DSP': 'DISPATCHED',
     'CONCLUDED': 'CONCLUDED',
     'CONC': 'CONCLUDED',
+    'CON': 'CONCLUDED',          // ADICIONADO: Mapeamento para CON
     'CAR': 'CANCELLATION_REQUESTED',  // Código real do iFood para "cancelamento solicitado"
     'CAN': 'CANCELLED'                // Código real do iFood para "cancelado"
 };
