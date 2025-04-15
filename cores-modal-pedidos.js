@@ -1,5 +1,5 @@
 // Melhorias visuais para o modal de pedidos do PDV iFood
-// Versão final com todas as correções: sem código de coleta no topo, fontes maiores
+// Versão final com correções: sem código no card principal e tabs ajustadas
 
 document.addEventListener('DOMContentLoaded', function() {
     console.log('🎨 Carregando melhorias visuais para pedidos...');
@@ -96,6 +96,12 @@ function melhorarCardPedido(order) {
         return;
     }
     
+    // Remove imediatamente o código de coleta do card principal se existir
+    const pickupCodeElement = card.querySelector('.pickup-code');
+    if (pickupCodeElement) {
+        pickupCodeElement.style.display = 'none';
+    }
+    
     // Aplica as melhorias visuais
     melhorarCardPedidoElemento(card);
 }
@@ -110,6 +116,12 @@ function melhorarCardPedidoElemento(card) {
         
         // Marca o card como melhorado
         card.classList.add('card-melhorado');
+        
+        // Remove imediatamente o código de coleta do card principal se existir
+        const pickupCodeElement = card.querySelector('.pickup-code');
+        if (pickupCodeElement) {
+            pickupCodeElement.style.display = 'none';
+        }
         
         // Extrai as informações básicas do card original
         const orderId = card.getAttribute('data-order-id');
@@ -156,7 +168,7 @@ function melhorarCardPedidoElemento(card) {
         // Obtém o total
         const totalValue = card.querySelector('.order-total .total-amount')?.textContent?.trim() || '';
         
-        // Obtém o código de coleta se existir
+        // Obtém o código de coleta se existir (para usar no card de forma controlada)
         const pickupCode = card.querySelector('.code-display')?.textContent?.trim() || '';
         
         // Limpa o conteúdo atual para criar a versão compacta
@@ -341,10 +353,14 @@ function adicionarEstilos() {
     const estilos = document.createElement('style');
     estilos.id = 'estilos-modal-pedidos';
     estilos.textContent = `
-        /* Estilos para botões de status (tabs) */
+        /* Estilos para botões de status (tabs) - ajustados conforme imagem */
         .tab-item {
             transition: all 0.2s ease;
             position: relative;
+            height: auto !important;
+            padding: 8px 15px !important;
+            font-weight: 600 !important;
+            font-size: 16px !important;
         }
         
         .tab-item.tab-blue {
@@ -354,6 +370,15 @@ function adicionarEstilos() {
         
         .tab-item.tab-blue::after {
             background-color: #1a73e8;
+        }
+        
+        .tab-navigation {
+            height: auto !important;
+        }
+        
+        /* Oculta o código de coleta do card principal */
+        .order-card .pickup-code {
+            display: none !important;
         }
         
         /* Estilos para o card compacto */
@@ -788,7 +813,7 @@ function adicionarEstilos() {
             padding-bottom: 0;
         }
         
-.modal-pedido-details .items-list li:before {
+        .modal-pedido-details .items-list li:before {
             content: "\\f058";
             font-family: "Font Awesome 5 Free";
             font-weight: 900;
@@ -809,7 +834,7 @@ function adicionarEstilos() {
             font-size: 16px;
         }
         
-        /* Melhorias footer e botões */
+/* Melhorias footer e botões */
         .modal-pedido-footer {
             padding: 18px 20px;
             background-color: #f8f9fa;
