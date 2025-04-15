@@ -290,7 +290,6 @@ function criarContainerModal() {
     document.body.appendChild(modalContainer);
 }
 
-// Função para abrir o modal com os detalhes do pedido
 function abrirModalPedido(card, orderId, orderNumber, conteudoOriginal, actionButtons) {
     // Obtém o container do modal
     const modalContainer = document.getElementById('modal-pedido-container');
@@ -313,6 +312,13 @@ function abrirModalPedido(card, orderId, orderNumber, conteudoOriginal, actionBu
     const pickupCodeElement = tempDiv.querySelector('.pickup-code');
     if (pickupCodeElement) {
         pickupCodeElement.remove();
+        conteudoModificado = tempDiv.innerHTML;
+    }
+    
+    // MODIFICAÇÃO: Remove os botões de ação do conteúdo original para evitar duplicação
+    const actionButtonsElement = tempDiv.querySelector('.order-actions');
+    if (actionButtonsElement) {
+        actionButtonsElement.remove();
         conteudoModificado = tempDiv.innerHTML;
     }
     
