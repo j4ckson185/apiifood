@@ -1,5 +1,5 @@
 // Melhorias visuais para o modal de pedidos do PDV iFood
-// Nova versão com modal popup e cores vibrantes
+// Versão aprimorada com visual mais vivo e nítido
 
 document.addEventListener('DOMContentLoaded', function() {
     console.log('🎨 Carregando melhorias visuais para pedidos...');
@@ -144,25 +144,37 @@ function melhorarCardPedidoElemento(card) {
             const compactView = document.createElement('div');
             compactView.className = 'compact-view';
             compactView.innerHTML = `
-                <div class="compact-info">
+                <div class="compact-row">
                     <div class="compact-customer">
                         <i class="fas fa-user"></i>
                         <span>${customerName || 'Cliente'}</span>
                     </div>
+                </div>
+                <div class="compact-row">
                     <div class="compact-type">
                         <i class="fas fa-${orderTypeIcon}"></i>
                         <span>${orderTypeText}</span>
                     </div>
+                </div>
+                <div class="compact-row">
                     <div class="compact-payment">
                         <i class="fas fa-${paymentIcon}"></i>
                         <span>${paymentText}</span>
                     </div>
+                </div>
+                <div class="compact-row">
                     <div class="compact-total">
                         <i class="fas fa-receipt"></i>
                         <span>${totalValue}</span>
                     </div>
                 </div>
-                ${pickupCode ? `<div class="compact-pickup-code"><span>Código: </span><strong>${pickupCode}</strong></div>` : ''}
+                ${pickupCode ? `
+                <div class="compact-row">
+                    <div class="compact-pickup-code">
+                        <i class="fas fa-ticket-alt"></i>
+                        <span>Código Coleta: <strong>${pickupCode}</strong></span>
+                    </div>
+                </div>` : ''}
                 <button class="ver-pedido">Ver Detalhes</button>
             `;
             
@@ -243,12 +255,6 @@ function abrirModalPedido(card, orderId, orderNumber, conteudoOriginal) {
                 <button class="modal-pedido-close" onclick="fecharModal()">×</button>
             </div>
             <div class="modal-pedido-body">
-                ${pickupCode ? `
-                <div class="modal-pickup-code">
-                    <h3>Código de Coleta</h3>
-                    <div class="modal-code-display">${pickupCode}</div>
-                </div>
-                ` : ''}
                 <div class="modal-pedido-details">
                     ${conteudoOriginal}
                 </div>
@@ -297,7 +303,7 @@ function adicionarEstilos() {
             transition: all 0.2s ease;
             cursor: pointer;
             border-radius: 8px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.12);
             border-left: 4px solid #1a73e8 !important;
         }
         
@@ -307,7 +313,7 @@ function adicionarEstilos() {
         }
         
         .order-card.card-melhorado .order-header {
-            padding: 12px 15px;
+            padding: 14px 15px;
             background: #f8f9fa;
             border-top-right-radius: 8px;
             border-bottom: 1px solid rgba(0,0,0,0.08);
@@ -317,7 +323,7 @@ function adicionarEstilos() {
         }
         
         .order-card.card-melhorado .order-number {
-            font-size: 16px;
+            font-size: 18px;
             font-weight: 700;
             color: #202124;
             padding-left: 8px;
@@ -325,8 +331,8 @@ function adicionarEstilos() {
         }
         
         .order-card.card-melhorado .order-status {
-            font-size: 12px;
-            padding: 4px 10px;
+            font-size: 13px;
+            padding: 5px 12px;
             border-radius: 12px;
             font-weight: 600;
             background-color: #1a73e8;
@@ -361,32 +367,36 @@ function adicionarEstilos() {
             padding: 12px 15px;
         }
         
-        .compact-info {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 10px 15px;
+        .compact-row {
+            margin-bottom: 8px;
+        }
+        
+        .compact-row:last-of-type {
+            margin-bottom: 12px;
         }
         
         .compact-customer,
         .compact-type,
         .compact-payment,
-        .compact-total {
+        .compact-total,
+        .compact-pickup-code {
             display: flex;
             align-items: center;
-            gap: 8px;
-            font-size: 14px;
+            gap: 10px;
+            font-size: 15px;
             color: #202124;
-            padding: 4px 0;
+            padding: 5px 0;
+            font-weight: 500;
         }
         
         .compact-customer i,
         .compact-type i,
         .compact-payment i,
-        .compact-total i {
-            font-size: 14px;
+        .compact-total i,
+        .compact-pickup-code i {
+            font-size: 16px;
             min-width: 20px;
             text-align: center;
-            color: #1a73e8;
         }
         
         .compact-customer i {
@@ -405,35 +415,29 @@ function adicionarEstilos() {
             color: #e53935;
         }
         
-        .compact-pickup-code {
-            margin-top: 10px;
-            background: #fff8e1;
-            padding: 8px 12px;
-            border-radius: 6px;
-            text-align: center;
-            color: #f57c00;
-            font-size: 14px;
+        .compact-pickup-code i {
+            color: #ff9800;
         }
         
         .compact-pickup-code strong {
             font-weight: 600;
-            margin-left: 5px;
             letter-spacing: 1px;
+            color: #e65100;
         }
         
         .ver-pedido {
             display: block;
             width: 100%;
-            padding: 8px;
-            margin-top: 12px;
+            padding: 10px;
             background-color: #1a73e8;
             color: white;
             border: none;
             border-radius: 4px;
             font-weight: 600;
-            font-size: 14px;
+            font-size: 15px;
             cursor: pointer;
             transition: background-color 0.2s;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.12);
         }
         
         .ver-pedido:hover {
@@ -447,7 +451,7 @@ function adicionarEstilos() {
             left: 0;
             width: 100%;
             height: 100%;
-            background-color: rgba(0, 0, 0, 0.5);
+            background-color: rgba(0, 0, 0, 0.6);
             display: flex;
             justify-content: center;
             align-items: center;
@@ -458,9 +462,9 @@ function adicionarEstilos() {
         .modal-pedido-content {
             background-color: white;
             border-radius: 8px;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
             width: 100%;
-            max-width: 700px;
+            max-width: 650px;
             max-height: 90vh;
             display: flex;
             flex-direction: column;
@@ -475,29 +479,28 @@ function adicionarEstilos() {
         }
         
         .modal-pedido-header {
-            padding: 15px 20px;
-            background-color: #f8f9fa;
-            border-bottom: 1px solid #e9ecef;
+            padding: 16px 20px;
+            background-color: #1a73e8;
             display: flex;
             align-items: center;
             position: relative;
         }
         
         .modal-pedido-title {
-            font-size: 18px;
+            font-size: 20px;
             font-weight: 700;
-            color: #202124;
+            color: white;
             margin: 0;
             flex-grow: 1;
         }
         
         .modal-pedido-status {
-            padding: 4px 12px;
+            padding: 5px 12px;
             border-radius: 20px;
-            font-size: 13px;
+            font-size: 14px;
             font-weight: 600;
-            background-color: #1a73e8;
-            color: white;
+            background-color: white;
+            color: #1a73e8;
             margin-right: 40px;
         }
         
@@ -506,13 +509,13 @@ function adicionarEstilos() {
             right: 15px;
             top: 50%;
             transform: translateY(-50%);
-            width: 32px;
-            height: 32px;
-            background: transparent;
+            width: 36px;
+            height: 36px;
+            background: rgba(255, 255, 255, 0.2);
             border: none;
-            font-size: 24px;
-            line-height: 24px;
-            color: #5f6368;
+            font-size: 28px;
+            line-height: 28px;
+            color: white;
             cursor: pointer;
             border-radius: 50%;
             display: flex;
@@ -521,64 +524,168 @@ function adicionarEstilos() {
         }
         
         .modal-pedido-close:hover {
-            background-color: rgba(0, 0, 0, 0.05);
+            background-color: rgba(255, 255, 255, 0.3);
         }
         
         .modal-pedido-body {
-            padding: 20px;
+            padding: 0;
             overflow-y: auto;
             max-height: calc(90vh - 130px);
         }
         
-        .modal-pickup-code {
-            background-color: #fff8e1;
-            padding: 15px;
-            border-radius: 8px;
-            text-align: center;
-            margin-bottom: 20px;
-            border-left: 4px solid #ff9800;
-        }
-        
-        .modal-pickup-code h3 {
-            font-size: 14px;
-            text-transform: uppercase;
-            color: #f57c00;
-            margin: 0 0 8px 0;
-            letter-spacing: 1px;
-            font-weight: 600;
-        }
-        
-        .modal-code-display {
-            font-size: 24px;
-            font-weight: 700;
-            letter-spacing: 3px;
-            color: #e65100;
-        }
-        
         .modal-pedido-details {
-            display: grid;
-            gap: 20px;
+            padding: 0;
+        }
+        
+        /* Estilizar itens específicos dentro do modal */
+        .modal-pedido-details .customer-info,
+        .modal-pedido-details .customer-address,
+        .modal-pedido-details .order-type,
+        .modal-pedido-details .payment-info,
+        .modal-pedido-details .order-items,
+        .modal-pedido-details .order-total,
+        .modal-pedido-details .order-created-at,
+        .modal-pedido-details .scheduled-info,
+        .modal-pedido-details .takeout-info,
+        .modal-pedido-details .pickup-code {
+            padding: 16px 20px;
+            border-bottom: 1px solid #f1f3f4;
+            margin: 0 !important;
+        }
+        
+        /* Ocultar o modal de código de coleta já que vamos exibir na lista normal */
+        .modal-pedido-details .pickup-code {
+            display: none;
         }
         
         .modal-pedido-details h3 {
-            font-size: 14px;
-            color: #5f6368;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            margin: 0 0 8px 0;
-            padding-bottom: 5px;
-            border-bottom: 1px solid #f1f3f4;
+            font-size: 16px;
+            color: #202124;
+            margin: 0 0 10px 0;
+            padding: 0;
             font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        /* Adicionar ícones aos cabeçalhos */
+        .modal-pedido-details .customer-info h3:before {
+            content: "\\f007";
+            font-family: "Font Awesome 5 Free";
+            font-weight: 900;
+            color: #1a73e8;
+            font-size: 16px;
+        }
+        
+        .modal-pedido-details .customer-address h3:before {
+            content: "\\f3c5";
+            font-family: "Font Awesome 5 Free";
+            font-weight: 900;
+            color: #4285f4;
+        }
+        
+        .modal-pedido-details .order-type h3:before {
+            content: "\\f0d1";
+            font-family: "Font Awesome 5 Free";
+            font-weight: 900;
+            color: #673ab7;
+        }
+        
+        .modal-pedido-details .payment-info h3:before {
+            content: "\\f09d";
+            font-family: "Font Awesome 5 Free";
+            font-weight: 900;
+            color: #009688;
+        }
+        
+        .modal-pedido-details .order-items h3:before {
+            content: "\\f805";
+            font-family: "Font Awesome 5 Free";
+            font-weight: 900;
+            color: #f57c00;
+        }
+        
+        .modal-pedido-details .order-total h3:before {
+            content: "\\f3d1";
+            font-family: "Font Awesome 5 Free";
+            font-weight: 900;
+            color: #e53935;
+        }
+        
+        .modal-pedido-details .order-created-at h3:before {
+            content: "\\f017";
+            font-family: "Font Awesome 5 Free";
+            font-weight: 900;
+            color: #607d8b;
         }
         
         .modal-pedido-details p {
             margin: 8px 0;
-            font-size: 14px;
+            font-size: 16px;
             color: #202124;
+            font-weight: 500;
         }
         
+        .modal-pedido-details .code-display {
+            background-color: #fff8e1;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 18px;
+            font-weight: 700;
+            letter-spacing: 2px;
+            color: #e65100;
+            display: inline-block;
+            margin-left: 10px;
+            border: 1px dashed #ffb74d;
+        }
+        
+        /* Melhorias na lista de itens */
+        .modal-pedido-details .items-list {
+            margin: 0;
+            padding: 0;
+            list-style: none;
+        }
+        
+        .modal-pedido-details .items-list li {
+            padding: 12px 0;
+            border-bottom: 1px solid #f1f3f4;
+            position: relative;
+            padding-left: 28px;
+            color: #202124;
+            font-size: 16px;
+            font-weight: 500;
+        }
+        
+        .modal-pedido-details .items-list li:last-child {
+            border-bottom: none;
+            padding-bottom: 0;
+        }
+        
+        .modal-pedido-details .items-list li:before {
+            content: "\\f058";
+            font-family: "Font Awesome 5 Free";
+            font-weight: 900;
+            position: absolute;
+            left: 0;
+            top: 14px;
+            color: #f57c00;
+            font-size: 18px;
+        }
+        
+        .modal-pedido-details .item-observations {
+            font-style: italic;
+            color: #5f6368;
+            margin-top: 6px;
+            padding-left: 8px;
+            border-left: 3px solid #f1f3f4;
+            display: block;
+            font-size: 15px;
+        }
+        
+        /* Melhorias footer e botões */
         .modal-pedido-footer {
-            padding: 15px 20px;
+            padding: 16px 20px;
             background-color: #f8f9fa;
             border-top: 1px solid #e9ecef;
             display: flex;
@@ -597,136 +704,59 @@ function adicionarEstilos() {
         }
         
         .modal-pedido-footer .action-button {
-            padding: 8px 16px;
+            padding: 10px 18px;
             min-width: 0;
             flex: 0 0 auto;
             margin: 0;
             border-radius: 4px;
-            font-size: 14px;
+            font-size: 15px;
             font-weight: 600;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+            box-shadow: 0 2px 5px rgba(0,0,0,0.15);
+        }
+        
+        .modal-pedido-footer .action-button.confirm {
+            background-color: #00c853;
+        }
+        
+        .modal-pedido-footer .action-button.confirm:hover {
+            background-color: #00b248;
+        }
+        
+        .modal-pedido-footer .action-button.cancel {
+            background-color: #f44336;
+        }
+        
+        .modal-pedido-footer .action-button.cancel:hover {
+            background-color: #e53935;
+        }
+        
+        .modal-pedido-footer .action-button.dispatch {
+            background-color: #1a73e8;
+        }
+        
+        .modal-pedido-footer .action-button.dispatch:hover {
+            background-color: #1565c0;
         }
         
         .modal-pedido-fechar {
-            padding: 8px 16px;
-            background-color: #f1f3f4;
-            color: #5f6368;
+            padding: 10px 18px;
+            background-color: #5f6368;
+            color: white;
             border: none;
             border-radius: 4px;
             font-weight: 600;
-            font-size: 14px;
+            font-size: 15px;
             cursor: pointer;
             transition: background-color 0.2s;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
         }
         
         .modal-pedido-fechar:hover {
-            background-color: #e8eaed;
-        }
-        
-        /* Estilos aprimorados para dentro do modal */
-        .modal-pedido-details .customer-info,
-        .modal-pedido-details .customer-address,
-        .modal-pedido-details .order-type,
-        .modal-pedido-details .payment-info,
-        .modal-pedido-details .order-items,
-        .modal-pedido-details .order-total,
-        .modal-pedido-details .order-created-at,
-        .modal-pedido-details .scheduled-info,
-        .modal-pedido-details .takeout-info {
-            background: #fff;
-            border-radius: 8px;
-            padding: 15px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-            border-left: 3px solid #e0e0e0;
-            margin: 0;
-        }
-        
-        .modal-pedido-details .customer-info {
-            border-left-color: #1a73e8;
-        }
-        
-        .modal-pedido-details .customer-address {
-            border-left-color: #4285f4;
-        }
-        
-        .modal-pedido-details .order-type {
-            border-left-color: #673ab7;
-        }
-        
-        .modal-pedido-details .payment-info {
-            border-left-color: #009688;
-        }
-        
-        .modal-pedido-details .order-items {
-            border-left-color: #f57c00;
-        }
-        
-        .modal-pedido-details .order-total {
-            border-left-color: #e53935;
-        }
-        
-        .modal-pedido-details .order-created-at {
-            border-left-color: #607d8b;
-        }
-        
-        .modal-pedido-details .scheduled-info {
-            border-left-color: #ffc107;
-            background-color: #fff8e1;
-        }
-        
-        .modal-pedido-details .takeout-info {
-            border-left-color: #00bcd4;
-            background-color: #e0f7fa;
-        }
-        
-        /* Melhorias na lista de itens */
-        .modal-pedido-details .items-list {
-            margin: 0;
-            padding: 0;
-            list-style: none;
-        }
-        
-        .modal-pedido-details .items-list li {
-            padding: 8px 0;
-            border-bottom: 1px solid #f1f3f4;
-            position: relative;
-            padding-left: 22px;
-            color: #202124;
-        }
-        
-        .modal-pedido-details .items-list li:last-child {
-            border-bottom: none;
-            padding-bottom: 0;
-        }
-        
-        .modal-pedido-details .items-list li:before {
-            content: "\\f058";
-            font-family: "Font Awesome 5 Free";
-            font-weight: 900;
-            position: absolute;
-            left: 0;
-            top: 10px;
-            color: #f57c00;
-            font-size: 14px;
-        }
-        
-        .modal-pedido-details .item-observations {
-            font-style: italic;
-            color: #5f6368;
-            margin-top: 4px;
-            padding-left: 5px;
-            border-left: 2px solid #f1f3f4;
-            display: block;
-            font-size: 13px;
+            background-color: #4b4f53;
         }
         
         /* Responsividade */
         @media (max-width: 767px) {
-            .compact-info {
-                grid-template-columns: 1fr;
-                gap: 5px;
-            }
-            
             .modal-pedido-content {
                 width: 95%;
                 max-height: 95vh;
