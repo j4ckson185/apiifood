@@ -987,7 +987,7 @@ const actions = {
        'PRS': 'IN_PREPARATION', // Adicional para lidar com 'PRS'
        'RTP': 'READY_TO_PICKUP',
        'DDCR': 'DISPATCHED',
-       'CONC': 'CONCLUDED',
+       'CON': 'CONCLUDED',
        'CANC': 'CANCELLED',
        'CANR': 'CANCELLATION_REQUESTED'
    };
