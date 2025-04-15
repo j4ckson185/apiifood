@@ -1,5 +1,5 @@
 // Melhorias visuais para o modal de pedidos do PDV iFood
-// Versão final com correções: sem código no card principal e tabs ajustadas
+// Versão com ajustes finais: botões vermelhos, fonte menor no modal, blocos separados
 
 document.addEventListener('DOMContentLoaded', function() {
     console.log('🎨 Carregando melhorias visuais para pedidos...');
@@ -55,15 +55,15 @@ function ajustarBotoesStatus() {
         tabItems.forEach(tab => {
             // Verifica se já está ativo por padrão
             if (tab.classList.contains('active')) {
-                tab.classList.add('tab-blue');
+                tab.classList.add('tab-red');
             }
             
             // Adiciona evento de clique para alternar a classe
             tab.addEventListener('click', function() {
                 // Remove a classe de todos
-                tabItems.forEach(t => t.classList.remove('tab-blue'));
+                tabItems.forEach(t => t.classList.remove('tab-red'));
                 // Adiciona apenas ao clicado
-                this.classList.add('tab-blue');
+                this.classList.add('tab-red');
             });
         });
     }
@@ -174,11 +174,11 @@ function melhorarCardPedidoElemento(card) {
         // Limpa o conteúdo atual para criar a versão compacta
         const orderContent = card.querySelector('.order-content');
         if (orderContent) {
-            // Salva o conteúdo original para o modal
-            const originalContent = orderContent.innerHTML;
-            
             // Guarda o botões de ação originais
             const actionButtons = card.querySelector('.order-actions');
+            
+            // Salva o conteúdo original para o modal
+            const originalContent = orderContent.innerHTML;
             
             // Limpa e cria novo conteúdo compacto
             orderContent.innerHTML = '';
@@ -248,7 +248,7 @@ function melhorarCardPedidoElemento(card) {
             if (btnVerPedido) {
                 btnVerPedido.addEventListener('click', function(e) {
                     e.stopPropagation();
-                    abrirModalPedido(card, orderId, orderNumber, originalContent);
+                    abrirModalPedido(card, orderId, orderNumber, originalContent, actionButtons);
                 });
             }
             
@@ -256,7 +256,7 @@ function melhorarCardPedidoElemento(card) {
             card.addEventListener('click', function(e) {
                 // Evita conflitos com outros cliques
                 if (!e.target.closest('.action-button') && !e.target.closest('.ver-pedido')) {
-                    abrirModalPedido(card, orderId, orderNumber, originalContent);
+                    abrirModalPedido(card, orderId, orderNumber, originalContent, actionButtons);
                 }
             });
         }
@@ -291,7 +291,7 @@ function criarContainerModal() {
 }
 
 // Função para abrir o modal com os detalhes do pedido
-function abrirModalPedido(card, orderId, orderNumber, conteudoOriginal) {
+function abrirModalPedido(card, orderId, orderNumber, conteudoOriginal, actionButtons) {
     // Obtém o container do modal
     const modalContainer = document.getElementById('modal-pedido-container');
     if (!modalContainer) {
@@ -316,6 +316,9 @@ function abrirModalPedido(card, orderId, orderNumber, conteudoOriginal) {
         conteudoModificado = tempDiv.innerHTML;
     }
     
+    // Obtém os botões de ação atualizados do card
+    const currentActionButtons = card.querySelector('.compact-actions');
+    
     // Cria o conteúdo do modal
     modalContainer.innerHTML = `
         <div class="modal-pedido-content">
@@ -329,11 +332,29 @@ function abrirModalPedido(card, orderId, orderNumber, conteudoOriginal) {
                     ${conteudoModificado}
                 </div>
             </div>
-            <div class="modal-pedido-footer">
+            <div class="modal-pedido-footer" id="modal-actions-container-${orderId}">
                 <button class="modal-pedido-fechar" onclick="fecharModal()">Fechar</button>
             </div>
         </div>
     `;
+    
+    // Adiciona os botões de ação atualizados ao modal
+    const acoesContainer = modalContainer.querySelector(`#modal-actions-container-${orderId}`);
+    if (acoesContainer && currentActionButtons) {
+        // Clona os botões atuais (que já estão funcionando no card)
+        const clonedButtons = currentActionButtons.cloneNode(true);
+        clonedButtons.classList.add('modal-actions');
+        
+        // Adiciona os eventos novamente
+        clonedButtons.querySelectorAll('.action-button').forEach((button, index) => {
+            const originalButton = currentActionButtons.querySelectorAll('.action-button')[index];
+            if (originalButton && originalButton.onclick) {
+                button.onclick = originalButton.onclick;
+            }
+        });
+        
+        acoesContainer.insertBefore(clonedButtons, acoesContainer.firstChild);
+    }
     
     // Exibe o modal
     modalContainer.style.display = 'flex';
@@ -353,7 +374,7 @@ function adicionarEstilos() {
     const estilos = document.createElement('style');
     estilos.id = 'estilos-modal-pedidos';
     estilos.textContent = `
-        /* Estilos para botões de status (tabs) - ajustados conforme imagem */
+        /* Estilos para botões de status (tabs) - ajustados para vermelho */
         .tab-item {
             transition: all 0.2s ease;
             position: relative;
@@ -363,13 +384,13 @@ function adicionarEstilos() {
             font-size: 16px !important;
         }
         
-        .tab-item.tab-blue {
-            background-color: #1a73e8;
-            color: white;
+        .tab-item.tab-red {
+            background-color: #ea1d2c !important;
+            color: white !important;
         }
         
-        .tab-item.tab-blue::after {
-            background-color: #1a73e8;
+        .tab-item.tab-red::after {
+            background-color: #ea1d2c !important;
         }
         
         .tab-navigation {
@@ -387,7 +408,7 @@ function adicionarEstilos() {
             cursor: pointer;
             border-radius: 8px;
             box-shadow: 0 2px 8px rgba(0,0,0,0.12);
-            border-left: 4px solid #1a73e8 !important;
+            border-left: 4px solid #ea1d2c !important;
         }
         
         .order-card.card-melhorado:hover {
@@ -410,7 +431,7 @@ function adicionarEstilos() {
             font-weight: 700;
             color: #202124;
             padding-left: 8px;
-            border-left: 3px solid #1a73e8;
+            border-left: 3px solid #ea1d2c;
         }
         
         .order-card.card-melhorado .order-status {
@@ -418,9 +439,9 @@ function adicionarEstilos() {
             padding: 5px 12px;
             border-radius: 12px;
             font-weight: 600;
-            background-color: #1a73e8;
+            background-color: #ea1d2c;
             color: white;
-            box-shadow: 0 2px 4px rgba(26, 115, 232, 0.2);
+            box-shadow: 0 2px 4px rgba(234, 29, 44, 0.2);
         }
         
         /* Status específicos */
@@ -578,7 +599,7 @@ function adicionarEstilos() {
             display: block;
             width: 100%;
             padding: 12px;
-            background-color: #1a73e8;
+            background-color: #ea1d2c;
             color: white;
             border: none;
             border-radius: 6px;
@@ -590,7 +611,7 @@ function adicionarEstilos() {
         }
         
         .ver-pedido:hover {
-            background-color: #1565c0;
+            background-color: #d41a28;
         }
         
         /* Estilos para o modal */
@@ -628,15 +649,15 @@ function adicionarEstilos() {
         }
         
         .modal-pedido-header {
-            padding: 18px 20px;
-            background-color: #1a73e8;
+            padding: 16px 20px;
+            background-color: #ea1d2c;
             display: flex;
             align-items: center;
             position: relative;
         }
         
         .modal-pedido-title {
-            font-size: 22px;
+            font-size: 20px;
             font-weight: 700;
             color: white;
             margin: 0;
@@ -644,12 +665,12 @@ function adicionarEstilos() {
         }
         
         .modal-pedido-status {
-            padding: 6px 14px;
+            padding: 5px 12px;
             border-radius: 20px;
-            font-size: 15px;
+            font-size: 14px;
             font-weight: 600;
             background-color: white;
-            color: #1a73e8;
+            color: #ea1d2c;
             margin-right: 40px;
         }
         
@@ -658,12 +679,12 @@ function adicionarEstilos() {
             right: 15px;
             top: 50%;
             transform: translateY(-50%);
-            width: 38px;
-            height: 38px;
+            width: 36px;
+            height: 36px;
             background: rgba(255, 255, 255, 0.2);
             border: none;
-            font-size: 30px;
-            line-height: 30px;
+            font-size: 28px;
+            line-height: 28px;
             color: white;
             cursor: pointer;
             border-radius: 50%;
@@ -686,7 +707,7 @@ function adicionarEstilos() {
             padding: 0;
         }
         
-        /* Estilizar itens específicos dentro do modal */
+        /* Estilizar itens específicos dentro do modal - com blocos separados */
         .modal-pedido-details .customer-info,
         .modal-pedido-details .customer-address,
         .modal-pedido-details .order-type,
@@ -697,9 +718,53 @@ function adicionarEstilos() {
         .modal-pedido-details .scheduled-info,
         .modal-pedido-details .takeout-info,
         .modal-pedido-details .pickup-code {
-            padding: 18px 20px;
-            border-bottom: 1px solid #f1f3f4;
-            margin: 0 !important;
+            background-color: #fafafa;
+            margin: 10px 15px !important;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+            border-left: 4px solid #ddd;
+        }
+        
+        /* Cores específicas para cada bloco */
+        .modal-pedido-details .customer-info {
+            border-left-color: #1a73e8;
+            background-color: #f5f9ff;
+        }
+        
+        .modal-pedido-details .customer-address {
+            border-left-color: #4285f4;
+            background-color: #f5f9ff;
+        }
+        
+        .modal-pedido-details .order-type {
+            border-left-color: #673ab7;
+            background-color: #f9f5ff;
+        }
+        
+        .modal-pedido-details .payment-info {
+            border-left-color: #009688;
+            background-color: #f5fffd;
+        }
+        
+        .modal-pedido-details .order-items {
+            border-left-color: #f57c00;
+            background-color: #fff9f5;
+        }
+        
+        .modal-pedido-details .order-total {
+            border-left-color: #e53935;
+            background-color: #fff5f5;
+        }
+        
+        .modal-pedido-details .order-created-at {
+            border-left-color: #607d8b;
+            background-color: #f5f7f9;
+        }
+        
+        .modal-pedido-details .pickup-code {
+            border-left-color: #ff9800;
+            background-color: #fffaf5;
         }
         
         /* Corrigir display do código de coleta no modal */
@@ -709,9 +774,9 @@ function adicionarEstilos() {
         }
         
         .modal-pedido-details h3 {
-            font-size: 18px;
+            font-size: 16px;
             color: #202124;
-            margin: 0 0 12px 0;
+            margin: 0 0 10px 0;
             padding: 0;
             font-weight: 600;
             display: flex;
@@ -725,7 +790,7 @@ function adicionarEstilos() {
             font-family: "Font Awesome 5 Free";
             font-weight: 900;
             color: #1a73e8;
-            font-size: 18px;
+            font-size: 16px;
         }
         
         .modal-pedido-details .customer-address h3:before {
@@ -733,7 +798,7 @@ function adicionarEstilos() {
             font-family: "Font Awesome 5 Free";
             font-weight: 900;
             color: #4285f4;
-            font-size: 18px;
+            font-size: 16px;
         }
         
         .modal-pedido-details .order-type h3:before {
@@ -741,7 +806,7 @@ function adicionarEstilos() {
             font-family: "Font Awesome 5 Free";
             font-weight: 900;
             color: #673ab7;
-            font-size: 18px;
+            font-size: 16px;
         }
         
         .modal-pedido-details .payment-info h3:before {
@@ -749,15 +814,15 @@ function adicionarEstilos() {
             font-family: "Font Awesome 5 Free";
             font-weight: 900;
             color: #009688;
-            font-size: 18px;
+            font-size: 16px;
         }
         
-        .modal-pedido-details .order-items h3:before {
+.modal-pedido-details .order-items h3:before {
             content: "\\f805";
             font-family: "Font Awesome 5 Free";
             font-weight: 900;
             color: #f57c00;
-            font-size: 18px;
+            font-size: 16px;
         }
         
         .modal-pedido-details .order-total h3:before {
@@ -765,7 +830,7 @@ function adicionarEstilos() {
             font-family: "Font Awesome 5 Free";
             font-weight: 900;
             color: #e53935;
-            font-size: 18px;
+            font-size: 16px;
         }
         
         .modal-pedido-details .order-created-at h3:before {
@@ -773,7 +838,7 @@ function adicionarEstilos() {
             font-family: "Font Awesome 5 Free";
             font-weight: 900;
             color: #607d8b;
-            font-size: 18px;
+            font-size: 16px;
         }
         
         .modal-pedido-details .pickup-code h3:before {
@@ -781,12 +846,12 @@ function adicionarEstilos() {
             font-family: "Font Awesome 5 Free";
             font-weight: 900;
             color: #ff9800;
-            font-size: 18px;
+            font-size: 16px;
         }
         
         .modal-pedido-details p {
-            margin: 10px 0;
-            font-size: 17px;
+            margin: 8px 0;
+            font-size: 15px;
             color: #202124;
             font-weight: 500;
         }
@@ -799,12 +864,12 @@ function adicionarEstilos() {
         }
         
         .modal-pedido-details .items-list li {
-            padding: 12px 0;
+            padding: 10px 0;
             border-bottom: 1px solid #f1f3f4;
             position: relative;
-            padding-left: 30px;
+            padding-left: 25px;
             color: #202124;
-            font-size: 17px;
+            font-size: 15px;
             font-weight: 500;
         }
         
@@ -819,24 +884,24 @@ function adicionarEstilos() {
             font-weight: 900;
             position: absolute;
             left: 0;
-            top: 14px;
+            top: 11px;
             color: #f57c00;
-            font-size: 20px;
+            font-size: 16px;
         }
         
         .modal-pedido-details .item-observations {
             font-style: italic;
             color: #5f6368;
-            margin-top: 6px;
+            margin-top: 5px;
             padding-left: 8px;
             border-left: 3px solid #f1f3f4;
             display: block;
-            font-size: 16px;
+            font-size: 14px;
         }
         
-/* Melhorias footer e botões */
+        /* Melhorias footer e botões */
         .modal-pedido-footer {
-            padding: 18px 20px;
+            padding: 15px;
             background-color: #f8f9fa;
             border-top: 1px solid #e9ecef;
             display: flex;
@@ -845,23 +910,70 @@ function adicionarEstilos() {
             flex-wrap: wrap;
         }
         
-        .modal-pedido-footer .order-actions {
+        .modal-pedido-footer .order-actions,
+        .modal-pedido-footer .modal-actions {
             display: flex;
-            gap: 10px;
+            gap: 8px;
             flex-wrap: wrap;
             flex: 1;
             justify-content: flex-start;
             margin: 0;
         }
         
+        .modal-pedido-footer .action-button {
+            flex: 1;
+            min-width: auto;
+            margin: 0;
+            padding: 10px 15px;
+            font-size: 14px;
+            font-weight: 600;
+            border-radius: 6px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.15);
+        }
+        
+        .modal-pedido-footer .action-button.confirm {
+            background-color: #00c853;
+        }
+        
+        .modal-pedido-footer .action-button.confirm:hover {
+            background-color: #00b248;
+        }
+        
+        .modal-pedido-footer .action-button.cancel {
+            background-color: #f44336;
+        }
+        
+        .modal-pedido-footer .action-button.cancel:hover {
+            background-color: #e53935;
+        }
+        
+        .modal-pedido-footer .action-button.prepare,
+        .modal-pedido-footer .action-button.ready {
+            background-color: #ff9800;
+            color: white;
+        }
+        
+        .modal-pedido-footer .action-button.prepare:hover,
+        .modal-pedido-footer .action-button.ready:hover {
+            background-color: #f57c00;
+        }
+        
+        .modal-pedido-footer .action-button.dispatch {
+            background-color: #1a73e8;
+        }
+        
+        .modal-pedido-footer .action-button.dispatch:hover {
+            background-color: #1565c0;
+        }
+        
         .modal-pedido-fechar {
-            padding: 12px 20px;
+            padding: 10px 18px;
             background-color: #5f6368;
             color: white;
             border: none;
             border-radius: 6px;
             font-weight: 600;
-            font-size: 16px;
+            font-size: 15px;
             cursor: pointer;
             transition: background-color 0.2s;
             box-shadow: 0 2px 5px rgba(0,0,0,0.1);
@@ -886,7 +998,8 @@ function adicionarEstilos() {
                 flex-direction: column-reverse;
             }
             
-            .modal-pedido-footer .order-actions {
+            .modal-pedido-footer .order-actions,
+            .modal-pedido-footer .modal-actions {
                 flex-wrap: wrap;
                 justify-content: center;
             }
