@@ -191,3 +191,42 @@
         width: 100%;
     }
 }
+
+/* Estilos para as customizações do terceiro nível */
+.customizations-list {
+    margin-left: 20px;
+    margin-top: 5px;
+    font-size: 0.9em;
+    padding-left: 15px;
+    border-left: 2px dotted #ddd;
+}
+
+.customizations-list li {
+    padding: 3px 0;
+    color: #555;
+    border-bottom: none !important;
+}
+
+/* Melhorando a aparência das listas de opções para cada nível */
+.options-list {
+    margin-left: 20px;
+    margin-top: 5px;
+    font-size: 0.95em;
+    padding-left: 15px;
+    border-left: 3px solid #f0f0f0;
+}
+
+.options-list li {
+    padding: 4px 0;
+    color: #444;
+}
+
+/* Melhoria visual para os detalhes do cliente */
+.customer-email {
+    margin: 0.3rem 0;
+}
+
+/* Estilo para evitar que os botões de ação no conteúdo apareçam duplicados */
+.modal-pedido-details .order-actions {
+    display: none !important;
+}
