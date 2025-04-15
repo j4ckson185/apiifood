@@ -230,3 +230,42 @@
 .modal-pedido-details .order-actions {
     display: none !important;
 }
+
+/* Estilos para o botão de impressora no modal */
+.modal-print-button {
+    background: rgba(255, 255, 255, 0.2);
+    border: none;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    color: white;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    transition: all 0.2s ease;
+    font-size: 18px;
+}
+
+.modal-print-button:hover {
+    background-color: rgba(255, 255, 255, 0.3);
+    transform: translate(-50%, -50%) scale(1.1);
+}
+
+.modal-print-button:active {
+    background-color: rgba(255, 255, 255, 0.4);
+    transform: translate(-50%, -50%) scale(0.95);
+}
+
+/* Ajuste para deixar espaço para o botão de impressora */
+.modal-pedido-title {
+    margin-right: 40px;
+}
+
+.modal-pedido-status {
+    margin-left: 40px;
+}
