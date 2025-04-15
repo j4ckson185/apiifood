@@ -465,7 +465,7 @@ async function toggleStoreStatus() {
     }
 }
 
-// Exibe o pedido na interface com organização por categorias
+// Função modificada para exibir pedidos com terceiro nível e melhorias de detalhes
 function displayOrder(order) {
     const template = document.getElementById('order-modal-template');
     const orderElement = template.content.cloneNode(true);
@@ -476,6 +476,15 @@ function displayOrder(order) {
     
     // Customer info
     orderElement.querySelector('.customer-name').textContent = `Cliente: ${order.customer?.name || 'N/A'}`;
+    
+    // Adiciona email do cliente se disponível
+    if (order.customer?.email || (order.additionalInfo && order.additionalInfo.metadata && order.additionalInfo.metadata.customerEmail)) {
+        const customerEmail = order.customer?.email || order.additionalInfo?.metadata?.customerEmail;
+        const emailParagraph = document.createElement('p');
+        emailParagraph.className = 'customer-email';
+        emailParagraph.textContent = `Email: ${customerEmail}`;
+        orderElement.querySelector('.customer-info').appendChild(emailParagraph);
+    }
     
     // Formatação correta do telefone
     let phoneText = 'Tel: N/A';
@@ -557,23 +566,45 @@ function displayOrder(order) {
             const paymentItem = document.createElement('li');
             let paymentText = payment.method || 'Método desconhecido';
             
+            // Tradução de métodos de pagamento comuns
+            if (payment.method) {
+                if (payment.method.toLowerCase().includes('meal_voucher')) {
+                    paymentText = 'Vale Refeição';
+                } else if (payment.method.toLowerCase().includes('food_voucher')) {
+                    paymentText = 'Vale Alimentação';
+                } else if (payment.method.toLowerCase().includes('credit')) {
+                    paymentText = 'Cartão de Crédito';
+                } else if (payment.method.toLowerCase().includes('debit')) {
+                    paymentText = 'Cartão de Débito';
+                }
+            }
+            
             // Define o tipo de pagamento para filtros
             if (payment.method && payment.method.toLowerCase().includes('dinheiro')) {
                 paymentType = 'dinheiro';
-            } else if (payment.method && payment.method.toLowerCase().includes('cartão')) {
+            } else if (payment.method && (payment.method.toLowerCase().includes('cartão') || payment.method.toLowerCase().includes('credit') || payment.method.toLowerCase().includes('debit'))) {
                 paymentType = 'cartão';
             } else if (payment.type && payment.type.toLowerCase().includes('online')) {
                 paymentType = 'online';
             }
             
+            // Adiciona tipo de pagamento se disponível
             if (payment.type) {
-                paymentText += ` (${payment.type})`;
+                const translatedType = payment.type.toLowerCase() === 'online' ? 'Online' : payment.type;
+                paymentText += ` (${translatedType})`;
             }
             
+            // Adiciona bandeira do cartão se disponível
+            if (payment.card && payment.card.brand) {
+                paymentText += ` - Bandeira: ${payment.card.brand}`;
+            }
+            
+            // Adiciona valor se disponível
             if (payment.value) {
                 paymentText += ` - R$ ${payment.value.toFixed(2)}`;
             }
             
+            // Indica se já foi pago
             if (payment.prepaid) {
                 paymentText += ' - Pré-pago';
             }
@@ -606,14 +637,29 @@ function displayOrder(order) {
                 li.appendChild(obsSpan);
             }
             
-            // Adiciona opções se houver
+            // Adiciona opções se houver (segundo nível)
             if (item.options && item.options.length > 0) {
                 const optionsList = document.createElement('ul');
                 optionsList.className = 'options-list';
                 
                 item.options.forEach(option => {
                     const optionLi = document.createElement('li');
-                    optionLi.textContent = `${option.quantity}x ${option.name} (+R$ ${(option.addition || option.price || 0).toFixed(2)})`;
+                    optionLi.textContent = `${option.quantity}x ${option.name} ${option.groupName ? `(${option.groupName})` : ''} (+R$ ${(option.addition || option.price || 0).toFixed(2)})`;
+                    
+                    // NOVO: Adiciona customizações (terceiro nível) se houver
+                    if (option.customizations && option.customizations.length > 0) {
+                        const customizationsList = document.createElement('ul');
+                        customizationsList.className = 'customizations-list';
+                        
+                        option.customizations.forEach(customization => {
+                            const customizationLi = document.createElement('li');
+                            customizationLi.textContent = `${customization.quantity}x ${customization.name} ${customization.groupName ? `(${customization.groupName})` : ''} (+R$ ${(customization.addition || customization.price || 0).toFixed(2)})`;
+                            customizationsList.appendChild(customizationLi);
+                        });
+                        
+                        optionLi.appendChild(customizationsList);
+                    }
+                    
                     optionsList.appendChild(optionLi);
                 });
                 
@@ -628,7 +674,7 @@ function displayOrder(order) {
         itemsList.appendChild(li);
     }
 
-    // Preenche total
+    // Preenche total com mais detalhes
     const totalAmount = orderElement.querySelector('.total-amount');
     
     if (order.total) {
@@ -656,10 +702,39 @@ function displayOrder(order) {
                 totalDetails.appendChild(deliveryFee);
             }
             
+            // NOVO: Adiciona taxas adicionais se houver
+            if (order.total.additionalFees && order.total.additionalFees > 0) {
+                const additionalFees = document.createElement('p');
+                additionalFees.innerHTML = `<span>Taxa de Serviço:</span> <span>R$ ${order.total.additionalFees.toFixed(2)}</span>`;
+                totalDetails.appendChild(additionalFees);
+            } else if (order.additionalFees && Array.isArray(order.additionalFees) && order.additionalFees.length > 0) {
+                order.additionalFees.forEach(fee => {
+                    const feeItem = document.createElement('p');
+                    feeItem.innerHTML = `<span>${fee.description || 'Taxa de Serviço'}:</span> <span>R$ ${fee.value.toFixed(2)}</span>`;
+                    totalDetails.appendChild(feeItem);
+                });
+            }
+            
+            // NOVO: Adiciona benefícios (descontos) se houver
             if (order.total.benefits && order.total.benefits > 0) {
                 const benefits = document.createElement('p');
                 benefits.innerHTML = `<span>Descontos:</span> <span>-R$ ${order.total.benefits.toFixed(2)}</span>`;
                 totalDetails.appendChild(benefits);
+            } else if (order.benefits && Array.isArray(order.benefits) && order.benefits.length > 0) {
+                let totalBenefits = 0;
+                
+                // Calcula o total de benefícios
+                order.benefits.forEach(benefit => {
+                    if (benefit.value) {
+                        totalBenefits += benefit.value;
+                    }
+                });
+                
+                if (totalBenefits > 0) {
+                    const benefits = document.createElement('p');
+                    benefits.innerHTML = `<span>Descontos:</span> <span>-R$ ${totalBenefits.toFixed(2)}</span>`;
+                    totalDetails.appendChild(benefits);
+                }
             }
             
             const totalElement = orderElement.querySelector('.order-total');
@@ -726,15 +801,15 @@ function displayOrder(order) {
         targetContainer = document.getElementById('preparation-orders');
     }
 
-// Adiciona ao container apropriado
-   if (targetContainer) {
-       targetContainer.appendChild(orderElement);
-       // Verifica se a mensagem de "sem pedidos" deve ser ocultada
-       const tabId = targetContainer.id.replace('-orders', '');
-       checkForEmptyTab(tabId);
-   }
+    // Adiciona ao container apropriado
+    if (targetContainer) {
+        targetContainer.appendChild(orderElement);
+        // Verifica se a mensagem de "sem pedidos" deve ser ocultada
+        const tabId = targetContainer.id.replace('-orders', '');
+        checkForEmptyTab(tabId);
+    }
    
-   console.log('Pedido exibido com sucesso:', order.id);
+    console.log('Pedido exibido com sucesso:', order.id);
 }
 
 // Função modificada para atualizar o status apenas quando explicitamente solicitado
