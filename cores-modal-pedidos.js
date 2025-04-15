@@ -1,22 +1,28 @@
 // Melhorias visuais para o modal de pedidos do PDV iFood
-// Versão corrigida - Compatível com a estrutura existente
+// Nova versão com modal popup e cores vibrantes
 
 document.addEventListener('DOMContentLoaded', function() {
     console.log('🎨 Carregando melhorias visuais para pedidos...');
     
+    // Adiciona os estilos CSS
+    adicionarEstilos();
+    
+    // Adiciona o container do modal ao body
+    criarContainerModal();
+    
     // Substituir a função de exibição do pedido
     if (typeof window.displayOrder === 'function') {
         // Guarda a função original para manter todas as funcionalidades
-        const originalDisplayOrder = window.displayOrder;
+        const displayOrderOriginal = window.displayOrder;
         
         // Substitui a função de exibição do pedido
         window.displayOrder = function(order) {
             // Executa a função original primeiro para garantir que toda a lógica seja aplicada
-            const result = originalDisplayOrder(order);
+            const result = displayOrderOriginal(order);
             
             // Agora aplica nossas melhorias visuais ao card que foi criado
             try {
-                enhanceOrderCard(order);
+                melhorarCardPedido(order);
             } catch (error) {
                 console.error('❌ Erro ao aplicar melhorias visuais ao pedido:', error);
             }
@@ -26,8 +32,8 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Aplica melhorias aos cards já existentes
         setTimeout(() => {
-            enhanceExistingCards();
-        }, 500); // Pequeno delay para garantir que todos os cards estejam carregados
+            melhorarCardsExistentes();
+        }, 500);
         
         console.log('✅ Melhorias visuais para pedidos carregadas com sucesso');
     } else {
@@ -36,15 +42,15 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 // Função para melhorar visualmente os cards de pedidos já existentes
-function enhanceExistingCards() {
-    const orderCards = document.querySelectorAll('.order-card');
-    console.log(`Encontrados ${orderCards.length} cards para melhorar visualmente`);
+function melhorarCardsExistentes() {
+    const cards = document.querySelectorAll('.order-card');
+    console.log(`Encontrados ${cards.length} cards para melhorar visualmente`);
     
-    orderCards.forEach(card => {
+    cards.forEach(card => {
         try {
             // Verifica se o card já foi melhorado
-            if (!card.classList.contains('visually-enhanced')) {
-                enhanceOrderCardElement(card);
+            if (!card.classList.contains('card-melhorado')) {
+                melhorarCardPedidoElemento(card);
             }
         } catch (error) {
             console.error('❌ Erro ao melhorar card existente:', error);
@@ -53,226 +59,698 @@ function enhanceExistingCards() {
 }
 
 // Função para melhorar visualmente um card de pedido após sua criação
-function enhanceOrderCard(order) {
+function melhorarCardPedido(order) {
     // Busca o card pelo ID do pedido
-    const orderCard = document.querySelector(`.order-card[data-order-id="${order.id}"]`);
+    const card = document.querySelector(`.order-card[data-order-id="${order.id}"]`);
     
-    if (!orderCard) {
+    if (!card) {
         console.log('❌ Card do pedido não encontrado para melhorias visuais');
         return;
     }
     
     // Aplica as melhorias visuais
-    enhanceOrderCardElement(orderCard);
+    melhorarCardPedidoElemento(card);
 }
 
 // Função principal que aplica as melhorias visuais a um elemento de card
-function enhanceOrderCardElement(card) {
-    // Evita melhorar o mesmo card duas vezes
-    if (card.classList.contains('visually-enhanced')) {
-        return;
-    }
-    
+function melhorarCardPedidoElemento(card) {
     try {
-        // Marca o card como melhorado
-        card.classList.add('visually-enhanced');
+        // Evita melhorar o mesmo card duas vezes
+        if (card.classList.contains('card-melhorado')) {
+            return;
+        }
         
-        // Extrai informações necessárias
-        const orderNumber = card.querySelector('.order-number')?.textContent || '';
-        const orderStatus = card.querySelector('.order-status')?.textContent || '';
-        const customerName = card.querySelector('.customer-info .customer-name')?.textContent?.replace('Cliente: ', '') || 'Cliente';
+        // Marca o card como melhorado
+        card.classList.add('card-melhorado');
+        
+        // Extrai as informações básicas do card original
+        const orderId = card.getAttribute('data-order-id');
+        const orderNumber = card.querySelector('.order-number')?.textContent?.trim() || '';
+        const orderStatus = card.querySelector('.order-status')?.textContent?.trim() || '';
+        const customerName = card.querySelector('.customer-info .customer-name')?.textContent?.replace('Cliente:', '').trim() || '';
+        const customerPhone = card.querySelector('.customer-info .customer-phone')?.textContent?.replace('Tel:', '').trim() || '';
         
         // Determina o tipo de pedido
         let orderTypeText = 'Tipo desconhecido';
-        let orderTypeIcon = 'fas fa-box';
-        
+        let orderTypeIcon = 'box';
         const orderTypeElem = card.querySelector('.order-type p');
         if (orderTypeElem) {
-            orderTypeText = orderTypeElem.textContent || '';
+            orderTypeText = orderTypeElem.textContent?.trim() || '';
             
             if (orderTypeText.includes('Entrega')) {
-                orderTypeIcon = 'fas fa-motorcycle';
+                orderTypeIcon = 'motorcycle';
             } else if (orderTypeText.includes('Retirar')) {
-                orderTypeIcon = 'fas fa-shopping-bag';
+                orderTypeIcon = 'shopping-bag';
             } else if (orderTypeText.includes('Local')) {
-                orderTypeIcon = 'fas fa-utensils';
+                orderTypeIcon = 'utensils';
             }
         }
         
         // Determina o método de pagamento
         let paymentText = 'Pagamento';
-        let paymentIcon = 'fas fa-wallet';
-        
+        let paymentIcon = 'wallet';
         const paymentElem = card.querySelector('.payment-info li');
         if (paymentElem) {
-            paymentText = paymentElem.textContent?.split(' - ')[0] || paymentElem.textContent || '';
+            paymentText = paymentElem.textContent?.split(' - ')[0]?.trim() || 'Pagamento';
             
             const payment = paymentText.toLowerCase();
             if (payment.includes('dinheiro')) {
-                paymentIcon = 'fas fa-money-bill-wave';
+                paymentIcon = 'money-bill-wave';
             } else if (payment.includes('cartão') || payment.includes('cartao')) {
-                paymentIcon = 'fas fa-credit-card';
+                paymentIcon = 'credit-card';
             } else if (payment.includes('pix')) {
-                paymentIcon = 'fas fa-qrcode';
+                paymentIcon = 'qrcode';
             } else if (payment.includes('online')) {
-                paymentIcon = 'fas fa-globe';
+                paymentIcon = 'globe';
             }
         }
         
         // Obtém o total
-        const totalText = card.querySelector('.order-total .total-amount')?.textContent || '';
+        const totalValue = card.querySelector('.order-total .total-amount')?.textContent?.trim() || '';
         
-        // Cria os elementos da visualização compacta
-        const headerContent = card.querySelector('.order-header');
-        const mainContent = card.querySelector('.order-content');
+        // Obtém o código de coleta se existir
+        const pickupCode = card.querySelector('.code-display')?.textContent?.trim() || '';
         
-        if (!headerContent || !mainContent) {
-            console.error('Elementos necessários não encontrados no card:', card);
-            return;
-        }
-        
-        // Salva os botões de ação originais
-        const actionButtons = card.querySelector('.order-actions');
-        
-        // Salva o conteúdo original
-        const originalContent = mainContent.innerHTML;
-        
-        // Limpa o conteúdo existente
-        mainContent.innerHTML = '';
-        
-        // Cria a visualização compacta
-        const compactView = document.createElement('div');
-        compactView.className = 'compact-view';
-        compactView.innerHTML = `
-            <div class="compact-row">
-                <div class="compact-item customer">
-                    <i class="fas fa-user"></i>
-                    <span>${customerName}</span>
-                </div>
-                <div class="compact-item order-type">
-                    <i class="${orderTypeIcon}"></i>
-                    <span>${orderTypeText}</span>
-                </div>
-            </div>
-            <div class="compact-row">
-                <div class="compact-item payment">
-                    <i class="${paymentIcon}"></i>
-                    <span>${paymentText}</span>
-                </div>
-                <div class="compact-item total">
-                    <i class="fas fa-receipt"></i>
-                    <span>${totalText}</span>
-                </div>
-            </div>
-        `;
-        
-        // Adiciona a visualização compacta ao conteúdo
-        mainContent.appendChild(compactView);
-        
-        // Move o código de coleta para área compacta, se existir
-        const pickupCode = card.querySelector('.pickup-code');
-        if (pickupCode) {
-            mainContent.appendChild(pickupCode);
-        }
-        
-        // Adiciona botão de expansão
-        const expandButton = document.createElement('button');
-        expandButton.className = 'expand-button';
-        expandButton.innerHTML = '<i class="fas fa-chevron-down"></i>';
-        expandButton.setAttribute('title', 'Expandir detalhes');
-        headerContent.appendChild(expandButton);
-        
-        // Cria a área de conteúdo expandido
-        const expandedContent = document.createElement('div');
-        expandedContent.className = 'expanded-content hidden';
-        
-        // Reorganiza o conteúdo original para o expandido
-        expandedContent.innerHTML = originalContent;
-        
-        // Certifica-se de que os botões de ação estão presentes
-        if (actionButtons && !expandedContent.querySelector('.order-actions')) {
-            expandedContent.appendChild(actionButtons);
-        }
-        
-        // Adiciona a área expandida ao card
-        card.appendChild(expandedContent);
-        
-        // Adiciona evento de clique ao botão de expansão
-        expandButton.addEventListener('click', function(e) {
-            e.stopPropagation();
+        // Limpa o conteúdo atual para criar a versão compacta
+        const orderContent = card.querySelector('.order-content');
+        if (orderContent) {
+            // Salva o conteúdo original para o modal
+            const originalContent = orderContent.innerHTML;
             
-            // Alterna a visibilidade do conteúdo expandido
-            expandedContent.classList.toggle('hidden');
+            // Limpa e cria novo conteúdo compacto
+            orderContent.innerHTML = '';
             
-            // Alterna o ícone
-            const icon = expandButton.querySelector('i');
-            if (expandedContent.classList.contains('hidden')) {
-                icon.className = 'fas fa-chevron-down';
-                expandButton.setAttribute('title', 'Expandir detalhes');
-            } else {
-                icon.className = 'fas fa-chevron-up';
-                expandButton.setAttribute('title', 'Recolher detalhes');
+            // Layout compacto para o card
+            const compactView = document.createElement('div');
+            compactView.className = 'compact-view';
+            compactView.innerHTML = `
+                <div class="compact-info">
+                    <div class="compact-customer">
+                        <i class="fas fa-user"></i>
+                        <span>${customerName || 'Cliente'}</span>
+                    </div>
+                    <div class="compact-type">
+                        <i class="fas fa-${orderTypeIcon}"></i>
+                        <span>${orderTypeText}</span>
+                    </div>
+                    <div class="compact-payment">
+                        <i class="fas fa-${paymentIcon}"></i>
+                        <span>${paymentText}</span>
+                    </div>
+                    <div class="compact-total">
+                        <i class="fas fa-receipt"></i>
+                        <span>${totalValue}</span>
+                    </div>
+                </div>
+                ${pickupCode ? `<div class="compact-pickup-code"><span>Código: </span><strong>${pickupCode}</strong></div>` : ''}
+                <button class="ver-pedido">Ver Detalhes</button>
+            `;
+            
+            // Adiciona o conteúdo compacto
+            orderContent.appendChild(compactView);
+            
+            // Adiciona o evento para abrir o modal ao clicar no botão
+            const btnVerPedido = compactView.querySelector('.ver-pedido');
+            if (btnVerPedido) {
+                btnVerPedido.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    abrirModalPedido(card, orderId, orderNumber, originalContent);
+                });
             }
-        });
-        
-        // Adiciona evento de clique ao card
-        card.addEventListener('click', function(e) {
-            // Evita conflito com botões de ação
-            if (!e.target.closest('.action-button') && !e.target.closest('.expand-button')) {
-                expandButton.click();
-            }
-        });
+            
+            // Adiciona o evento para abrir o modal ao clicar no card
+            card.addEventListener('click', function(e) {
+                // Evita conflitos com outros cliques
+                if (!e.target.closest('.action-button') && !e.target.closest('.ver-pedido')) {
+                    abrirModalPedido(card, orderId, orderNumber, originalContent);
+                }
+            });
+        }
     } catch (error) {
         console.error('❌ Erro ao melhorar card:', error);
+        console.error(error.stack);
     }
 }
 
-// Para garantir que os cards sejam melhorados mesmo após mudanças de tab ou filtros
-// Observa mudanças no DOM para pegar novos cards que possam aparecer
-function setupMutationObserver() {
-    // Configuração do observador
-    const config = { 
-        childList: true,
-        subtree: true 
-    };
+// Função para criar o container do modal
+function criarContainerModal() {
+    // Verifica se o container já existe
+    if (document.getElementById('modal-pedido-container')) {
+        return;
+    }
     
-    // Callback para quando ocorrem mudanças
-    const callback = function(mutationsList, observer) {
-        for (const mutation of mutationsList) {
-            if (mutation.type === 'childList' && mutation.addedNodes.length) {
-                // Verifica se algum novo card de pedido foi adicionado
-                setTimeout(() => {
-                    enhanceExistingCards();
-                }, 100);
-            }
+    // Cria o container do modal
+    const modalContainer = document.createElement('div');
+    modalContainer.id = 'modal-pedido-container';
+    modalContainer.className = 'modal-pedido-container';
+    modalContainer.style.display = 'none';
+    
+    // Adiciona o evento para fechar o modal ao clicar fora dele
+    modalContainer.addEventListener('click', function(e) {
+        if (e.target === modalContainer) {
+            fecharModal();
         }
-    };
+    });
     
-    // Cria um observador com a callback
-    const observer = new MutationObserver(callback);
-    
-    // Começa a observar o documento com a configuração especificada
-    observer.observe(document.body, config);
-    
-    console.log('✅ Observador de mudanças configurado');
+    // Adiciona o container ao body
+    document.body.appendChild(modalContainer);
 }
 
-// Inicia o observador de mutações após o carregamento da página
-window.addEventListener('load', setupMutationObserver);
-
-// Adiciona listeners para quando usuário muda de tab ou aplica filtros
-document.addEventListener('DOMContentLoaded', function() {
-    // Listener para mudança de tabs
-    document.querySelectorAll('.tab-item').forEach(tab => {
-        tab.addEventListener('click', () => {
-            setTimeout(enhanceExistingCards, 100);
-        });
-    });
+// Função para abrir o modal com os detalhes do pedido
+function abrirModalPedido(card, orderId, orderNumber, conteudoOriginal) {
+    // Obtém o container do modal
+    const modalContainer = document.getElementById('modal-pedido-container');
+    if (!modalContainer) {
+        console.error('Container do modal não encontrado');
+        return;
+    }
     
-    // Listener para filtros
-    document.querySelectorAll('.filter-button').forEach(button => {
-        button.addEventListener('click', () => {
-            setTimeout(enhanceExistingCards, 100);
-        });
-    });
-});
+    // Extrai os botões de ação do conteúdo original para serem colocados no modal
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = conteudoOriginal;
+    const acoesPedido = tempDiv.querySelector('.order-actions');
+    
+    // Extrai outras informações relevantes
+    const orderStatus = card.querySelector('.order-status')?.textContent || '';
+    const pickupCode = card.querySelector('.code-display')?.textContent || '';
+    
+    // Cria o conteúdo do modal
+    modalContainer.innerHTML = `
+        <div class="modal-pedido-content">
+            <div class="modal-pedido-header">
+                <h2 class="modal-pedido-title">Pedido ${orderNumber}</h2>
+                <span class="modal-pedido-status">${orderStatus}</span>
+                <button class="modal-pedido-close" onclick="fecharModal()">×</button>
+            </div>
+            <div class="modal-pedido-body">
+                ${pickupCode ? `
+                <div class="modal-pickup-code">
+                    <h3>Código de Coleta</h3>
+                    <div class="modal-code-display">${pickupCode}</div>
+                </div>
+                ` : ''}
+                <div class="modal-pedido-details">
+                    ${conteudoOriginal}
+                </div>
+            </div>
+            <div class="modal-pedido-footer" id="modal-actions-container-${orderId}">
+                <button class="modal-pedido-fechar" onclick="fecharModal()">Fechar</button>
+            </div>
+        </div>
+    `;
+    
+    // Adiciona os botões de ação do pedido original ao modal
+    const acoesContainer = document.getElementById(`modal-actions-container-${orderId}`);
+    if (acoesContainer && acoesPedido) {
+        acoesContainer.appendChild(acoesPedido);
+    }
+    
+    // Exibe o modal
+    modalContainer.style.display = 'flex';
+    
+    // Adiciona a função de fechar no escopo global
+    window.fecharModal = function() {
+        // Devolve os botões de ação para o card original antes de fechar
+        const acoesPedidoModal = document.querySelector('.modal-pedido-footer .order-actions');
+        if (acoesPedidoModal) {
+            const orderContent = card.querySelector('.order-content');
+            if (orderContent && !orderContent.querySelector('.order-actions')) {
+                orderContent.appendChild(acoesPedidoModal);
+            }
+        }
+        
+        modalContainer.style.display = 'none';
+    };
+}
+
+// Função para adicionar os estilos CSS
+function adicionarEstilos() {
+    if (document.getElementById('estilos-modal-pedidos')) {
+        return;
+    }
+    
+    const estilos = document.createElement('style');
+    estilos.id = 'estilos-modal-pedidos';
+    estilos.textContent = `
+        /* Estilos para o card compacto */
+        .order-card.card-melhorado {
+            transition: all 0.2s ease;
+            cursor: pointer;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            border-left: 4px solid #1a73e8 !important;
+        }
+        
+        .order-card.card-melhorado:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+        
+        .order-card.card-melhorado .order-header {
+            padding: 12px 15px;
+            background: #f8f9fa;
+            border-top-right-radius: 8px;
+            border-bottom: 1px solid rgba(0,0,0,0.08);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        
+        .order-card.card-melhorado .order-number {
+            font-size: 16px;
+            font-weight: 700;
+            color: #202124;
+            padding-left: 8px;
+            border-left: 3px solid #1a73e8;
+        }
+        
+        .order-card.card-melhorado .order-status {
+            font-size: 12px;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-weight: 600;
+            background-color: #1a73e8;
+            color: white;
+            box-shadow: 0 2px 4px rgba(26, 115, 232, 0.2);
+        }
+        
+        /* Status específicos */
+        .status-confirmed .order-status {
+            background-color: #1a73e8 !important;
+        }
+        
+        .status-ready_to_pickup .order-status,
+        .status-in_preparation .order-status {
+            background-color: #00c853 !important;
+        }
+        
+        .status-dispatched .order-status {
+            background-color: #ff9800 !important;
+        }
+        
+        .status-cancelled .order-status {
+            background-color: #f44336 !important;
+        }
+        
+        .status-concluded .order-status {
+            background-color: #4caf50 !important;
+        }
+        
+        /* Conteúdo compacto */
+        .compact-view {
+            padding: 12px 15px;
+        }
+        
+        .compact-info {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px 15px;
+        }
+        
+        .compact-customer,
+        .compact-type,
+        .compact-payment,
+        .compact-total {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+            color: #202124;
+            padding: 4px 0;
+        }
+        
+        .compact-customer i,
+        .compact-type i,
+        .compact-payment i,
+        .compact-total i {
+            font-size: 14px;
+            min-width: 20px;
+            text-align: center;
+            color: #1a73e8;
+        }
+        
+        .compact-customer i {
+            color: #1a73e8;
+        }
+        
+        .compact-type i {
+            color: #673ab7;
+        }
+        
+        .compact-payment i {
+            color: #009688;
+        }
+        
+        .compact-total i {
+            color: #e53935;
+        }
+        
+        .compact-pickup-code {
+            margin-top: 10px;
+            background: #fff8e1;
+            padding: 8px 12px;
+            border-radius: 6px;
+            text-align: center;
+            color: #f57c00;
+            font-size: 14px;
+        }
+        
+        .compact-pickup-code strong {
+            font-weight: 600;
+            margin-left: 5px;
+            letter-spacing: 1px;
+        }
+        
+        .ver-pedido {
+            display: block;
+            width: 100%;
+            padding: 8px;
+            margin-top: 12px;
+            background-color: #1a73e8;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-weight: 600;
+            font-size: 14px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        
+        .ver-pedido:hover {
+            background-color: #1565c0;
+        }
+        
+        /* Estilos para o modal */
+        .modal-pedido-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+            padding: 20px;
+        }
+        
+        .modal-pedido-content {
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+            width: 100%;
+            max-width: 700px;
+            max-height: 90vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            animation: modalFadeIn 0.3s ease;
+            position: relative;
+        }
+        
+        @keyframes modalFadeIn {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .modal-pedido-header {
+            padding: 15px 20px;
+            background-color: #f8f9fa;
+            border-bottom: 1px solid #e9ecef;
+            display: flex;
+            align-items: center;
+            position: relative;
+        }
+        
+        .modal-pedido-title {
+            font-size: 18px;
+            font-weight: 700;
+            color: #202124;
+            margin: 0;
+            flex-grow: 1;
+        }
+        
+        .modal-pedido-status {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 600;
+            background-color: #1a73e8;
+            color: white;
+            margin-right: 40px;
+        }
+        
+        .modal-pedido-close {
+            position: absolute;
+            right: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 32px;
+            height: 32px;
+            background: transparent;
+            border: none;
+            font-size: 24px;
+            line-height: 24px;
+            color: #5f6368;
+            cursor: pointer;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .modal-pedido-close:hover {
+            background-color: rgba(0, 0, 0, 0.05);
+        }
+        
+        .modal-pedido-body {
+            padding: 20px;
+            overflow-y: auto;
+            max-height: calc(90vh - 130px);
+        }
+        
+        .modal-pickup-code {
+            background-color: #fff8e1;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+            margin-bottom: 20px;
+            border-left: 4px solid #ff9800;
+        }
+        
+        .modal-pickup-code h3 {
+            font-size: 14px;
+            text-transform: uppercase;
+            color: #f57c00;
+            margin: 0 0 8px 0;
+            letter-spacing: 1px;
+            font-weight: 600;
+        }
+        
+        .modal-code-display {
+            font-size: 24px;
+            font-weight: 700;
+            letter-spacing: 3px;
+            color: #e65100;
+        }
+        
+        .modal-pedido-details {
+            display: grid;
+            gap: 20px;
+        }
+        
+        .modal-pedido-details h3 {
+            font-size: 14px;
+            color: #5f6368;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin: 0 0 8px 0;
+            padding-bottom: 5px;
+            border-bottom: 1px solid #f1f3f4;
+            font-weight: 600;
+        }
+        
+        .modal-pedido-details p {
+            margin: 8px 0;
+            font-size: 14px;
+            color: #202124;
+        }
+        
+        .modal-pedido-footer {
+            padding: 15px 20px;
+            background-color: #f8f9fa;
+            border-top: 1px solid #e9ecef;
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        
+        .modal-pedido-footer .order-actions {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            flex: 1;
+            justify-content: flex-start;
+            margin: 0;
+        }
+        
+        .modal-pedido-footer .action-button {
+            padding: 8px 16px;
+            min-width: 0;
+            flex: 0 0 auto;
+            margin: 0;
+            border-radius: 4px;
+            font-size: 14px;
+            font-weight: 600;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+        }
+        
+        .modal-pedido-fechar {
+            padding: 8px 16px;
+            background-color: #f1f3f4;
+            color: #5f6368;
+            border: none;
+            border-radius: 4px;
+            font-weight: 600;
+            font-size: 14px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        
+        .modal-pedido-fechar:hover {
+            background-color: #e8eaed;
+        }
+        
+        /* Estilos aprimorados para dentro do modal */
+        .modal-pedido-details .customer-info,
+        .modal-pedido-details .customer-address,
+        .modal-pedido-details .order-type,
+        .modal-pedido-details .payment-info,
+        .modal-pedido-details .order-items,
+        .modal-pedido-details .order-total,
+        .modal-pedido-details .order-created-at,
+        .modal-pedido-details .scheduled-info,
+        .modal-pedido-details .takeout-info {
+            background: #fff;
+            border-radius: 8px;
+            padding: 15px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            border-left: 3px solid #e0e0e0;
+            margin: 0;
+        }
+        
+        .modal-pedido-details .customer-info {
+            border-left-color: #1a73e8;
+        }
+        
+        .modal-pedido-details .customer-address {
+            border-left-color: #4285f4;
+        }
+        
+        .modal-pedido-details .order-type {
+            border-left-color: #673ab7;
+        }
+        
+        .modal-pedido-details .payment-info {
+            border-left-color: #009688;
+        }
+        
+        .modal-pedido-details .order-items {
+            border-left-color: #f57c00;
+        }
+        
+        .modal-pedido-details .order-total {
+            border-left-color: #e53935;
+        }
+        
+        .modal-pedido-details .order-created-at {
+            border-left-color: #607d8b;
+        }
+        
+        .modal-pedido-details .scheduled-info {
+            border-left-color: #ffc107;
+            background-color: #fff8e1;
+        }
+        
+        .modal-pedido-details .takeout-info {
+            border-left-color: #00bcd4;
+            background-color: #e0f7fa;
+        }
+        
+        /* Melhorias na lista de itens */
+        .modal-pedido-details .items-list {
+            margin: 0;
+            padding: 0;
+            list-style: none;
+        }
+        
+        .modal-pedido-details .items-list li {
+            padding: 8px 0;
+            border-bottom: 1px solid #f1f3f4;
+            position: relative;
+            padding-left: 22px;
+            color: #202124;
+        }
+        
+        .modal-pedido-details .items-list li:last-child {
+            border-bottom: none;
+            padding-bottom: 0;
+        }
+        
+        .modal-pedido-details .items-list li:before {
+            content: "\\f058";
+            font-family: "Font Awesome 5 Free";
+            font-weight: 900;
+            position: absolute;
+            left: 0;
+            top: 10px;
+            color: #f57c00;
+            font-size: 14px;
+        }
+        
+        .modal-pedido-details .item-observations {
+            font-style: italic;
+            color: #5f6368;
+            margin-top: 4px;
+            padding-left: 5px;
+            border-left: 2px solid #f1f3f4;
+            display: block;
+            font-size: 13px;
+        }
+        
+        /* Responsividade */
+        @media (max-width: 767px) {
+            .compact-info {
+                grid-template-columns: 1fr;
+                gap: 5px;
+            }
+            
+            .modal-pedido-content {
+                width: 95%;
+                max-height: 95vh;
+            }
+            
+            .modal-pedido-footer {
+                flex-direction: column-reverse;
+            }
+            
+            .modal-pedido-footer .order-actions {
+                flex-wrap: wrap;
+                justify-content: center;
+            }
+            
+            .modal-pedido-footer .action-button {
+                flex: 1;
+            }
+            
+            .modal-pedido-fechar {
+                width: 100%;
+            }
+        }
+    `;
+    
+    document.head.appendChild(estilos);
+    console.log('✅ Estilos do modal adicionados');
+}
