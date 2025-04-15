@@ -315,7 +315,7 @@ function abrirModalPedido(card, orderId, orderNumber, conteudoOriginal, actionBu
         conteudoModificado = tempDiv.innerHTML;
     }
     
-    // MODIFICAÇÃO: Remove os botões de ação do conteúdo original para evitar duplicação
+    // Remove os botões de ação do conteúdo original para evitar duplicação
     const actionButtonsElement = tempDiv.querySelector('.order-actions');
     if (actionButtonsElement) {
         actionButtonsElement.remove();
@@ -325,11 +325,14 @@ function abrirModalPedido(card, orderId, orderNumber, conteudoOriginal, actionBu
     // Obtém os botões de ação atualizados do card
     const currentActionButtons = card.querySelector('.compact-actions');
     
-    // Cria o conteúdo do modal
+    // Cria o conteúdo do modal com ícone de impressora
     modalContainer.innerHTML = `
         <div class="modal-pedido-content">
             <div class="modal-pedido-header">
                 <h2 class="modal-pedido-title">Pedido ${orderNumber}</h2>
+                <button class="modal-print-button" onclick="imprimirComanda('${orderId}')">
+                    <i class="fas fa-print"></i>
+                </button>
                 <span class="modal-pedido-status">${orderStatus}</span>
                 <button class="modal-pedido-close" onclick="fecharModal()">×</button>
             </div>
