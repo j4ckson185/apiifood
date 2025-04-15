@@ -384,6 +384,12 @@ async function handleEvent(event) {
                 console.error(`Erro ao buscar detalhes do pedido ${event.orderId}:`, orderError);
             }
         } 
+        // NOVO: Processar eventos de CONCLUSÃO de pedidos (CON)
+else if (event.code === 'CON' || event.code === 'CONCLUDED' || event.code === 'CONC') {
+    console.log('🏁 Pedido concluído, atualizando interface...');
+    updateOrderStatus(event.orderId, 'CONCLUDED');
+    showToast(`Pedido #${event.orderId.substring(0, 6)} foi concluído!`, 'success');
+}
         // Processar eventos de CANCELAMENTO para manter a interface sincronizada
         else if (event.code === 'CANCELLED' || event.code === 'CANC' || 
                  event.code === 'CANCELLATION_REQUESTED' || event.code === 'CANR') {
@@ -497,32 +503,59 @@ function displayOrder(order) {
     }
     orderElement.querySelector('.customer-phone').textContent = phoneText;
     
-    // Adiciona informações de endereço se for delivery
-    if (order.delivery && order.delivery.deliveryAddress) {
-        const addressDiv = document.createElement('div');
-        addressDiv.className = 'customer-address';
-        
-        const addressTitle = document.createElement('h3');
-        addressTitle.textContent = 'Endereço de Entrega';
-        addressDiv.appendChild(addressTitle);
-        
-        const address = order.delivery.deliveryAddress;
-        const addressText = document.createElement('p');
-        addressText.textContent = address.formattedAddress || 
-            `${address.streetName}, ${address.streetNumber}, ${address.complement || ''}, ${address.neighborhood}, ${address.city}`;
-        addressDiv.appendChild(addressText);
-        
-        // Adiciona referência se existir
-        if (address.reference) {
-            const referenceText = document.createElement('p');
-            referenceText.textContent = `Referência: ${address.reference}`;
-            addressDiv.appendChild(referenceText);
-        }
-        
-        // Insere após as informações do cliente
-        const customerInfo = orderElement.querySelector('.customer-info');
-        customerInfo.parentNode.insertBefore(addressDiv, customerInfo.nextSibling);
+// Adiciona informações de endereço se for delivery
+if (order.delivery && order.delivery.deliveryAddress) {
+    const addressDiv = document.createElement('div');
+    addressDiv.className = 'customer-address';
+    
+    const addressTitle = document.createElement('h3');
+    addressTitle.textContent = 'Endereço de Entrega';
+    addressDiv.appendChild(addressTitle);
+    
+    const address = order.delivery.deliveryAddress;
+    
+    // Endereço principal (rua e número)
+    const addressMainText = document.createElement('p');
+    addressMainText.textContent = `${address.streetName || ''}, ${address.streetNumber || ''}`;
+    addressDiv.appendChild(addressMainText);
+    
+    // Complemento (se houver)
+    if (address.complement) {
+        const complementText = document.createElement('p');
+        complementText.textContent = `Complemento: ${address.complement}`;
+        addressDiv.appendChild(complementText);
     }
+    
+    // NOVO: Bairro (se houver)
+    if (address.neighborhood) {
+        const neighborhoodText = document.createElement('p');
+        neighborhoodText.textContent = `Bairro: ${address.neighborhood}`;
+        addressDiv.appendChild(neighborhoodText);
+    }
+    
+    // Cidade e estado
+    const cityStateText = document.createElement('p');
+    cityStateText.textContent = `${address.city || ''} - ${address.state || ''}`;
+    addressDiv.appendChild(cityStateText);
+    
+    // NOVO: CEP (se houver)
+    if (address.postalCode) {
+        const postalCodeText = document.createElement('p');
+        postalCodeText.textContent = `CEP: ${address.postalCode}`;
+        addressDiv.appendChild(postalCodeText);
+    }
+    
+    // Referência (se houver)
+    if (address.reference) {
+        const referenceText = document.createElement('p');
+        referenceText.textContent = `Referência: ${address.reference}`;
+        addressDiv.appendChild(referenceText);
+    }
+    
+    // Insere após as informações do cliente
+    const customerInfo = orderElement.querySelector('.customer-info');
+    customerInfo.parentNode.insertBefore(addressDiv, customerInfo.nextSibling);
+}
     
     // Adiciona informação do tipo de pedido
     const orderTypeDiv = document.createElement('div');
