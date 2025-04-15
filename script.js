@@ -343,7 +343,6 @@ async function pollEvents() {
     }
 }
 
-// Manipulador de eventos corrigido para receber pedidos novamente
 async function handleEvent(event) {
     try {
         console.log(`Processando evento: ${event.code} para pedido ${event.orderId}`);
@@ -384,12 +383,42 @@ async function handleEvent(event) {
                 console.error(`Erro ao buscar detalhes do pedido ${event.orderId}:`, orderError);
             }
         } 
-        // NOVO: Processar eventos de CONCLUSÃO de pedidos (CON)
-else if (event.code === 'CON' || event.code === 'CONCLUDED' || event.code === 'CONC') {
-    console.log('🏁 Pedido concluído, atualizando interface...');
-    updateOrderStatus(event.orderId, 'CONCLUDED');
-    showToast(`Pedido #${event.orderId.substring(0, 6)} foi concluído!`, 'success');
-}
+        // IMPORTANTE: Tratamento especial para o evento CON (pedidos concluídos)
+        else if (event.code === 'CON' || event.code === 'CONCLUDED' || event.code === 'CONC') {
+            console.log(`🏁 Recebido evento de conclusão (${event.code}) para pedido ${event.orderId}`);
+            
+            try {
+                // Busca o pedido na DOM
+                const existingOrder = document.querySelector(`.order-card[data-order-id="${event.orderId}"]`);
+                
+                if (existingOrder) {
+                    console.log('Pedido encontrado na interface, atualizando status para CONCLUDED');
+                    // Atualiza o status para concluído
+                    updateOrderStatus(event.orderId, 'CONCLUDED');
+                    showToast(`Pedido #${event.orderId.substring(0, 6)} foi concluído!`, 'success');
+                } else {
+                    console.log('Pedido não está na interface, buscando detalhes para exibir');
+                    // Busca detalhes completos apenas para exibição
+                    try {
+                        const orderDetails = await makeAuthorizedRequest(`/order/v1.0/orders/${event.orderId}`, 'GET');
+                        
+                        // Força o status como concluído antes de exibir
+                        orderDetails.status = 'CONCLUDED';
+                        
+                        // Exibe o pedido na interface já com status concluído
+                        displayOrder(orderDetails);
+                        showToast(`Pedido #${event.orderId.substring(0, 6)} foi concluído!`, 'success');
+                        
+                        processedOrderIds.add(event.orderId);
+                        saveProcessedIds();
+                    } catch (detailsError) {
+                        console.error(`Erro ao buscar detalhes do pedido concluído ${event.orderId}:`, detailsError);
+                    }
+                }
+            } catch (error) {
+                console.error(`Erro ao processar evento de conclusão para pedido ${event.orderId}:`, error);
+            }
+        }
         // Processar eventos de CANCELAMENTO para manter a interface sincronizada
         else if (event.code === 'CANCELLED' || event.code === 'CANC' || 
                  event.code === 'CANCELLATION_REQUESTED' || event.code === 'CANR') {
