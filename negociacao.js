@@ -243,68 +243,67 @@ async function proporAlternativa(disputeId, alternativeId) {
         console.log(`🤝 Propondo alternativa ${alternativeId} para disputa ${disputeId}...`);
         showLoading();
         
-        // Busca a disputa e a alternativa específica
+        // Busca a disputa na lista ativa
         const disputa = activeDisputes.find(d => d.disputeId === disputeId);
+        if (!disputa) {
+            throw new Error("Disputa não encontrada na lista ativa");
+        }
+        
+        console.log('Disputa encontrada:', disputa);
+        
+        // Busca a alternativa específica dentro dos metadados (caminho correto)
+        const alternativas = disputa.metadata && disputa.metadata.alternatives 
+            ? disputa.metadata.alternatives 
+            : disputa.alternatives || [];
+            
+        const alternative = alternativas.find(a => a.id === alternativeId);
+        if (!alternative) {
+            throw new Error("Alternativa específica não encontrada");
+        }
+        
+        console.log('Alternativa encontrada:', alternative);
         
         // Inicializa o body com os campos obrigatórios
         let body = {
-            type: "ADDITIONAL_TIME", // Campo obrigatório
-            metadata: {}  // Campo obrigatório que estava faltando
+            type: alternative.type,
+            metadata: {}
         };
         
-        if (disputa && disputa.alternatives) {
-            // Busca nos alternatives em metadata (caminho correto)
-            const alternativas = disputa.metadata && disputa.metadata.alternatives 
-                ? disputa.metadata.alternatives 
-                : disputa.alternatives;
+        // Configuração específica para o tipo ADDITIONAL_TIME
+        if (alternative.type === 'ADDITIONAL_TIME') {
+            // Obter os valores permitidos diretamente dos metadados da alternativa
+            const allowedTimes = alternative.metadata?.allowedsAdditionalTimeInMinutes;
+            const allowedReasons = alternative.metadata?.allowedsAdditionalTimeReasons;
             
-            const alternative = alternativas.find(a => a.id === alternativeId);
+            console.log('Tempos permitidos:', allowedTimes);
+            console.log('Razões permitidas:', allowedReasons);
             
-            // Configuração do body conforme o tipo de alternativa
-            if (alternative) {
-                console.log('✅ Alternativa encontrada:', alternative);
-                
-                // Incluir o tipo da alternativa no body (campo obrigatório)
-                body.type = alternative.type;
-                
-                // Reembolso personalizado
-                if (alternative.type === 'CUSTOM_REFUND') {
-                    const customRefundValue = document.getElementById('custom-refund-value').value;
-                    if (customRefundValue) {
-                        body.value = parseFloat(customRefundValue);
-                    }
-                }
-                // Tempo adicional
-                else if (alternative.type === 'ADDITIONAL_TIME') {
-                    // Verificar se a alternativa tem opções de tempo disponíveis
-                    const timeOptions = alternative.metadata?.allowedsAdditionalTimeInMinutes;
-                    const reasonOptions = alternative.metadata?.allowedsAdditionalTimeReasons;
-                    
-                    // Se houver opções, usar a primeira como padrão
-                    if (timeOptions && timeOptions.length > 0) {
-                        body.additionalTimeInMinutes = timeOptions[0];
-                    } else {
-                        // Valor padrão se não houver opções específicas
-                        body.additionalTimeInMinutes = 15;
-                    }
-                    
-                    if (reasonOptions && reasonOptions.length > 0) {
-                        body.reason = reasonOptions[0];
-                    } else {
-                        // Razão padrão se não houver opções específicas
-                        body.reason = "HIGH_STORE_DEMAND";
-                    }
-                    
-                    // Adicionar metadados específicos para este tipo (campo obrigatório)
-                    body.metadata = {
-                        additionalTime: body.additionalTimeInMinutes,
-                        reason: body.reason
-                    };
-                }
+            // Garantir que estamos usando valores permitidos
+            if (!allowedTimes || allowedTimes.length === 0) {
+                throw new Error("Não há tempos adicionais permitidos definidos");
             }
+            
+            if (!allowedReasons || allowedReasons.length === 0) {
+                throw new Error("Não há razões permitidas definidas");
+            }
+            
+            // Usar o primeiro tempo e razão disponíveis
+            const additionalTime = allowedTimes[0];
+            const reason = allowedReasons[0];
+            
+            // Construir o body conforme a documentação
+            body = {
+                additionalTimeInMinutes: additionalTime,
+                reason: reason,
+                metadata: {
+                    additionalTime: additionalTime,
+                    reason: reason
+                }
+            };
+            
+            console.log('Body para alternativa de tempo adicional:', body);
         }
-        
-        console.log('✅ Enviando body para alternativa:', body);
+        // Poderia adicionar outros tipos aqui (REFUND, etc.)
         
         const response = await makeAuthorizedRequest(
             `/order/v1.0/disputes/${disputeId}/alternatives/${alternativeId}`, 
