@@ -1983,3 +1983,10 @@ window.rejeitarDisputa = rejeitarDisputa;
 window.proporAlternativa = proporAlternativa;
 window.abrirImagemAmpliada = abrirImagemAmpliada;
 window.fecharImagemAmpliada = fecharImagemAmpliada;
+// Expor funções adicionais para teste direto
+window.exibirModalNegociacao = exibirModalNegociacao;
+window.processarDisputaSimulada = function(disputa) {
+    addActiveDispute(disputa);
+    exibirModalNegociacao(disputa);
+    emitirAlertaNegociacao();
+};
