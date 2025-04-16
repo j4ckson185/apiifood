@@ -249,61 +249,38 @@ async function proporAlternativa(disputeId, alternativeId) {
             throw new Error("Disputa não encontrada na lista ativa");
         }
         
-        console.log('Disputa encontrada:', disputa);
+        // Log para depuração
+        console.log('Disputa completa:', JSON.stringify(disputa, null, 2));
         
-        // Busca a alternativa específica dentro dos metadados (caminho correto)
-        const alternativas = disputa.metadata && disputa.metadata.alternatives 
-            ? disputa.metadata.alternatives 
-            : disputa.alternatives || [];
-            
-        const alternative = alternativas.find(a => a.id === alternativeId);
-        if (!alternative) {
-            throw new Error("Alternativa específica não encontrada");
-        }
-        
-        console.log('Alternativa encontrada:', alternative);
-        
-        // Inicializa o body com os campos obrigatórios
-        let body = {
-            type: alternative.type,
-            metadata: {}
+        // Construir o body exatamente conforme a documentação
+        const body = {
+            type: "ADDITIONAL_TIME", // Campo obrigatório
+            additionalTimeInMinutes: 15, // Valor padrão
+            reason: "HIGH_STORE_DEMAND" // Valor padrão
         };
         
-        // Configuração específica para o tipo ADDITIONAL_TIME
-        if (alternative.type === 'ADDITIONAL_TIME') {
-            // Obter os valores permitidos diretamente dos metadados da alternativa
-            const allowedTimes = alternative.metadata?.allowedsAdditionalTimeInMinutes;
-            const allowedReasons = alternative.metadata?.allowedsAdditionalTimeReasons;
+        // Verificar se temos informações específicas nos metadados
+        if (disputa.metadata && 
+            disputa.metadata.alternatives && 
+            disputa.metadata.alternatives.length > 0) {
             
-            console.log('Tempos permitidos:', allowedTimes);
-            console.log('Razões permitidas:', allowedReasons);
-            
-            // Garantir que estamos usando valores permitidos
-            if (!allowedTimes || allowedTimes.length === 0) {
-                throw new Error("Não há tempos adicionais permitidos definidos");
-            }
-            
-            if (!allowedReasons || allowedReasons.length === 0) {
-                throw new Error("Não há razões permitidas definidas");
-            }
-            
-            // Usar o primeiro tempo e razão disponíveis
-            const additionalTime = allowedTimes[0];
-            const reason = allowedReasons[0];
-            
-            // Construir o body conforme a documentação
-            body = {
-                additionalTimeInMinutes: additionalTime,
-                reason: reason,
-                metadata: {
-                    additionalTime: additionalTime,
-                    reason: reason
+            const alternative = disputa.metadata.alternatives.find(a => a.id === alternativeId);
+            if (alternative && alternative.metadata) {
+                // Se temos opções disponíveis, usar a primeira
+                if (alternative.metadata.allowedsAdditionalTimeInMinutes && 
+                    alternative.metadata.allowedsAdditionalTimeInMinutes.length > 0) {
+                    body.additionalTimeInMinutes = alternative.metadata.allowedsAdditionalTimeInMinutes[0];
                 }
-            };
-            
-            console.log('Body para alternativa de tempo adicional:', body);
+                
+                if (alternative.metadata.allowedsAdditionalTimeReasons && 
+                    alternative.metadata.allowedsAdditionalTimeReasons.length > 0) {
+                    body.reason = alternative.metadata.allowedsAdditionalTimeReasons[0];
+                }
+            }
         }
-        // Poderia adicionar outros tipos aqui (REFUND, etc.)
+        
+        // Log do body antes do envio
+        console.log('Enviando body para alternativa:', JSON.stringify(body, null, 2));
         
         const response = await makeAuthorizedRequest(
             `/order/v1.0/disputes/${disputeId}/alternatives/${alternativeId}`, 
