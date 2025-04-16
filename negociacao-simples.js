@@ -127,30 +127,28 @@
     }
     
 function responderNegociacao(disputeId, orderId, resposta) {
-    console.log('Funções globais disponíveis:', {
-        aceitarDisputa: typeof window.aceitarDisputa,
-        rejeitarDisputa: typeof window.rejeitarDisputa,
-        fecharModalNegociacao: typeof window.fecharModalNegociacao
-    });
-
     if (resposta === 'ACCEPT') {
-        // Verifica se a função está disponível antes de chamar
-        if (typeof aceitarDisputa === 'function') {
-            aceitarDisputa(disputeId);
-        } else if (typeof window.aceitarDisputa === 'function') {
-            window.aceitarDisputa(disputeId);
-        } else {
-            console.error('Função aceitarDisputa não encontrada');
-        }
+        // Chamada direta para a API de cancelamento
+        makeAuthorizedRequest(`/order/v1.0/disputes/${disputeId}/accept`, 'POST')
+            .then(() => {
+                showToast('Cancelamento aceito com sucesso', 'success');
+                updateOrderStatus(orderId, 'CANCELLED');
+            })
+            .catch(error => {
+                console.error('Erro ao aceitar cancelamento:', error);
+                showToast('Erro ao processar cancelamento', 'error');
+            });
     } else if (resposta === 'REJECT') {
-        // Verifica se a função está disponível antes de chamar
-        if (typeof rejeitarDisputa === 'function') {
-            rejeitarDisputa(disputeId);
-        } else if (typeof window.rejeitarDisputa === 'function') {
-            window.rejeitarDisputa(disputeId);
-        } else {
-            console.error('Função rejeitarDisputa não encontrada');
-        }
+        // Chamada direta para a API de rejeição
+        makeAuthorizedRequest(`/order/v1.0/disputes/${disputeId}/reject`, 'POST')
+            .then(() => {
+                showToast('Cancelamento rejeitado', 'success');
+                updateOrderStatus(orderId, 'CONFIRMED');
+            })
+            .catch(error => {
+                console.error('Erro ao rejeitar cancelamento:', error);
+                showToast('Erro ao processar rejeição', 'error');
+            });
     }
 
     // Fecha o modal de negociação simples
