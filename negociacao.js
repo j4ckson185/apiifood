@@ -395,95 +395,86 @@ const alternatives = dispute.metadata?.alternatives || [];
     // Após as verificações acima, atualize a variável hasAlternatives
     const updatedHasAlternatives = alternatives.length > 0;
     
-    // Gera HTML para as alternativas, se existirem
-    let alternativesHtml = '';
-    if (updatedHasAlternatives) {
-        alternativesHtml = `
-            <div class="negotiation-alternatives">
-                <h3>Alternativas Disponíveis</h3>
-                <div class="alternatives-container">
-        `;
-        
-        alternatives.forEach(alternative => {
-            let altContent = '';
-            
-            switch (alternative.type) {
-                case 'REFUND_PROPOSAL':
-                case 'REFUND':
-                    const refundValue = alternative.value ? `R$ ${alternative.value.toFixed(2)}` : 
-                                       (alternative.metadata && alternative.metadata.maxAmount ? 
-                                        `R$ ${parseFloat(alternative.metadata.maxAmount.value)/100}` : 
-                                        'Valor não especificado');
-                    altContent = `
-                        <div class="alternative-details">
-                            <i class="fas fa-money-bill-wave"></i>
-                            <div>
-                                <h4>Proposta de Reembolso</h4>
-                                <p>Valor: ${refundValue}</p>
-                                <p>${alternative.description || ''}</p>
-                            </div>
+// Obter a lista de alternativas reais vindas da API
+const alternatives = dispute.metadata?.alternatives || [];
+
+// Atualiza flag para saber se há alternativas válidas
+const hasAlternatives = alternatives.length > 0;
+
+// Gera HTML para as alternativas, se existirem
+let alternativesHtml = '';
+if (hasAlternatives) {
+    alternativesHtml = `
+        <div class="negotiation-alternatives">
+            <h3>Alternativas Disponíveis</h3>
+            <div class="alternatives-container">
+    `;
+
+    alternatives.forEach(alternative => {
+        let altContent = '';
+        const altId = alternative.id;
+        const altDesc = alternative.description || '';
+
+        switch (alternative.type) {
+            case 'REFUND':
+            case 'BENEFIT':
+                const rawAmount = alternative.metadata?.maxAmount?.value;
+                const valor = rawAmount ? `R$ ${(parseInt(rawAmount) / 100).toFixed(2)}` : 'Valor não informado';
+                altContent = `
+                    <div class="alternative-details">
+                        <i class="fas fa-money-bill-wave"></i>
+                        <div>
+                            <h4>${alternative.type === 'REFUND' ? 'Reembolso' : 'Benefício'}</h4>
+                            <p>Valor: ${valor}</p>
+                            <p>${altDesc}</p>
                         </div>
-                    `;
-                    break;
-                    
-                case 'CUSTOM_REFUND':
-                    altContent = `
-                        <div class="alternative-details">
-                            <i class="fas fa-calculator"></i>
-                            <div>
-                                <h4>Reembolso Personalizado</h4>
-                                <p>${alternative.description || 'Defina um valor de reembolso'}</p>
-                                <div class="custom-refund-input">
-                                    <label>Valor do reembolso (R$):</label>
-                                    <input type="number" id="custom-refund-value" min="1" step="0.01" placeholder="0.00">
-                                </div>
-                            </div>
-                        </div>
-                    `;
-                    break;
-                    
-                case 'DELIVERY_TIME_PROPOSAL':
-                    altContent = `
-                        <div class="alternative-details">
-                            <i class="fas fa-clock"></i>
-                            <div>
-                                <h4>Novo Prazo de Entrega</h4>
-                                <p>${alternative.description || 'Propor novo prazo para entrega'}</p>
-                                <p>Tempo adicional: ${alternative.additionalTime || '?'} minutos</p>
-                            </div>
-                        </div>
-                    `;
-                    break;
-                    
-                default:
-                    altContent = `
-                        <div class="alternative-details">
-                            <i class="fas fa-exclamation-circle"></i>
-                            <div>
-                                <h4>${alternative.type || 'Alternativa'}</h4>
-                                <p>${alternative.description || 'Sem descrição'}</p>
-                            </div>
-                        </div>
-                    `;
-            }
-            
-            alternativesHtml += `
-                <div class="alternative-option">
-                    <div class="alternative-card">
-                        ${altContent}
                     </div>
-                    <button class="alternative-button" onclick="proporAlternativa('${dispute.disputeId}', '${alternative.id}')">
-                        Propor esta alternativa
-                    </button>
-                </div>
-            `;
-        });
-        
+                `;
+                break;
+
+            case 'ADDITIONAL_TIME':
+                const tempo = alternative.metadata?.allowedsAdditionalTimeInMinutes?.[0] || '?';
+                altContent = `
+                    <div class="alternative-details">
+                        <i class="fas fa-clock"></i>
+                        <div>
+                            <h4>Novo Prazo de Entrega</h4>
+                            <p>Tempo adicional: ${tempo} minutos</p>
+                            <p>${altDesc}</p>
+                        </div>
+                    </div>
+                `;
+                break;
+
+            default:
+                altContent = `
+                    <div class="alternative-details">
+                        <i class="fas fa-info-circle"></i>
+                        <div>
+                            <h4>Alternativa</h4>
+                            <p>${altDesc}</p>
+                        </div>
+                    </div>
+                `;
+        }
+
         alternativesHtml += `
+            <div class="alternative-option">
+                <div class="alternative-card">
+                    ${altContent}
                 </div>
+                <button class="alternative-button" onclick="proporAlternativa('${dispute.disputeId}', '${altId}')">
+                    Propor esta alternativa
+                </button>
             </div>
         `;
-    }
+    });
+
+    alternativesHtml += `
+            </div>
+        </div>
+    `;
+}
     
     // Cria o conteúdo do modal
     modalContainer.innerHTML = `
