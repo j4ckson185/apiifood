@@ -62,29 +62,72 @@ function estenderHandlerEventos() {
 // Função para processar eventos de disputa (HANDSHAKE_DISPUTE)
 async function processarEventoDisputa(event) {
     try {
-        if (!event.disputeId) {
-            console.error('❌ Evento de disputa sem disputeId, ignorando:', event);
-            showToast('Evento de disputa inválido recebido', 'error');
+        // Extract disputeId from metadata for HANDSHAKE_DISPUTE events
+        let disputeId = null;
+        
+        if (event.code === 'HANDSHAKE_DISPUTE' || event.fullCode === 'HANDSHAKE_DISPUTE') {
+            // Check if disputeId is directly in the event
+            if (event.disputeId) {
+                disputeId = event.disputeId;
+            } 
+            // Check if disputeId is in the metadata
+            else if (event.metadata && event.metadata.disputeId) {
+                disputeId = event.metadata.disputeId;
+            } else {
+                console.error('❌ Evento de disputa sem disputeId, tentando localizar em outro campo:', event);
+                
+                // Try to extract dispute ID from any available field in the event
+                for (const key in event) {
+                    if (typeof event[key] === 'object' && event[key] !== null) {
+                        if (event[key].disputeId) {
+                            disputeId = event[key].disputeId;
+                            console.log('✅ DisputeId encontrado em outro campo:', disputeId);
+                            break;
+                        }
+                    }
+                }
+                
+                if (!disputeId) {
+                    console.error('❌ Não foi possível encontrar disputeId no evento:', event);
+                    showToast('Evento de disputa inválido recebido', 'error');
+                    return;
+                }
+            }
+        } else {
+            console.error('❌ Tipo de evento não reconhecido:', event.code);
             return;
         }
         
-        // Buscar detalhes completos da disputa (opcional, dependendo do que o evento já traz)
+        // Now we have the disputeId, we can proceed with the rest of the function
+        console.log('✅ Processando disputa com ID:', disputeId);
+        
+        // Buscar detalhes completos da disputa
         let disputeDetails;
         try {
-            disputeDetails = await makeAuthorizedRequest(`/order/v1.0/disputes/${event.disputeId}`, 'GET');
+            disputeDetails = await makeAuthorizedRequest(`/order/v1.0/disputes/${disputeId}`, 'GET');
             console.log('✅ Detalhes da disputa recebidos:', disputeDetails);
         } catch (error) {
             console.warn('⚠️ Não foi possível obter detalhes adicionais da disputa:', error);
-            // Continua usando os dados do evento
-            disputeDetails = event;
+            
+            // Cria um objeto de disputa a partir dos dados do evento
+            disputeDetails = {
+                disputeId: disputeId,
+                orderId: event.orderId,
+                type: event.metadata?.handshakeType || 'CANCELLATION_REQUEST',
+                reason: event.metadata?.message || 'Motivo não especificado',
+                customerName: 'Cliente',
+                expiresAt: event.metadata?.expiresAt,
+                timeoutAction: event.metadata?.timeoutAction || 'ACCEPT'
+            };
+            
+            console.log('✅ Criado objeto de disputa a partir do evento:', disputeDetails);
         }
         
-        // Combina os dados do evento com os detalhes obtidos (se disponíveis)
+        // Combina os dados do evento com os detalhes obtidos
         const disputeData = {
             ...event,
             ...disputeDetails,
-            // Assegura que temos um ID de disputa
-            disputeId: event.disputeId || disputeDetails?.disputeId
+            disputeId: disputeId
         };
         
         // Adiciona à lista de disputas ativas
