@@ -1,10 +1,3 @@
-// No início do negociacao-simples.js
-const { 
-    aceitarDisputa, 
-    rejeitarDisputa, 
-    fecharModalNegociacao 
-} = window;
-
 // Versão simplificada da plataforma de negociação (standalone)
 (function() {
     console.log('🤝 Carregando módulo simplificado de negociação');
@@ -134,20 +127,34 @@ const {
     }
     
 function responderNegociacao(disputeId, orderId, resposta) {
-    try {
-        if (resposta === 'ACCEPT') {
-            // Usa as funções globais
-            aceitarDisputa(disputeId);
-        } else if (resposta === 'REJECT') {
-            rejeitarDisputa(disputeId);
-        }
+    console.log('Funções globais disponíveis:', {
+        aceitarDisputa: typeof window.aceitarDisputa,
+        rejeitarDisputa: typeof window.rejeitarDisputa,
+        fecharModalNegociacao: typeof window.fecharModalNegociacao
+    });
 
-        // Fecha o modal de negociação simples
-        fecharNegociacaoSimples();
-    } catch (error) {
-        console.error('Erro ao processar resposta:', error);
-        showToast('Erro ao processar resposta', 'error');
+    if (resposta === 'ACCEPT') {
+        // Verifica se a função está disponível antes de chamar
+        if (typeof aceitarDisputa === 'function') {
+            aceitarDisputa(disputeId);
+        } else if (typeof window.aceitarDisputa === 'function') {
+            window.aceitarDisputa(disputeId);
+        } else {
+            console.error('Função aceitarDisputa não encontrada');
+        }
+    } else if (resposta === 'REJECT') {
+        // Verifica se a função está disponível antes de chamar
+        if (typeof rejeitarDisputa === 'function') {
+            rejeitarDisputa(disputeId);
+        } else if (typeof window.rejeitarDisputa === 'function') {
+            window.rejeitarDisputa(disputeId);
+        } else {
+            console.error('Função rejeitarDisputa não encontrada');
+        }
     }
+
+    // Fecha o modal de negociação simples
+    fecharNegociacaoSimples();
 }
     
     // Função para mostrar notificação
