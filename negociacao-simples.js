@@ -1,3 +1,10 @@
+// No início do negociacao-simples.js
+const { 
+    aceitarDisputa, 
+    rejeitarDisputa, 
+    fecharModalNegociacao 
+} = window;
+
 // Versão simplificada da plataforma de negociação (standalone)
 (function() {
     console.log('🤝 Carregando módulo simplificado de negociação');
@@ -129,10 +136,9 @@
 function responderNegociacao(disputeId, orderId, resposta) {
     try {
         if (resposta === 'ACCEPT') {
-            // Chama a função de aceitação já existente
+            // Usa as funções globais
             aceitarDisputa(disputeId);
         } else if (resposta === 'REJECT') {
-            // Chama a função de rejeição já existente
             rejeitarDisputa(disputeId);
         }
 
