@@ -126,7 +126,6 @@
         }
     }
     
-// Função para responder a negociação
 function responderNegociacao(disputeId, orderId, resposta) {
     if (resposta === 'ACCEPT') {
         // Usa a função aceitarDisputa do módulo de negociação
