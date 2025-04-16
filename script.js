@@ -628,33 +628,48 @@ if (order.delivery && order.delivery.deliveryAddress) {
             const paymentItem = document.createElement('li');
             let paymentText = payment.method || 'Método desconhecido';
             
-            // Tradução de métodos de pagamento comuns
-            if (payment.method) {
-                if (payment.method.toLowerCase().includes('meal_voucher')) {
-                    paymentText = 'Vale Refeição';
-                } else if (payment.method.toLowerCase().includes('food_voucher')) {
-                    paymentText = 'Vale Alimentação';
-                } else if (payment.method.toLowerCase().includes('credit')) {
-                    paymentText = 'Cartão de Crédito';
-                } else if (payment.method.toLowerCase().includes('debit')) {
-                    paymentText = 'Cartão de Débito';
-                }
-            }
-            
-            // Define o tipo de pagamento para filtros
-            if (payment.method && payment.method.toLowerCase().includes('dinheiro')) {
-                paymentType = 'dinheiro';
-            } else if (payment.method && (payment.method.toLowerCase().includes('cartão') || payment.method.toLowerCase().includes('credit') || payment.method.toLowerCase().includes('debit'))) {
-                paymentType = 'cartão';
-            } else if (payment.type && payment.type.toLowerCase().includes('online')) {
-                paymentType = 'online';
-            }
-            
-            // Adiciona tipo de pagamento se disponível
-            if (payment.type) {
-                const translatedType = payment.type.toLowerCase() === 'online' ? 'Online' : payment.type;
-                paymentText += ` (${translatedType})`;
-            }
+// Tradução de métodos de pagamento comuns
+if (payment.method) {
+    if (payment.method.toLowerCase().includes('meal_voucher')) {
+        paymentText = 'Vale Refeição';
+    } else if (payment.method.toLowerCase().includes('food_voucher')) {
+        paymentText = 'Vale Alimentação';
+    } else if (payment.method.toLowerCase().includes('credit')) {
+        paymentText = 'Cartão de Crédito';
+    } else if (payment.method.toLowerCase().includes('debit')) {
+        paymentText = 'Cartão de Débito';
+    } else if (payment.method.toLowerCase().includes('cash') || 
+               payment.method.toLowerCase() === 'cash') {
+        paymentText = 'Dinheiro';
+    } else if (payment.method.toLowerCase().includes('pix')) {
+        paymentText = 'PIX';
+    }
+}
+
+// Define o tipo de pagamento para filtros
+if (payment.method && payment.method.toLowerCase().includes('dinheiro') ||
+    payment.method && payment.method.toLowerCase() === 'cash') {
+    paymentType = 'dinheiro';
+} else if (payment.method && (payment.method.toLowerCase().includes('cartão') || 
+                               payment.method.toLowerCase().includes('credit') || 
+                               payment.method.toLowerCase().includes('debit'))) {
+    paymentType = 'cartão';
+} else if (payment.type && payment.type.toLowerCase().includes('online')) {
+    paymentType = 'online';
+} else if (payment.type && payment.type.toLowerCase().includes('offline')) {
+    paymentType = 'dinheiro'; // Associa offline com dinheiro para o filtro
+}
+
+// Adiciona tipo de pagamento se disponível
+if (payment.type) {
+    const translatedType = (() => {
+        if (payment.type.toLowerCase() === 'online') return 'Online';
+        if (payment.type.toLowerCase() === 'offline') return 'Na Entrega';
+        return payment.type;
+    })();
+    
+    paymentText += ` (${translatedType})`;
+}
             
             // Adiciona bandeira do cartão se disponível
             if (payment.card && payment.card.brand) {
