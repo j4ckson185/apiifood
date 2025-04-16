@@ -245,7 +245,11 @@ async function proporAlternativa(disputeId, alternativeId) {
         
         // Busca a disputa e a alternativa específica
         const disputa = activeDisputes.find(d => d.disputeId === disputeId);
-        let body = null;
+        
+        // Inicializa o body com o campo type obrigatório
+        let body = {
+            type: "ADDITIONAL_TIME" // Campo obrigatório que estava faltando
+        };
         
         if (disputa && disputa.alternatives) {
             // Busca nos alternatives em metadata (caminho correto)
@@ -259,11 +263,14 @@ async function proporAlternativa(disputeId, alternativeId) {
             if (alternative) {
                 console.log('✅ Alternativa encontrada:', alternative);
                 
+                // Incluir o tipo da alternativa no body (campo obrigatório)
+                body.type = alternative.type;
+                
                 // Reembolso personalizado
                 if (alternative.type === 'CUSTOM_REFUND') {
                     const customRefundValue = document.getElementById('custom-refund-value').value;
                     if (customRefundValue) {
-                        body = { value: parseFloat(customRefundValue) };
+                        body.value = parseFloat(customRefundValue);
                     }
                 }
                 // Tempo adicional
@@ -273,11 +280,18 @@ async function proporAlternativa(disputeId, alternativeId) {
                     const reasonOptions = alternative.metadata?.allowedsAdditionalTimeReasons;
                     
                     // Se houver opções, usar a primeira como padrão
-                    if (timeOptions && timeOptions.length > 0 && reasonOptions && reasonOptions.length > 0) {
-                        body = {
-                            additionalTimeInMinutes: timeOptions[0],
-                            reason: reasonOptions[0]
-                        };
+                    if (timeOptions && timeOptions.length > 0) {
+                        body.additionalTimeInMinutes = timeOptions[0];
+                    } else {
+                        // Valor padrão se não houver opções específicas
+                        body.additionalTimeInMinutes = 15;
+                    }
+                    
+                    if (reasonOptions && reasonOptions.length > 0) {
+                        body.reason = reasonOptions[0];
+                    } else {
+                        // Razão padrão se não houver opções específicas
+                        body.reason = "HIGH_STORE_DEMAND";
                     }
                 }
             }
