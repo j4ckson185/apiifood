@@ -1,5 +1,3 @@
-negociacao-simples.js :
-
 // No início do negociacao-simples.js
 const { 
     aceitarDisputa, 
