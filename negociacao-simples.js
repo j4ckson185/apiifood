@@ -129,12 +129,11 @@
 // Função para responder a negociação
 function responderNegociacao(disputeId, orderId, resposta) {
     if (resposta === 'ACCEPT') {
-        // Usa a função handleOrderAction já existente para solicitar cancelamento
-        handleOrderAction(orderId, 'requestCancellation');
+        // Usa a função aceitarDisputa do módulo de negociação
+        aceitarDisputa(disputeId);
     } else if (resposta === 'REJECT') {
-        // Implementa a lógica de rejeição usando as funções padrão
-        showToast('Cancelamento rejeitado', 'info');
-        updateOrderStatus(orderId, 'CONFIRMED'); // Força status de confirmado
+        // Usa a função rejeitarDisputa do módulo de negociação
+        rejeitarDisputa(disputeId);
     }
 
     // Fecha o modal de negociação simples
