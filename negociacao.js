@@ -366,9 +366,7 @@ const hasAlternatives = dispute.metadata && dispute.metadata.alternatives
     : (dispute.alternatives && dispute.alternatives.length > 0);
 
 // Obter a lista de alternativas do local correto
-const alternatives = dispute.metadata && dispute.metadata.alternatives 
-    ? dispute.metadata.alternatives 
-    : dispute.alternatives || [];
+const alternatives = dispute.metadata?.alternatives || [];
     
     // Cria o título baseado no tipo de disputa
     let disputeTitle = 'Solicitação de Negociação';
@@ -399,30 +397,12 @@ const alternatives = dispute.metadata && dispute.metadata.alternatives
                 disputeTitle = 'Cancelamento por Atraso';
                 disputeIcon = 'clock';
                 
-                // Se não houver alternativas explícitas, mas o tipo é de atraso,
-                // adicione alternativas padrão para novo tempo de entrega
-                if (!hasAlternatives) {
-                    dispute.alternatives = [
-                        {
-                            id: 'delivery_time_15',
-                            type: 'DELIVERY_TIME_PROPOSAL',
-                            description: 'Entregar em até 15 minutos',
-                            additionalTime: 15
-                        },
-                        {
-                            id: 'delivery_time_30',
-                            type: 'DELIVERY_TIME_PROPOSAL',
-                            description: 'Entregar em até 30 minutos',
-                            additionalTime: 30
-                        }
-                    ];
-                }
                 break;
         }
     }
     
     // Após as verificações acima, atualize a variável hasAlternatives
-    const updatedHasAlternatives = dispute.alternatives && dispute.alternatives.length > 0;
+    const updatedHasAlternatives = alternatives.length > 0;
     
     // Gera HTML para as alternativas, se existirem
     let alternativesHtml = '';
