@@ -102,8 +102,11 @@ function processarDisputaSimulada(disputeData) {
     }
 }
 
-// Função para estender o handler de eventos para capturar eventos de disputas
+// Encontre esta função no negociacao.js
 function estenderHandlerEventos() {
+    // Adicione este log
+    console.log('🤝 Estendendo handler de eventos para capturar disputas');
+    
     // Verifica se a função handleEvent existe
     if (typeof window.handleEvent !== 'function') {
         console.error('❌ Função handleEvent não encontrada. Módulo de negociação não funcionará corretamente.');
@@ -112,28 +115,52 @@ function estenderHandlerEventos() {
     
     // Guarda a função original
     const originalHandleEvent = window.handleEvent;
+    console.log('✅ Função handleEvent original capturada:', typeof originalHandleEvent);
     
     // Substitui a função de tratamento de eventos
     window.handleEvent = async function(event) {
+        // Adicione este log
+        console.log('🔍 Handler de eventos estendido recebeu evento:', event.code);
+        
         try {
             // Verifica se é um evento de disputa (HANDSHAKE_DISPUTE)
             if (event.code === 'HANDSHAKE_DISPUTE' || event.fullCode === 'HANDSHAKE_DISPUTE') {
                 console.log('🤝 Evento de disputa (HANDSHAKE_DISPUTE) recebido:', event);
                 
-                // Processa o evento de disputa
-                await processarEventoDisputa(event);
+                // Cria uma disputa simples para teste
+                const disputaTest = {
+                    disputeId: event.disputeId || 'disp_' + Date.now(),
+                    orderId: event.orderId,
+                    type: 'CANCELLATION_REQUEST',
+                    customerName: 'Cliente de Teste',
+                    reason: 'Teste de negociação',
+                    expiresAt: new Date(Date.now() + 300000).toISOString(),
+                    timeoutAction: 'ACCEPT'
+                };
+                
+                // Adiciona à lista de disputas ativas
+                addActiveDispute(disputaTest);
+                
+                // Exibe o modal de negociação
+                exibirModalNegociacao(disputaTest);
+                
+                // Emite som de alerta e notificação
+                emitirAlertaNegociacao();
                 
                 // Retorna após processar, para não executar o fluxo original
                 return;
             }
             
             // Para outros eventos, executa o handler original
+            console.log('↩️ Passando evento para handler original:', event.code);
             return originalHandleEvent(event);
         } catch (error) {
             console.error('❌ Erro ao processar evento:', error);
             return originalHandleEvent(event);
         }
     };
+    
+    console.log('✅ Handler de eventos estendido com sucesso');
 }
 
 // Função para processar eventos de disputa (HANDSHAKE_DISPUTE)
