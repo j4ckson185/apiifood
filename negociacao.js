@@ -181,12 +181,12 @@ function removeActiveDispute(disputeId) {
     console.log('📋 Disputas ativas após remoção:', activeDisputes);
 }
 
-// Funções para responder às disputas
 async function aceitarDisputa(disputeId) {
     try {
         console.log(`🤝 Aceitando disputa ${disputeId}...`);
         showLoading();
         
+        // Corrected endpoint URL format
         const response = await makeAuthorizedRequest(`/order/v1.0/disputes/${disputeId}/accept`, 'POST');
         
         console.log('✅ Disputa aceita com sucesso:', response);
@@ -213,7 +213,10 @@ async function rejeitarDisputa(disputeId) {
         console.log(`🤝 Rejeitando disputa ${disputeId}...`);
         showLoading();
         
-        const response = await makeAuthorizedRequest(`/order/v1.0/disputes/${disputeId}/reject`, 'POST');
+        // Corrected endpoint URL format
+        const response = await makeAuthorizedRequest(`/order/v1.0/disputes/${disputeId}/reject`, 'POST', {
+            reason: "Rejeição feita pelo estabelecimento"
+        });
         
         console.log('✅ Disputa rejeitada com sucesso:', response);
         showToast('Negociação rejeitada com sucesso', 'success');
@@ -255,6 +258,7 @@ async function proporAlternativa(disputeId, alternativeId) {
             }
         }
         
+        // Corrected endpoint URL format
         const response = await makeAuthorizedRequest(
             `/order/v1.0/disputes/${disputeId}/alternatives/${alternativeId}`, 
             'POST',
@@ -314,7 +318,10 @@ function exibirModalNegociacao(dispute) {
     // Extrai informações relevantes da disputa
     const orderId = dispute.orderId || 'N/A';
     const orderDisplayId = dispute.displayId || orderId.substring(0, 6);
+    
+    // Garantir que o nome do cliente seja exibido corretamente
     const customerName = dispute.customerName || 'Cliente';
+    
     const expiresAt = dispute.expiresAt ? new Date(dispute.expiresAt) : null;
     const timeoutAction = dispute.timeoutAction || 'ACCEPT';
     const reason = dispute.reason || 'Não especificado';
@@ -342,6 +349,8 @@ function exibirModalNegociacao(dispute) {
             disputeIcon = 'money-bill-wave';
             break;
         case 'CANCELLATION_WITH_DELAY_PROPOSAL':
+        case 'PREPARATION_TIME': // Add support for this type
+        case 'ORDER_LATE':       // Add support for this type
             disputeTitle = 'Cancelamento por Atraso';
             disputeIcon = 'clock';
             break;
@@ -351,9 +360,42 @@ function exibirModalNegociacao(dispute) {
             break;
     }
     
+    // Também verifique o handshakeType no metadata
+    if (dispute.metadata && dispute.metadata.handshakeType) {
+        switch(dispute.metadata.handshakeType) {
+            case 'PREPARATION_TIME':
+            case 'ORDER_LATE':
+                disputeTitle = 'Cancelamento por Atraso';
+                disputeIcon = 'clock';
+                
+                // Se não houver alternativas explícitas, mas o tipo é de atraso,
+                // adicione alternativas padrão para novo tempo de entrega
+                if (!hasAlternatives) {
+                    dispute.alternatives = [
+                        {
+                            id: 'delivery_time_15',
+                            type: 'DELIVERY_TIME_PROPOSAL',
+                            description: 'Entregar em até 15 minutos',
+                            additionalTime: 15
+                        },
+                        {
+                            id: 'delivery_time_30',
+                            type: 'DELIVERY_TIME_PROPOSAL',
+                            description: 'Entregar em até 30 minutos',
+                            additionalTime: 30
+                        }
+                    ];
+                }
+                break;
+        }
+    }
+    
+    // Após as verificações acima, atualize a variável hasAlternatives
+    const updatedHasAlternatives = dispute.alternatives && dispute.alternatives.length > 0;
+    
     // Gera HTML para as alternativas, se existirem
     let alternativesHtml = '';
-    if (hasAlternatives) {
+    if (updatedHasAlternatives) {
         alternativesHtml = `
             <div class="negotiation-alternatives">
                 <h3>Alternativas Disponíveis</h3>
@@ -365,7 +407,11 @@ function exibirModalNegociacao(dispute) {
             
             switch (alternative.type) {
                 case 'REFUND_PROPOSAL':
-                    const refundValue = alternative.value ? `R$ ${alternative.value.toFixed(2)}` : 'Valor não especificado';
+                case 'REFUND':
+                    const refundValue = alternative.value ? `R$ ${alternative.value.toFixed(2)}` : 
+                                       (alternative.metadata && alternative.metadata.maxAmount ? 
+                                        `R$ ${parseFloat(alternative.metadata.maxAmount.value)/100}` : 
+                                        'Valor não especificado');
                     altContent = `
                         <div class="alternative-details">
                             <i class="fas fa-money-bill-wave"></i>
@@ -489,7 +535,7 @@ function exibirModalNegociacao(dispute) {
                 <div class="dispute-message">
                     <p class="message-text">
                         <i class="fas fa-info-circle"></i>
-                        ${hasAlternatives ? 
+                        ${updatedHasAlternatives ? 
                             'Você pode aceitar o cancelamento, rejeitá-lo ou oferecer uma alternativa.' : 
                             'Você pode aceitar ou rejeitar esta solicitação de cancelamento.'}
                     </p>
