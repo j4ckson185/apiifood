@@ -41,14 +41,14 @@ const {
         }
         
         // Função para formatar valor monetário
-        const formatarValor = (valor) => R$ ${typeof valor === 'number' ? valor.toFixed(2) : '0,00'};
+        const formatarValor = (valor) => `R$ ${typeof valor === 'number' ? valor.toFixed(2) : '0,00'}`;
         
         // Extrai informações do pedido real, se disponível
         const nomeCliente = disputa.customerName || (dadosPedido?.customer?.name) || 'Cliente não identificado';
         const totalPedido = dadosPedido?.total?.orderAmount || dadosPedido?.total?.subTotal || 0;
         
         // Define o conteúdo do modal
-        modalContainer.innerHTML = 
+        modalContainer.innerHTML = `
             <div style="background-color: white; border-radius: 10px; max-width: 500px; width: 100%;">
                 <div style="background-color: #ea1d2c; color: white; padding: 15px; display: flex; justify-content: space-between; align-items: center; border-top-left-radius: 10px; border-top-right-radius: 10px;">
                     <h2 style="margin: 0; font-size: 18px;">Solicitação de Cancelamento</h2>
@@ -64,16 +64,16 @@ const {
                         <p><strong>Ação automática:</strong> Aceitar cancelamento</p>
                     </div>
                     
-                    ${dadosPedido?.items ? 
+                    ${dadosPedido?.items ? `
                     <div style="background-color: #fff3cd; border-left: 4px solid #ffc107; padding: 15px; border-radius: 4px; margin-top: 20px;">
                         <h3 style="margin-bottom: 10px;">Itens do Pedido</h3>
-                        ${dadosPedido.items.map(item => 
+                        ${dadosPedido.items.map(item => `
                             <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
                                 <span>${item.quantity}x ${item.name}</span>
                                 <span>${formatarValor(item.totalPrice || (item.price * item.quantity))}</span>
                             </div>
-                        ).join('')}
-                    </div> : ''}
+                        `).join('')}
+                    </div>` : ''}
                     
                     <div style="background-color: #fff3cd; border-left: 4px solid #ffc107; padding: 15px; border-radius: 4px; margin-top: 20px;">
                         <p style="margin: 0; display: flex; align-items: center; gap: 10px;">
@@ -91,7 +91,7 @@ const {
 </button>
                 </div>
             </div>
-        ;
+        `;
         
         // Exibe o modal
         modalContainer.style.display = 'flex';
@@ -186,11 +186,11 @@ function responderNegociacao(disputeId, orderId, resposta) {
         }
         
         // Adiciona ícone e mensagem
-        toast.innerHTML = 
+        toast.innerHTML = `
             <div style="display: flex; align-items: center; gap: 10px;">
                 <span>${mensagem}</span>
             </div>
-        ;
+        `;
         
         // Adiciona ao container
         container.appendChild(toast);
@@ -208,7 +208,7 @@ window.mostrarNegociacao = mostrarNegociacao;
 async function abrirNegociacaoComPedidoReal(pedidoId) {
     try {
         // Busca os detalhes do pedido usando a função makeAuthorizedRequest
-        const pedido = await makeAuthorizedRequest(/order/v1.0/orders/${pedidoId}, 'GET');
+        const pedido = await makeAuthorizedRequest(`/order/v1.0/orders/${pedidoId}`, 'GET');
         
         // Abre o modal de negociação com os detalhes do pedido
         mostrarNegociacao(pedidoId, pedido);
