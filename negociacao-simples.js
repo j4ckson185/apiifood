@@ -76,12 +76,12 @@
                     </div>
                 </div>
                 <div style="padding: 15px 20px; display: flex; justify-content: flex-end; gap: 10px; border-top: 1px solid #f1f3f4; background-color: #f9f9f9; border-bottom-left-radius: 10px; border-bottom-right-radius: 10px;">
-                    <button onclick="responderNegociacao('${disputa.disputeId}', 'REJECT')" style="padding: 10px 20px; background-color: white; color: #dc3545; border: 1px solid #dc3545; border-radius: 6px; font-weight: 600; cursor: pointer;">
-                        Rejeitar
-                    </button>
-                    <button onclick="responderNegociacao('${disputa.disputeId}', 'ACCEPT')" style="padding: 10px 20px; background-color: #ea1d2c; color: white; border: none; border-radius: 6px; font-weight: 600; cursor: pointer;">
-                        Aceitar
-                    </button>
+<button onclick="responderNegociacao('${disputa.disputeId}', '${pedidoId}', 'REJECT')" style="...">
+    Rejeitar
+</button>
+<button onclick="responderNegociacao('${disputa.disputeId}', '${pedidoId}', 'ACCEPT')" style="...">
+    Aceitar
+</button>
                 </div>
             </div>
         `;
@@ -127,9 +127,7 @@
     }
     
 // Função para responder a negociação
-function responderNegociacao(disputeId, resposta) {
-    const orderId = currentOrderId; // Usando a variável que já existe no seu sistema
-
+function responderNegociacao(disputeId, orderId, resposta) {
     if (resposta === 'ACCEPT') {
         // Usa a função handleOrderAction já existente para solicitar cancelamento
         handleOrderAction(orderId, 'requestCancellation');
