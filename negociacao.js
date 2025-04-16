@@ -246,9 +246,10 @@ async function proporAlternativa(disputeId, alternativeId) {
         // Busca a disputa e a alternativa específica
         const disputa = activeDisputes.find(d => d.disputeId === disputeId);
         
-        // Inicializa o body com o campo type obrigatório
+        // Inicializa o body com os campos obrigatórios
         let body = {
-            type: "ADDITIONAL_TIME" // Campo obrigatório que estava faltando
+            type: "ADDITIONAL_TIME", // Campo obrigatório
+            metadata: {}  // Campo obrigatório que estava faltando
         };
         
         if (disputa && disputa.alternatives) {
@@ -293,6 +294,12 @@ async function proporAlternativa(disputeId, alternativeId) {
                         // Razão padrão se não houver opções específicas
                         body.reason = "HIGH_STORE_DEMAND";
                     }
+                    
+                    // Adicionar metadados específicos para este tipo (campo obrigatório)
+                    body.metadata = {
+                        additionalTime: body.additionalTimeInMinutes,
+                        reason: body.reason
+                    };
                 }
             }
         }
