@@ -192,45 +192,50 @@
     
 // Expõe a função principal globalmente
 window.mostrarNegociacao = mostrarNegociacao;
-    
+
 // Função para buscar detalhes do pedido e abrir negociação
 async function abrirNegociacaoComPedidoReal(pedidoId) {
-try {
-// Busca os detalhes do pedido usando a função makeAuthorizedRequest
-const pedido = await makeAuthorizedRequest(/order/v1.0/orders/${pedidoId}, 'GET');
-// Abre o modal de negociação com os detalhes do pedido
-    mostrarNegociacao(pedidoId, pedido);
-} catch (error) {
-    console.error('Erro ao buscar detalhes do pedido:', error);
-    mostrarNotificacao('Não foi possível buscar os detalhes do pedido', 'error');
-}
+    try {
+        // Busca os detalhes do pedido usando a função makeAuthorizedRequest
+        const pedido = await makeAuthorizedRequest(`/order/v1.0/orders/${pedidoId}`, 'GET');
+        
+        // Abre o modal de negociação com os detalhes do pedido
+        mostrarNegociacao(pedidoId, pedido);
+    } catch (error) {
+        console.error('Erro ao buscar detalhes do pedido:', error);
+        mostrarNotificacao('Não foi possível buscar os detalhes do pedido', 'error');
     }
+}
+
 window.abrirNegociacaoComPedidoReal = abrirNegociacaoComPedidoReal;
+
 // Adiciona botão de teste na interface
 function adicionarBotaoTeste() {
-const botao = document.createElement('button');
-botao.textContent = 'Testar Negociação';
-botao.style.position = 'fixed';
-botao.style.top = '10px';
-botao.style.right = '10px';
-botao.style.zIndex = '1000';
-botao.style.padding = '8px 16px';
-botao.style.backgroundColor = '#ea1d2c';
-botao.style.color = 'white';
-botao.style.border = 'none';
-botao.style.borderRadius = '4px';
-botao.style.cursor = 'pointer';
-botao.addEventListener('click', function() {
-    // Abre prompt para inserir ID do pedido
-    const pedidoId = prompt('Digite o ID do pedido para negociação:', '68192402-8549-4199-be76-7de73cac9595');
+    const botao = document.createElement('button');
+    botao.textContent = 'Testar Negociação';
+    botao.style.position = 'fixed';
+    botao.style.top = '10px';
+    botao.style.right = '10px';
+    botao.style.zIndex = '1000';
+    botao.style.padding = '8px 16px';
+    botao.style.backgroundColor = '#ea1d2c';
+    botao.style.color = 'white';
+    botao.style.border = 'none';
+    botao.style.borderRadius = '4px';
+    botao.style.cursor = 'pointer';
     
-    if (pedidoId) {
-        abrirNegociacaoComPedidoReal(pedidoId);
-    }
-});
-
-document.body.appendChild(botao);
+    botao.addEventListener('click', function() {
+        // Abre prompt para inserir ID do pedido
+        const pedidoId = prompt('Digite o ID do pedido para negociação:', '68192402-8549-4199-be76-7de73cac9595');
+        
+        if (pedidoId) {
+            abrirNegociacaoComPedidoReal(pedidoId);
+        }
+    });
+    
+    document.body.appendChild(botao);
 }
+
 // Inicializa
 setTimeout(adicionarBotaoTeste, 1000);
 console.log('🤝 Módulo simplificado de negociação carregado com sucesso');
