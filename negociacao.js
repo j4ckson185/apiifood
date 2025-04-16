@@ -62,21 +62,20 @@ function estenderHandlerEventos() {
 // Função para processar eventos de disputa (HANDSHAKE_DISPUTE)
 async function processarEventoDisputa(event) {
     try {
-        // Extract disputeId from metadata for HANDSHAKE_DISPUTE events
+        // Extract disputeId from event
         let disputeId = null;
         
         if (event.code === 'HANDSHAKE_DISPUTE' || event.fullCode === 'HANDSHAKE_DISPUTE') {
-            // Check if disputeId is directly in the event
+            // Check for disputeId in different possible locations
             if (event.disputeId) {
                 disputeId = event.disputeId;
             } 
-            // Check if disputeId is in the metadata
             else if (event.metadata && event.metadata.disputeId) {
                 disputeId = event.metadata.disputeId;
             } else {
-                console.error('❌ Evento de disputa sem disputeId, tentando localizar em outro campo:', event);
+                console.error('❌ Evento de disputa sem disputeId:', event);
                 
-                // Try to extract dispute ID from any available field in the event
+                // Try to find disputeId in any field
                 for (const key in event) {
                     if (typeof event[key] === 'object' && event[key] !== null) {
                         if (event[key].disputeId) {
@@ -98,10 +97,9 @@ async function processarEventoDisputa(event) {
             return;
         }
         
-        // Now we have the disputeId, we can proceed with the rest of the function
         console.log('✅ Processando disputa com ID:', disputeId);
         
-        // NÃO buscar detalhes adicionais - usar diretamente os dados do evento
+        // Prepare dispute data
         const disputeData = {
             disputeId: disputeId,
             orderId: event.orderId,
@@ -111,18 +109,19 @@ async function processarEventoDisputa(event) {
             expiresAt: event.metadata?.expiresAt,
             timeoutAction: event.metadata?.timeoutAction,
             alternatives: event.metadata?.alternatives || [],
-            metadata: event.metadata, // Preservar todo o metadata para uso posterior
-            // Preservar outros campos do evento
+            metadata: event.metadata,
             ...event
         };
         
-        // Adiciona à lista de disputas ativas
+        console.log('Dados da disputa preparados:', disputeData);
+        
+        // Add to active disputes list
         addActiveDispute(disputeData);
         
-        // Exibe o modal de negociação
+        // Display negotiation modal
         exibirModalNegociacao(disputeData);
         
-        // Emite som de alerta e notificação
+        // Play alert sound
         emitirAlertaNegociacao();
         
     } catch (error) {
@@ -243,49 +242,51 @@ async function proporAlternativa(disputeId, alternativeId) {
         console.log(`🤝 Propondo alternativa ${alternativeId} para disputa ${disputeId}`);
         showLoading();
 
+        // Find the dispute in the active disputes array
         const disputa = activeDisputes.find(d => d.disputeId === disputeId);
         if (!disputa) throw new Error("Disputa não encontrada");
 
-        const alternative = disputa.metadata?.alternatives?.find(a => a.id === alternativeId);
+        // Find the specific alternative in the dispute
+        const alternatives = disputa.metadata?.alternatives || [];
+        const alternative = alternatives.find(a => a.id === alternativeId);
         if (!alternative) throw new Error("Alternativa não encontrada");
+        
+        console.log("Alternativa selecionada:", alternative);
 
-        const body = {
-            type: alternative.type,
-            metadata: {}
+        // Create a proper payload according to iFood API
+        const payload = {
+            type: alternative.type
         };
 
-        switch (alternative.type) {
-            case "ADDITIONAL_TIME":
-                body.metadata.additionalTimeInMinutes = String(
-                    alternative.metadata?.allowedsAdditionalTimeInMinutes?.[0] || 15
-                );
-                body.metadata.additionalTimeReason = alternative.metadata?.allowedsAdditionalTimeReasons?.[0] || "HIGH_STORE_DEMAND";
-                break;
-
-            case "REFUND":
-            case "BENEFIT":
-                const rawValue = alternative.metadata?.maxAmount?.value || "1500"; // fallback para R$15,00
-                body.metadata.amount = {
-                    value: String(parseInt(rawValue)), // deve ser string
-                    currency: "BRL"
+        // Add metadata based on alternative type
+        if (alternative.type === "ADDITIONAL_TIME") {
+            payload.metadata = {
+                additionalTimeInMinutes: String(alternative.metadata?.additionalTimeInMinutes || "15"),
+                additionalTimeReason: alternative.metadata?.additionalTimeReason || "HIGH_STORE_DEMAND"
+            };
+        } else if (alternative.type === "REFUND" || alternative.type === "BENEFIT") {
+            if (alternative.metadata?.maxAmount?.value) {
+                payload.metadata = {
+                    amount: {
+                        value: String(parseInt(alternative.metadata.maxAmount.value)),
+                        currency: "BRL"
+                    }
                 };
-                break;
-
-            default:
-                throw new Error(`Tipo de alternativa não suportado: ${alternative.type}`);
+            }
         }
 
-        console.log("📦 Body enviado:", JSON.stringify(body, null, 2));
+        console.log("Payload a ser enviado:", payload);
 
         const response = await makeAuthorizedRequest(
             `/order/v1.0/disputes/${disputeId}/alternatives/${alternativeId}`,
             "POST",
-            body
+            payload
         );
 
         console.log("✅ Alternativa enviada com sucesso:", response);
         showToast("Alternativa proposta com sucesso", "success");
 
+        // Remove from active disputes and close modal
         removeActiveDispute(disputeId);
         fecharModalNegociacao();
 
@@ -333,14 +334,11 @@ function exibirModalNegociacao(dispute) {
     // Extrai informações relevantes da disputa
     const orderId = dispute.orderId || 'N/A';
     const orderDisplayId = dispute.displayId || orderId.substring(0, 6);
-    
-    // Garantir que o nome do cliente seja exibido corretamente
     const customerName = dispute.customerName || 'Cliente';
-    
     const expiresAt = dispute.expiresAt ? new Date(dispute.expiresAt) : null;
     const timeoutAction = dispute.timeoutAction || 'ACCEPT';
     const reason = dispute.reason || 'Não especificado';
-    const disputeType = dispute.type || 'UNKNOWN';
+    const disputeType = dispute.type || dispute.metadata?.handshakeType || 'UNKNOWN';
     
     // Formata o tempo restante
     let timeRemaining = '';
@@ -351,13 +349,9 @@ function exibirModalNegociacao(dispute) {
         timeRemaining = diffMins > 0 ? `${diffMins} minutos` : 'expirando';
     }
     
-// Verifica se há alternativas disponíveis
-const hasAlternatives = dispute.metadata && dispute.metadata.alternatives 
-    ? dispute.metadata.alternatives.length > 0 
-    : (dispute.alternatives && dispute.alternatives.length > 0);
-
-// Obter a lista de alternativas do local correto
-const alternatives = dispute.metadata?.alternatives || [];
+    // Obtém as alternativas da disputa de forma mais robusta
+    const alternatives = dispute.metadata?.alternatives || dispute.alternatives || [];
+    console.log("Alternativas disponíveis:", alternatives);
     
     // Cria o título baseado no tipo de disputa
     let disputeTitle = 'Solicitação de Negociação';
@@ -369,8 +363,8 @@ const alternatives = dispute.metadata?.alternatives || [];
             disputeIcon = 'money-bill-wave';
             break;
         case 'CANCELLATION_WITH_DELAY_PROPOSAL':
-        case 'PREPARATION_TIME': // Add support for this type
-        case 'ORDER_LATE':       // Add support for this type
+        case 'PREPARATION_TIME': 
+        case 'ORDER_LATE':       
             disputeTitle = 'Cancelamento por Atraso';
             disputeIcon = 'clock';
             break;
@@ -380,24 +374,9 @@ const alternatives = dispute.metadata?.alternatives || [];
             break;
     }
     
-    // Também verifique o handshakeType no metadata
-    if (dispute.metadata && dispute.metadata.handshakeType) {
-        switch(dispute.metadata.handshakeType) {
-            case 'PREPARATION_TIME':
-            case 'ORDER_LATE':
-                disputeTitle = 'Cancelamento por Atraso';
-                disputeIcon = 'clock';
-                
-                break;
-        }
-    }
-    
-    // Após as verificações acima, atualize a variável hasAlternatives
-    const updatedHasAlternatives = alternatives.length > 0;
-    
-    // Gera HTML para as alternativas, se existirem
+    // Gera HTML para as alternativas
     let alternativesHtml = '';
-    if (updatedHasAlternatives) {
+    if (alternatives && alternatives.length > 0) {
         alternativesHtml = `
             <div class="negotiation-alternatives">
                 <h3>Alternativas Disponíveis</h3>
@@ -405,15 +384,14 @@ const alternatives = dispute.metadata?.alternatives || [];
         `;
         
         alternatives.forEach(alternative => {
+            console.log("Processando alternativa:", alternative);
             let altContent = '';
             
             switch (alternative.type) {
-                case 'REFUND_PROPOSAL':
                 case 'REFUND':
-                    const refundValue = alternative.value ? `R$ ${alternative.value.toFixed(2)}` : 
-                                       (alternative.metadata && alternative.metadata.maxAmount ? 
-                                        `R$ ${parseFloat(alternative.metadata.maxAmount.value)/100}` : 
-                                        'Valor não especificado');
+                    const refundValue = alternative.metadata && alternative.metadata.maxAmount 
+                        ? `R$ ${parseFloat(alternative.metadata.maxAmount.value)/100}` 
+                        : 'Valor não especificado';
                     altContent = `
                         <div class="alternative-details">
                             <i class="fas fa-money-bill-wave"></i>
@@ -426,30 +404,31 @@ const alternatives = dispute.metadata?.alternatives || [];
                     `;
                     break;
                     
-                case 'CUSTOM_REFUND':
+                case 'ADDITIONAL_TIME':
+                    const minutes = alternative.metadata?.additionalTimeInMinutes || "15";
                     altContent = `
                         <div class="alternative-details">
-                            <i class="fas fa-calculator"></i>
+                            <i class="fas fa-clock"></i>
                             <div>
-                                <h4>Reembolso Personalizado</h4>
-                                <p>${alternative.description || 'Defina um valor de reembolso'}</p>
-                                <div class="custom-refund-input">
-                                    <label>Valor do reembolso (R$):</label>
-                                    <input type="number" id="custom-refund-value" min="1" step="0.01" placeholder="0.00">
-                                </div>
+                                <h4>Propor Tempo Adicional</h4>
+                                <p>Tempo adicional: ${minutes} minutos</p>
+                                <p>${alternative.description || ''}</p>
                             </div>
                         </div>
                     `;
                     break;
                     
-                case 'DELIVERY_TIME_PROPOSAL':
+                case 'BENEFIT':
+                    const benefitValue = alternative.metadata && alternative.metadata.maxAmount 
+                        ? `R$ ${parseFloat(alternative.metadata.maxAmount.value)/100}` 
+                        : 'Valor não especificado';
                     altContent = `
                         <div class="alternative-details">
-                            <i class="fas fa-clock"></i>
+                            <i class="fas fa-gift"></i>
                             <div>
-                                <h4>Novo Prazo de Entrega</h4>
-                                <p>${alternative.description || 'Propor novo prazo para entrega'}</p>
-                                <p>Tempo adicional: ${alternative.additionalTime || '?'} minutos</p>
+                                <h4>Oferecer Benefício</h4>
+                                <p>Valor: ${benefitValue}</p>
+                                <p>${alternative.description || ''}</p>
                             </div>
                         </div>
                     `;
@@ -537,7 +516,7 @@ const alternatives = dispute.metadata?.alternatives || [];
                 <div class="dispute-message">
                     <p class="message-text">
                         <i class="fas fa-info-circle"></i>
-                        ${updatedHasAlternatives ? 
+                        ${alternatives.length > 0 ? 
                             'Você pode aceitar o cancelamento, rejeitá-lo ou oferecer uma alternativa.' : 
                             'Você pode aceitar ou rejeitar esta solicitação de cancelamento.'}
                     </p>
@@ -563,15 +542,7 @@ const alternatives = dispute.metadata?.alternatives || [];
         iniciarContadorTempo(expiresAt);
     }
     
-    // Registra função global para fechar o modal
-    window.fecharModalNegociacao = fecharModalNegociacao;
-    
-    // Registra funções globais para ações da disputa
-    window.aceitarDisputa = aceitarDisputa;
-    window.rejeitarDisputa = rejeitarDisputa;
-    window.proporAlternativa = proporAlternativa;
-    
-    console.log('✅ Modal de negociação exibido para a disputa:', dispute.disputeId);
+    console.log('✅ Modal de negociação exibido para a disputa:', dispute);
 }
 
 // Função para fechar o modal de negociação
