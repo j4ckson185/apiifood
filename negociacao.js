@@ -240,42 +240,33 @@ async function rejeitarDisputa(disputeId) {
 
 async function proporAlternativa(disputeId, alternativeId) {
     try {
-        console.log(`🤝 Propondo alternativa ${alternativeId} para disputa ${disputeId}...`);
+        console.log(`🤝 Propondo alternativa ${alternativeId} para disputa ${disputeId}`);
         showLoading();
 
-        // Busca a disputa ativa correspondente
         const disputa = activeDisputes.find(d => d.disputeId === disputeId);
-        if (!disputa) {
-            throw new Error("Disputa não encontrada na lista ativa");
-        }
+        if (!disputa) throw new Error("Disputa não encontrada");
 
-        // Busca a alternativa selecionada
         const alternative = disputa.metadata?.alternatives?.find(a => a.id === alternativeId);
-        if (!alternative) {
-            throw new Error("Alternativa não encontrada nos metadados da disputa");
-        }
+        if (!alternative) throw new Error("Alternativa não encontrada");
 
-        // Monta o body da requisição de forma dinâmica, com base no tipo da alternativa
         const body = {
-            type: alternative.type
+            type: alternative.type,
+            metadata: {}
         };
 
-        // Preenchimento conforme o tipo
         switch (alternative.type) {
             case "ADDITIONAL_TIME":
-                body.additionalTimeInMinutes = alternative.metadata?.allowedsAdditionalTimeInMinutes?.[0] || 15;
-                body.reason = alternative.metadata?.allowedsAdditionalTimeReasons?.[0] || "HIGH_STORE_DEMAND";
+                body.metadata.additionalTimeInMinutes = String(
+                    alternative.metadata?.allowedsAdditionalTimeInMinutes?.[0] || 15
+                );
+                body.metadata.additionalTimeReason = alternative.metadata?.allowedsAdditionalTimeReasons?.[0] || "HIGH_STORE_DEMAND";
                 break;
 
             case "REFUND":
             case "BENEFIT":
-                const maxAmount = alternative.metadata?.maxAmount?.value;
-                if (!maxAmount) {
-                    throw new Error("Valor máximo não especificado para alternativa de reembolso/benefício");
-                }
-
-                body.amount = {
-                    value: parseInt(maxAmount), // em centavos
+                const rawValue = alternative.metadata?.maxAmount?.value || "1500"; // fallback para R$15,00
+                body.metadata.amount = {
+                    value: String(parseInt(rawValue)), // deve ser string
                     currency: "BRL"
                 };
                 break;
@@ -284,24 +275,24 @@ async function proporAlternativa(disputeId, alternativeId) {
                 throw new Error(`Tipo de alternativa não suportado: ${alternative.type}`);
         }
 
-        console.log('📤 Enviando body:', JSON.stringify(body, null, 2));
+        console.log("📦 Body enviado:", JSON.stringify(body, null, 2));
 
         const response = await makeAuthorizedRequest(
             `/order/v1.0/disputes/${disputeId}/alternatives/${alternativeId}`,
-            'POST',
+            "POST",
             body
         );
 
-        console.log('✅ Alternativa proposta com sucesso:', response);
-        showToast('Alternativa de negociação enviada com sucesso', 'success');
+        console.log("✅ Alternativa enviada com sucesso:", response);
+        showToast("Alternativa proposta com sucesso", "success");
 
         removeActiveDispute(disputeId);
         fecharModalNegociacao();
 
         return true;
     } catch (error) {
-        console.error('❌ Erro ao propor alternativa:', error);
-        showToast(`Erro ao propor alternativa: ${error.message}`, 'error');
+        console.error("❌ Erro ao propor alternativa:", error);
+        showToast(`Erro: ${error.message}`, "error");
         return false;
     } finally {
         hideLoading();
