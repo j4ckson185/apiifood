@@ -319,7 +319,10 @@ function criarContainerModalNegociacao() {
     console.log('✅ Container do modal de negociação criado');
 }
 
-function exibirModalNegociacao(dispute) {
+// Vamos substituir completamente a função exibirModalNegociacao
+async function exibirModalNegociacao(dispute) {
+    console.log("🤝 Dados da disputa recebidos:", dispute);
+    
     // Atualiza o ID da disputa atual
     currentDisputeId = dispute.disputeId;
     
@@ -336,8 +339,10 @@ function exibirModalNegociacao(dispute) {
     const customerName = dispute.customerName || 'Cliente';
     const expiresAt = dispute.expiresAt ? new Date(dispute.expiresAt) : null;
     const timeoutAction = dispute.timeoutAction || 'ACCEPT';
-    const reason = dispute.reason || 'Não especificado';
+    const reason = dispute.reason || dispute.metadata?.message || 'Não especificado';
     const disputeType = dispute.type || dispute.metadata?.handshakeType || 'UNKNOWN';
+    
+    console.log("Tipo de disputa:", disputeType);
     
     // Formata o tempo restante
     let timeRemaining = '';
@@ -348,9 +353,15 @@ function exibirModalNegociacao(dispute) {
         timeRemaining = diffMins > 0 ? `${diffMins} minutos` : 'expirando';
     }
     
-    // Obtém as alternativas da disputa de forma mais robusta
-    const alternatives = dispute.metadata?.alternatives || dispute.alternatives || [];
-    console.log("Alternativas disponíveis:", alternatives);
+    // Verificar se é uma disputa relacionada a atraso
+    const isDelayRelated = 
+        disputeType === 'PREPARATION_TIME' || 
+        disputeType === 'ORDER_LATE' || 
+        disputeType === 'CANCELLATION_WITH_DELAY_PROPOSAL' ||
+        (dispute.metadata && dispute.metadata.handshakeType === 'PREPARATION_TIME') ||
+        (dispute.metadata && dispute.metadata.handshakeType === 'ORDER_LATE');
+    
+    console.log("É relacionado a atraso?", isDelayRelated);
     
     // Cria o título baseado no tipo de disputa
     let disputeTitle = 'Solicitação de Negociação';
@@ -373,33 +384,59 @@ function exibirModalNegociacao(dispute) {
             break;
     }
     
-    // Gera HTML para as alternativas
-    let alternativesHtml = '';
+    // Se o metadata tem handshakeType, usa-o como prioridade
+    if (dispute.metadata && dispute.metadata.handshakeType) {
+        switch(dispute.metadata.handshakeType) {
+            case 'PREPARATION_TIME':
+            case 'ORDER_LATE':
+                disputeTitle = 'Cancelamento por Atraso';
+                disputeIcon = 'clock';
+                break;
+        }
+    }
     
-    // Verificar se é uma disputa relacionada a atraso
-    const isDelayRelated = disputeType === 'PREPARATION_TIME' || 
-                          disputeType === 'ORDER_LATE' || 
-                          disputeType === 'CANCELLATION_WITH_DELAY_PROPOSAL';
-                    
+    // Obtém as alternativas da disputa
+    const alternatives = dispute.metadata?.alternatives || dispute.alternatives || [];
+    console.log("Alternativas disponíveis:", alternatives);
+    
+    // Adiciona seção para resposta do cliente se existir
+    let clientResponseHtml = '';
+    if (dispute.responseFromCustomer) {
+        clientResponseHtml = `
+            <div class="customer-response">
+                <h3>Resposta do Cliente</h3>
+                <div class="response-content">
+                    <p><i class="fas fa-comment"></i> ${dispute.responseFromCustomer}</p>
+                </div>
+            </div>
+        `;
+    }
+    
+    // Alternativas específicas para atraso
+    let delayOptionsHtml = '';
+    
     if (isDelayRelated) {
-        // Adiciona a seção de opções de tempo
-        alternativesHtml = `
-            <div class="negotiation-alternatives">
-                <h3>Opções de Resposta</h3>
+        // Alternativa principal da API (se existir)
+        const timeAlternative = alternatives.find(a => a.type === "ADDITIONAL_TIME");
+        const alternativeId = timeAlternative ? timeAlternative.id : null;
+        
+        delayOptionsHtml = `
+            <div class="negotiation-alternatives delay-options">
+                <h3>Opções para Atraso</h3>
                 <div class="alternatives-container">
                     <div class="time-options-section">
                         <h4>Adicionar Tempo ao Pedido</h4>
                         <div class="time-options-grid">
-                            <button class="time-option-button" onclick="proporTempoAdicional('${dispute.disputeId}', '10', 'HIGH_STORE_DEMAND')">
+                            <button class="time-option-button" onclick="proporTempoAdicional('${dispute.disputeId}', '10', 'HIGH_STORE_DEMAND'${alternativeId ? `, '${alternativeId}'` : ''})">
                                 <i class="fas fa-clock"></i> +10 minutos
                             </button>
-                            <button class="time-option-button" onclick="proporTempoAdicional('${dispute.disputeId}', '15', 'HIGH_STORE_DEMAND')">
+                            <button class="time-option-button" onclick="proporTempoAdicional('${dispute.disputeId}', '15', 'HIGH_STORE_DEMAND'${alternativeId ? `, '${alternativeId}'` : ''})">
                                 <i class="fas fa-clock"></i> +15 minutos
                             </button>
-                            <button class="time-option-button" onclick="proporTempoAdicional('${dispute.disputeId}', '20', 'HIGH_STORE_DEMAND')">
+                            <button class="time-option-button" onclick="proporTempoAdicional('${dispute.disputeId}', '20', 'HIGH_STORE_DEMAND'${alternativeId ? `, '${alternativeId}'` : ''})">
                                 <i class="fas fa-clock"></i> +20 minutos
                             </button>
-                            <button class="time-option-button" onclick="proporTempoAdicional('${dispute.disputeId}', '30', 'HIGH_STORE_DEMAND')">
+                            <button class="time-option-button" onclick="proporTempoAdicional('${dispute.disputeId}', '30', 'HIGH_STORE_DEMAND'${alternativeId ? `, '${alternativeId}'` : ''})">
                                 <i class="fas fa-clock"></i> +30 minutos
                             </button>
                         </div>
@@ -416,16 +453,16 @@ function exibirModalNegociacao(dispute) {
         `;
     }
     
-    // Adiciona as alternativas originais da API (se houver)
+    // Gera HTML para as alternativas da API
+    let apiAlternativesHtml = '';
     if (alternatives && alternatives.length > 0) {
-        alternativesHtml += `
-            <div class="negotiation-alternatives">
+        apiAlternativesHtml = `
+            <div class="negotiation-alternatives api-alternatives">
                 <h3>Alternativas Disponíveis</h3>
                 <div class="alternatives-container">
         `;
         
         alternatives.forEach(alternative => {
-            console.log("Processando alternativa:", alternative);
             let altContent = '';
             
             switch (alternative.type) {
@@ -446,17 +483,24 @@ function exibirModalNegociacao(dispute) {
                     break;
                     
                 case 'ADDITIONAL_TIME':
-                    const minutes = alternative.metadata?.additionalTimeInMinutes || "15";
-                    altContent = `
-                        <div class="alternative-details">
-                            <i class="fas fa-clock"></i>
-                            <div>
-                                <h4>Propor Tempo Adicional</h4>
-                                <p>Tempo adicional: ${minutes} minutos</p>
-                                <p>${alternative.description || ''}</p>
+                    // Apenas exibe se não for uma disputa relacionada a atraso
+                    // (pois já temos uma seção específica para isso)
+                    if (!isDelayRelated) {
+                        const minutes = alternative.metadata?.additionalTimeInMinutes || "15";
+                        altContent = `
+                            <div class="alternative-details">
+                                <i class="fas fa-clock"></i>
+                                <div>
+                                    <h4>Propor Tempo Adicional</h4>
+                                    <p>Tempo adicional: ${minutes} minutos</p>
+                                    <p>${alternative.description || ''}</p>
+                                </div>
                             </div>
-                        </div>
-                    `;
+                        `;
+                    } else {
+                        // Continua para o próximo item para não exibir esta alternativa
+                        return;
+                    }
                     break;
                     
                 case 'BENEFIT':
@@ -487,32 +531,22 @@ function exibirModalNegociacao(dispute) {
                     `;
             }
             
-            alternativesHtml += `
-                <div class="alternative-option">
-                    <div class="alternative-card">
-                        ${altContent}
+            // Adiciona a alternativa apenas se tiver conteúdo
+            if (altContent) {
+                apiAlternativesHtml += `
+                    <div class="alternative-option">
+                        <div class="alternative-card">
+                            ${altContent}
+                        </div>
+                        <button class="alternative-button" onclick="proporAlternativa('${dispute.disputeId}', '${alternative.id}')">
+                            Propor esta alternativa
+                        </button>
                     </div>
-                    <button class="alternative-button" onclick="proporAlternativa('${dispute.disputeId}', '${alternative.id}')">
-                        Propor esta alternativa
-                    </button>
-                </div>
-            `;
+                `;
+            }
         });
         
-        alternativesHtml += `
-                </div>
-            </div>
-        `;
-    }
-    
-    // Adiciona seção para resposta do cliente se existir
-    let clientResponseHtml = '';
-    if (dispute.responseFromCustomer) {
-        clientResponseHtml = `
-            <div class="customer-response">
-                <h3>Resposta do Cliente</h3>
-                <div class="response-content">
-                    <p><i class="fas fa-comment"></i> ${dispute.responseFromCustomer}</p>
+        apiAlternativesHtml += `
                 </div>
             </div>
         `;
@@ -567,7 +601,9 @@ function exibirModalNegociacao(dispute) {
                 </div>
                 ` : ''}
                 
-                ${alternativesHtml}
+                ${delayOptionsHtml}
+                
+                ${apiAlternativesHtml}
                 
                 <div class="dispute-message">
                     <p class="message-text">
@@ -603,20 +639,12 @@ function exibirModalNegociacao(dispute) {
     console.log('✅ Modal de negociação exibido para a disputa:', dispute);
 }
 
-async function proporTempoAdicional(disputeId, minutos, motivo) {
+async function proporTempoAdicional(disputeId, minutos, motivo, alternativeId = null) {
     try {
         console.log(`🤝 Propondo tempo adicional de ${minutos} minutos para a disputa ${disputeId}`);
         showLoading();
 
-        // Buscar a alternativa relacionada a tempo adicional
-        const disputa = activeDisputes.find(d => d.disputeId === disputeId);
-        if (!disputa) throw new Error("Disputa não encontrada");
-        
-        // Encontra alternativa de tempo adicional (se existir)
-        const alternatives = disputa.metadata?.alternatives || [];
-        const timeAlternative = alternatives.find(a => a.type === "ADDITIONAL_TIME");
-        
-        let alternativeId = null;
+        // Prepara o payload e endpoint
         let endpoint = "";
         let payload = {
             type: "ADDITIONAL_TIME",
@@ -626,17 +654,17 @@ async function proporTempoAdicional(disputeId, minutos, motivo) {
             }
         };
         
-        // Se encontrou uma alternativa específica, usa seu ID
-        if (timeAlternative) {
-            alternativeId = timeAlternative.id;
+        // Se tiver ID de alternativa, usa o endpoint de alternativa
+        if (alternativeId) {
             endpoint = `/order/v1.0/disputes/${disputeId}/alternatives/${alternativeId}`;
+            console.log("Usando endpoint de alternativa específica:", endpoint);
         } else {
             // Caso contrário, usa o endpoint genérico
             endpoint = `/order/v1.0/disputes/${disputeId}/additionalTime`;
+            console.log("Usando endpoint genérico para tempo adicional:", endpoint);
         }
 
         console.log("📦 Payload a ser enviado:", payload);
-        console.log("🔗 Endpoint:", endpoint);
 
         const response = await makeAuthorizedRequest(endpoint, "POST", payload);
 
@@ -1280,123 +1308,107 @@ function adicionarEstilosNegociacao() {
             justify-content: center;
         }
 
-        /* Novos estilos para opções de tempo */
-        .time-options-section,
-        .cancellation-options-section {
-            background-color: #f8f9fa;
-            padding: 15px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-            border-left: 4px solid #007bff;
-        }
-        
-        .cancellation-options-section {
-            border-left-color: #dc3545;
-        }
-        
-        .time-options-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-            gap: 10px;
-            margin-top: 15px;
-        }
-        
-        .time-option-button {
-            background-color: #007bff;
-            color: white;
-            border: none;
-            border-radius: 6px;
-            padding: 12px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 8px;
-            cursor: pointer;
-            transition: background-color 0.2s, transform 0.2s;
-        }
-        
-        .time-option-button:hover {
-            background-color: #0069d9;
-            transform: translateY(-2px);
-        }
-        
-        .time-option-button i {
-            font-size: 18px;
-        }
-        
-        .cancellation-option-button {
-            background-color: #dc3545;
-            color: white;
-            border: none;
-            border-radius: 6px;
-            padding: 12px;
-            width: 100%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 10px;
-            margin-top: 15px;
-            cursor: pointer;
-            transition: background-color 0.2s, transform 0.2s;
-            font-weight: 600;
-        }
-        
-        .cancellation-option-button:hover {
-            background-color: #c82333;
-            transform: translateY(-2px);
-        }
-        
-        /* Estilos para resposta do cliente */
-        .customer-response {
-            background-color: #e6f3ff;
-            border-left: 4px solid #007bff;
-            border-radius: 8px;
-            padding: 15px;
-            margin-bottom: 20px;
-        }
-        
-        .customer-response h3 {
-            font-size: 16px;
-            margin-bottom: 10px;
-            color: #0056b3;
-        }
-        
-        .response-content {
-            padding: 10px;
-            background-color: rgba(255, 255, 255, 0.6);
-            border-radius: 6px;
-        }
-        
-        .response-content p {
-            margin: 0;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-        
-        .response-content i {
-            color: #0056b3;
-        }
-        
-        /* Estilos para o modal de motivo de cancelamento */
-        .cancellation-select {
-            width: 100%;
-            padding: 12px;
-            border: 1px solid #ddd;
-            border-radius: 6px;
-            margin-top: 15px;
-            font-size: 16px;
-        }
-        
-        .cancellation-textarea {
-            width: 100%;
-            padding: 12px;
-            border: 1px solid #ddd;
-            border-radius: 6px;
-            font-family: inherit;
-            font-size: 16px;
-            resize: vertical;
-        }
+/* Estilos para opções de tempo */
+.time-options-section,
+.cancellation-options-section {
+    background-color: #f0f9ff;
+    padding: 20px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    border-left: 4px solid #0d6efd;
+    position: relative;
+}
+
+.time-options-section h4,
+.cancellation-options-section h4 {
+    font-size: 16px;
+    color: #0d6efd;
+    margin-bottom: 15px;
+    font-weight: 600;
+}
+
+.cancellation-options-section {
+    background-color: #feeeee;
+    border-left-color: #dc3545;
+}
+
+.cancellation-options-section h4 {
+    color: #dc3545;
+}
+
+.time-options-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 12px;
+    margin-top: 15px;
+}
+
+.time-option-button {
+    background-color: #0d6efd;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    padding: 15px 12px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-weight: 600;
+    font-size: 15px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+.time-option-button:hover {
+    background-color: #0b5ed7;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+}
+
+.time-option-button:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 3px rgba(0,0,0,0.1);
+}
+
+.time-option-button i {
+    font-size: 22px;
+    margin-bottom: 5px;
+}
+
+.cancellation-option-button {
+    background-color: #dc3545;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    padding: 15px;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    margin-top: 15px;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-weight: 600;
+    font-size: 16px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.15);
+}
+
+.cancellation-option-button:hover {
+    background-color: #bb2d3b;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+}
+
+.cancellation-option-button:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 3px rgba(0,0,0,0.1);
+}
+
+.cancellation-option-button i {
+    font-size: 20px;
+}
 
         /* Animações */
         @keyframes pulse {
