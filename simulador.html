@@ -1,0 +1,967 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulador Cliente iFood</title>
+    <style>
+        :root {
+            --primary-color: #ea1d2c;
+            --primary-hover: #d41a28;
+            --secondary-color: #3e3e3e;
+            --success-color: #28a745;
+            --warning-color: #ffc107;
+            --danger-color: #dc3545;
+            --light-gray: #f8f9fa;
+            --medium-gray: #e9ecef;
+            --dark-gray: #343a40;
+            --border-radius: 6px;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            background-color: #f5f5f5;
+            color: #333;
+            padding: 20px;
+        }
+        
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        header h1 {
+            color: var(--primary-color);
+            margin-bottom: 10px;
+        }
+        
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background-color: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            padding: 30px;
+        }
+        
+        .section {
+            margin-bottom: 30px;
+        }
+        
+        .section h2 {
+            margin-bottom: 15px;
+            color: var(--dark-gray);
+            border-bottom: 1px solid var(--medium-gray);
+            padding-bottom: 10px;
+        }
+        
+        .order-info {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .form-group {
+            margin-bottom: 15px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+            color: var(--dark-gray);
+        }
+        
+        input, select, textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: var(--border-radius);
+            font-size: 14px;
+        }
+        
+        .items-container {
+            background-color: var(--light-gray);
+            padding: 15px;
+            border-radius: var(--border-radius);
+            margin-bottom: 20px;
+        }
+        
+        .item-row {
+            display: flex;
+            margin-bottom: 10px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #ddd;
+        }
+        
+        .item-name {
+            flex: 1;
+        }
+        
+        .item-price {
+            width: 100px;
+            text-align: right;
+        }
+        
+        .order-total {
+            text-align: right;
+            font-weight: bold;
+            font-size: 18px;
+            margin-top: 20px;
+        }
+        
+        .button-group {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+        }
+        
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: var(--border-radius);
+            cursor: pointer;
+            font-weight: 600;
+            transition: background-color 0.2s;
+        }
+        
+        .btn-primary {
+            background-color: var(--primary-color);
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background-color: var(--primary-hover);
+        }
+        
+        .btn-secondary {
+            background-color: var(--light-gray);
+            color: var(--dark-gray);
+            border: 1px solid #ddd;
+        }
+        
+        .btn-secondary:hover {
+            background-color: var(--medium-gray);
+        }
+        
+        .btn-warning {
+            background-color: var(--warning-color);
+            color: #212529;
+        }
+        
+        .btn-warning:hover {
+            background-color: #e0a800;
+        }
+        
+        .btn-danger {
+            background-color: var(--danger-color);
+            color: white;
+        }
+        
+        .btn-danger:hover {
+            background-color: #c82333;
+        }
+        
+        .negotiation-section {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px dashed #ddd;
+        }
+        
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+            z-index: 1000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        
+        .modal-content {
+            background-color: white;
+            border-radius: 10px;
+            width: 100%;
+            max-width: 500px;
+            overflow: hidden;
+        }
+        
+        .modal-header {
+            background-color: var(--primary-color);
+            color: white;
+            padding: 15px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .modal-header h3 {
+            margin: 0;
+        }
+        
+        .modal-close {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 24px;
+            cursor: pointer;
+        }
+        
+        .modal-body {
+            padding: 20px;
+        }
+        
+        .modal-footer {
+            padding: 15px 20px;
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            border-top: 1px solid #eee;
+            background-color: var(--light-gray);
+        }
+        
+        .upload-area {
+            border: 2px dashed #ddd;
+            padding: 20px;
+            text-align: center;
+            margin-bottom: 15px;
+            border-radius: var(--border-radius);
+            cursor: pointer;
+        }
+        
+        .upload-area:hover {
+            border-color: var(--primary-color);
+        }
+        
+        .upload-area i {
+            font-size: 30px;
+            color: #ccc;
+            margin-bottom: 10px;
+        }
+        
+        .photos-preview {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        
+        .photo-item {
+            width: 100px;
+            height: 100px;
+            border-radius: 5px;
+            overflow: hidden;
+            position: relative;
+        }
+        
+        .photo-item img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        
+        .remove-photo {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            background-color: rgba(0, 0, 0, 0.6);
+            color: white;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        
+        .status-badge {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            color: white;
+        }
+        
+        .status-placed {
+            background-color: #6c757d;
+        }
+        
+        .status-confirmed {
+            background-color: #007bff;
+        }
+        
+        .status-preparing {
+            background-color: #9c27b0;
+        }
+        
+        .status-ready {
+            background-color: #28a745;
+        }
+        
+        .status-dispatched {
+            background-color: #17a2b8;
+        }
+        
+        .status-delivered {
+            background-color: #28a745;
+        }
+        
+        .status-cancelled {
+            background-color: #dc3545;
+        }
+        
+        .hidden {
+            display: none;
+        }
+        
+        .toast-container {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 1000;
+        }
+        
+        .toast {
+            background-color: white;
+            color: var(--dark-gray);
+            padding: 12px 20px;
+            margin: 10px;
+            border-radius: var(--border-radius);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            animation: slideIn 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            min-width: 300px;
+        }
+        
+        .toast.success {
+            border-left: 4px solid var(--success-color);
+        }
+        
+        .toast.error {
+            border-left: 4px solid var(--danger-color);
+        }
+        
+        .toast.info {
+            border-left: 4px solid #17a2b8;
+        }
+        
+        .toast.warning {
+            border-left: 4px solid var(--warning-color);
+        }
+        
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+    </style>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    <header>
+        <h1>Simulador Cliente iFood</h1>
+        <p>Este simulador permite testar a funcionalidade de negociação de pedidos do iFood</p>
+    </header>
+    
+    <div class="container">
+        <div class="section">
+            <h2>Detalhes do Pedido</h2>
+            <div class="order-info">
+                <div class="form-group">
+                    <label for="order-id">ID do Pedido</label>
+                    <input type="text" id="order-id" value="sim123456789" readonly>
+                </div>
+                <div class="form-group">
+                    <label for="customer-name">Nome do Cliente</label>
+                    <input type="text" id="customer-name" value="João da Silva">
+                </div>
+                <div class="form-group">
+                    <label for="order-status">Status</label>
+                    <select id="order-status">
+                        <option value="PLACED">Realizado</option>
+                        <option value="CONFIRMED">Confirmado</option>
+                        <option value="IN_PREPARATION">Em Preparação</option>
+                        <option value="READY_TO_PICKUP">Pronto para Retirada</option>
+                        <option value="DISPATCHED">A Caminho</option>
+                        <option value="DELIVERED">Entregue</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="order-date">Data do Pedido</label>
+                    <input type="text" id="order-date" value="15/04/2025 14:30" readonly>
+                </div>
+            </div>
+            
+            <h3>Itens do Pedido</h3>
+            <div class="items-container">
+                <div class="item-row">
+                    <div class="item-name">1x Hambúrguer Especial</div>
+                    <div class="item-price">R$ 32,90</div>
+                </div>
+                <div class="item-row">
+                    <div class="item-name">1x Batata Frita Grande</div>
+                    <div class="item-price">R$ 15,90</div>
+                </div>
+                <div class="item-row">
+                    <div class="item-name">1x Refrigerante 500ml</div>
+                    <div class="item-price">R$ 8,90</div>
+                </div>
+            </div>
+            
+            <div class="order-total">
+                Total: R$ 57,70
+            </div>
+        </div>
+        
+        <div class="section negotiation-section">
+            <h2>Solicitar Cancelamento</h2>
+            <div class="form-group">
+                <label for="cancel-reason">Motivo do Cancelamento</label>
+                <select id="cancel-reason">
+                    <option value="DELAY">Atraso na entrega</option>
+                    <option value="MISSING_ITEM">Item faltando</option>
+                    <option value="WRONG_ITEM">Item errado</option>
+                    <option value="QUALITY_ISSUES">Problemas de qualidade</option>
+                    <option value="CHANGED_MIND">Mudei de ideia</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label for="cancel-description">Descrição detalhada</label>
+                <textarea id="cancel-description" rows="3" placeholder="Descreva o motivo do cancelamento...">O pedido está demorando muito para ser entregue. Já se passaram mais de 60 minutos.</textarea>
+            </div>
+            
+            <div class="form-group">
+                <label for="dispute-type">Tipo de Negociação</label>
+                <select id="dispute-type">
+                    <option value="CANCELLATION_REQUEST">Cancelamento Simples</option>
+                    <option value="CANCELLATION_WITH_REFUND_PROPOSAL">Cancelamento com Proposta de Reembolso</option>
+                    <option value="CANCELLATION_WITH_DELAY_PROPOSAL">Cancelamento por Atraso</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label>Adicionar Evidências (Opcional)</label>
+                <div class="upload-area" id="upload-area">
+                    <i class="fas fa-cloud-upload-alt"></i>
+                    <p>Clique ou arraste fotos aqui</p>
+                    <input type="file" id="photo-input" multiple accept="image/*" style="display: none;">
+                </div>
+                <div class="photos-preview" id="photos-preview"></div>
+            </div>
+            
+            <div class="button-group">
+                <button class="btn btn-secondary" id="reset-button">Resetar</button>
+                <button class="btn btn-warning" id="simulate-button">Simular Cancelamento</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Modal para configurar alternativas -->
+    <div class="modal hidden" id="alternatives-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Configurar Alternativas</h3>
+                <button class="modal-close" id="close-alternatives-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Alternativas Disponíveis</label>
+                    <div id="alternatives-container">
+                        <!-- Alternativas serão adicionadas aqui dinamicamente -->
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="timeout-action">Ação em caso de Timeout</label>
+                    <select id="timeout-action">
+                        <option value="ACCEPT">Aceitar Cancelamento</option>
+                        <option value="REJECT">Rejeitar Cancelamento</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="timeout-minutes">Tempo para Expiração (minutos)</label>
+                    <input type="number" id="timeout-minutes" min="1" max="60" value="5">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" id="cancel-alternatives">Cancelar</button>
+                <button class="btn btn-primary" id="confirm-alternatives">Confirmar</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Modal de resposta do PDV -->
+    <div class="modal hidden" id="response-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Resposta do PDV</h3>
+                <button class="modal-close" id="close-response-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="response-content">
+                    <!-- Conteúdo da resposta será adicionado aqui -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-primary" id="confirm-response">OK</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Container para toasts -->
+    <div class="toast-container" id="toast-container"></div>
+    
+    <script>
+        // Configurações
+        const LOCALHOST_URL = 'http://localhost:8000'; // URL do PDV, ajuste conforme necessário
+        let photos = []; // Array para armazenar as fotos
+        let alternativesConfig = []; // Array para armazenar as alternativas
+        
+        // Elementos DOM
+        const uploadArea = document.getElementById('upload-area');
+        const photoInput = document.getElementById('photo-input');
+        const photosPreview = document.getElementById('photos-preview');
+        const simulateButton = document.getElementById('simulate-button');
+        const resetButton = document.getElementById('reset-button');
+        const disputeTypeSelect = document.getElementById('dispute-type');
+        
+        // Modais
+        const alternativesModal = document.getElementById('alternatives-modal');
+        const responseModal = document.getElementById('response-modal');
+        
+        // Função para mostrar toast
+        function showToast(message, type = 'info') {
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            
+            // Adiciona ícone baseado no tipo
+            let icon = '';
+            switch(type) {
+                case 'success': icon = '<i class="fas fa-check-circle"></i>'; break;
+                case 'error': icon = '<i class="fas fa-exclamation-circle"></i>'; break;
+                case 'warning': icon = '<i class="fas fa-exclamation-triangle"></i>'; break;
+                default: icon = '<i class="fas fa-info-circle"></i>';
+            }
+            
+            toast.innerHTML = `${icon} ${message}`;
+            document.getElementById('toast-container').appendChild(toast);
+            
+            // Remove após 3 segundos
+            setTimeout(() => {
+                toast.remove();
+            }, 3000);
+        }
+        
+        // Função para gerar ID único
+        function generateUniqueId() {
+            return 'id_' + Math.random().toString(36).substr(2, 9);
+        }
+        
+        // Função para criar alternativas baseadas no tipo de disputa
+        function createAlternativesBasedOnType() {
+            const disputeType = document.getElementById('dispute-type').value;
+            
+            // Limpa alternativas existentes
+            alternativesConfig = [];
+            
+            switch(disputeType) {
+                case 'CANCELLATION_WITH_REFUND_PROPOSAL':
+                    // Adiciona alternativas de reembolso
+                    alternativesConfig.push({
+                        id: generateUniqueId(),
+                        type: 'REFUND_PROPOSAL',
+                        description: 'Reembolso de 50% do valor total',
+                        value: 28.85
+                    });
+                    alternativesConfig.push({
+                        id: generateUniqueId(),
+                        type: 'REFUND_PROPOSAL',
+                        description: 'Reembolso do item com problema',
+                        value: 15.90
+                    });
+                    alternativesConfig.push({
+                        id: generateUniqueId(),
+                        type: 'CUSTOM_REFUND',
+                        description: 'Oferecer um valor personalizado',
+                        value: null
+                    });
+                    break;
+                    
+                case 'CANCELLATION_WITH_DELAY_PROPOSAL':
+                    // Adiciona alternativas de tempo
+                    alternativesConfig.push({
+                        id: generateUniqueId(),
+                        type: 'DELIVERY_TIME_PROPOSAL',
+                        description: 'Entrega em 15 minutos',
+                        additionalTime: 15
+                    });
+                    alternativesConfig.push({
+                        id: generateUniqueId(),
+                        type: 'DELIVERY_TIME_PROPOSAL',
+                        description: 'Entrega em 30 minutos',
+                        additionalTime: 30
+                    });
+                    break;
+                    
+                default:
+                    // Para cancelamento simples, não há alternativas
+                    break;
+            }
+            
+            // Atualiza a interface
+            updateAlternativesContainer();
+        }
+        
+        // Função para atualizar o container de alternativas
+        function updateAlternativesContainer() {
+            const container = document.getElementById('alternatives-container');
+            container.innerHTML = '';
+            
+            if (alternativesConfig.length === 0) {
+                container.innerHTML = '<p>Não há alternativas disponíveis para este tipo de negociação.</p>';
+                return;
+            }
+            
+            // Adiciona cada alternativa
+            alternativesConfig.forEach((alt, index) => {
+                const altElement = document.createElement('div');
+                altElement.className = 'form-group';
+                
+                let content = '';
+                switch(alt.type) {
+                    case 'REFUND_PROPOSAL':
+                        content = `
+                            <div style="display: flex; gap: 10px; margin-bottom: 10px; align-items: center;">
+                                <input type="checkbox" id="alt-${index}" checked>
+                                <label for="alt-${index}">${alt.description} (R$ ${alt.value.toFixed(2)})</label>
+                            </div>
+                        `;
+                        break;
+                        
+                    case 'CUSTOM_REFUND':
+                        content = `
+                            <div style="display: flex; gap: 10px; margin-bottom: 10px; align-items: center;">
+                                <input type="checkbox" id="alt-${index}" checked>
+                                <label for="alt-${index}">${alt.description}</label>
+                            </div>
+                        `;
+                        break;
+                        
+                    case 'DELIVERY_TIME_PROPOSAL':
+                        content = `
+                            <div style="display: flex; gap: 10px; margin-bottom: 10px; align-items: center;">
+                                <input type="checkbox" id="alt-${index}" checked>
+                                <label for="alt-${index}">${alt.description} (+ ${alt.additionalTime} minutos)</label>
+                            </div>
+                        `;
+                        break;
+                }
+                
+                altElement.innerHTML = content;
+                container.appendChild(altElement);
+            });
+        }
+        
+        // Função para mostrar o modal de alternativas
+        function showAlternativesModal() {
+            // Cria alternativas baseadas no tipo de disputa
+            createAlternativesBasedOnType();
+            
+            // Exibe o modal
+            alternativesModal.classList.remove('hidden');
+        }
+        
+        // Função para esconder o modal de alternativas
+        function hideAlternativesModal() {
+            alternativesModal.classList.add('hidden');
+        }
+        
+        // Função para mostrar o modal de resposta
+        function showResponseModal(response) {
+            document.getElementById('response-content').innerHTML = `
+                <div style="text-align: center; margin-bottom: 20px;">
+                    <i class="fas fa-check-circle" style="font-size: 48px; color: #28a745;"></i>
+                    <h4 style="margin-top: 10px;">Resposta Recebida</h4>
+                </div>
+                <div style="background-color: #f8f9fa; padding: 15px; border-radius: 6px; margin-bottom: 10px;">
+                    <p><strong>Ação:</strong> ${response.action}</p>
+                    <p><strong>Disputa ID:</strong> ${response.disputeId}</p>
+                    ${response.alternativeId ? `<p><strong>Alternativa ID:</strong> ${response.alternativeId}</p>` : ''}
+                    ${response.customRefundValue ? `<p><strong>Valor de Reembolso:</strong> R$ ${response.customRefundValue.toFixed(2)}</p>` : ''}
+                </div>
+                <p>Simule outro cancelamento para testar mais cenários.</p>
+            `;
+            
+            responseModal.classList.remove('hidden');
+        }
+        
+        // Função para esconder o modal de resposta
+        function hideResponseModal() {
+            responseModal.classList.add('hidden');
+        }
+        
+        // Função para simular o envio de um evento de disputa
+        async function simulateDispute() {
+            // Obtém os valores do formulário
+            const orderId = document.getElementById('order-id').value;
+            const customerName = document.getElementById('customer-name').value;
+            const cancelReason = document.getElementById('cancel-reason').value;
+            const cancelDescription = document.getElementById('cancel-description').value;
+            const disputeType = document.getElementById('dispute-type').value;
+            const orderStatus = document.getElementById('order-status').value;
+            
+            // Verifica quais alternativas estão selecionadas
+            const selectedAlternatives = [];
+            document.querySelectorAll('#alternatives-container input[type="checkbox"]').forEach((checkbox, index) => {
+                if (checkbox.checked) {
+                    selectedAlternatives.push(alternativesConfig[index]);
+                }
+            });
+            
+            // Obtém ação de timeout e tempo de expiração
+            const timeoutAction = document.getElementById('timeout-action').value;
+            const timeoutMinutes = parseInt(document.getElementById('timeout-minutes').value);
+            
+            // Cria a data de expiração
+            const now = new Date();
+            const expiresAt = new Date(now.getTime() + timeoutMinutes * 60000);
+            
+            // Prepara o evento de disputa
+            const disputeEvent = {
+                code: 'HANDSHAKE_DISPUTE',
+                fullCode: 'HANDSHAKE_DISPUTE',
+                orderId: orderId,
+                disputeId: generateUniqueId(),
+                type: disputeType,
+                orderStatus: orderStatus,
+                customerName: customerName,
+                reason: `${cancelReason}: ${cancelDescription}`,
+                expiresAt: expiresAt.toISOString(),
+                timeoutAction: timeoutAction,
+                alternatives: selectedAlternatives,
+                photos: photos.map(p => ({ url: p.data }))
+            };
+            
+            console.log('Enviando evento de disputa:', disputeEvent);
+            
+            try {
+                // Na vida real, isso enviaria o evento para o PDV
+                // Neste simulador, apenas mostra na tela
+                showToast('Negociação iniciada! Verifique a interface do PDV.', 'success');
+                
+                // Aguarda a resposta do PDV (simulado para fins de demonstração)
+                // Em um caso real, isto seria um endpoint que receberia a resposta
+                setTimeout(() => {
+                    simulateResponse(disputeEvent);
+                }, 15000); // Simula um tempo para resposta
+                
+                // Atualiza o status do pedido para refletir a negociação
+                document.getElementById('order-status').value = 'CANCELLATION_REQUESTED';
+                
+                return true;
+            } catch (error) {
+                console.error('Erro ao simular disputa:', error);
+                showToast('Erro ao iniciar negociação', 'error');
+                return false;
+            }
+        }
+        
+        // Função para simular a resposta do PDV (apenas para demonstração)
+        function simulateResponse(disputeEvent) {
+            // Normalmente, isso seria uma chamada real ao endpoint
+            // Aqui, apenas simulamos uma resposta aleatória
+            const actions = ['ACCEPT', 'REJECT', 'ALTERNATIVE'];
+            const randomIndex = Math.floor(Math.random() * actions.length);
+            const action = actions[randomIndex];
+            
+            let response = {
+                action: action,
+                disputeId: disputeEvent.disputeId
+            };
+            
+            // Se a ação for alternativa e existirem alternativas
+            if (action === 'ALTERNATIVE' && disputeEvent.alternatives && disputeEvent.alternatives.length > 0) {
+                const altIndex = Math.floor(Math.random() * disputeEvent.alternatives.length);
+                const selectedAlt = disputeEvent.alternatives[altIndex];
+                
+                response.alternativeId = selectedAlt.id;
+                
+                // Se for reembolso personalizado, adiciona valor
+                if (selectedAlt.type === 'CUSTOM_REFUND') {
+                    response.customRefundValue = Math.floor(Math.random() * 30) + 10; // Valor entre 10 e 40
+                }
+            }
+            
+            // Mostra a resposta
+            showResponseModal(response);
+            
+            // Atualiza o status do pedido
+            if (action === 'ACCEPT') {
+                document.getElementById('order-status').value = 'CANCELLED';
+            } else {
+                document.getElementById('order-status').value = 'CONFIRMED';
+            }
+            
+            return response;
+        }
+        
+        // Função para processar arquivos selecionados
+        function processSelectedFiles(files) {
+            if (!files || files.length === 0) return;
+            
+            // Itera sobre os arquivos
+            Array.from(files).forEach(file => {
+                if (!file.type.match('image.*')) {
+                    showToast('Apenas imagens são permitidas', 'error');
+                    return;
+                }
+                
+                const reader = new FileReader();
+                
+                reader.onload = function(e) {
+                    const photoId = generateUniqueId();
+                    
+                    // Adiciona ao array de fotos
+                    photos.push({
+                        id: photoId,
+                        name: file.name,
+                        data: e.target.result
+                    });
+                    
+                    // Adiciona à visualização
+                    const photoElement = document.createElement('div');
+                    photoElement.className = 'photo-item';
+                    photoElement.innerHTML = `
+                        <img src="${e.target.result}" alt="${file.name}">
+                        <div class="remove-photo" data-id="${photoId}">&times;</div>
+                    `;
+                    
+                    photosPreview.appendChild(photoElement);
+                    
+                    // Adiciona evento de remoção
+                    photoElement.querySelector('.remove-photo').addEventListener('click', function() {
+                        const id = this.getAttribute('data-id');
+                        removePhoto(id);
+                    });
+                };
+                
+                reader.readAsDataURL(file);
+            });
+        }
+        
+        // Função para remover foto
+        function removePhoto(photoId) {
+            // Remove do array
+            photos = photos.filter(p => p.id !== photoId);
+            
+            // Remove da visualização
+            const photoItems = photosPreview.querySelectorAll('.photo-item');
+            photoItems.forEach(item => {
+                const removeBtn = item.querySelector('.remove-photo');
+                if (removeBtn && removeBtn.getAttribute('data-id') === photoId) {
+                    item.remove();
+                }
+            });
+        }
+        
+        // Função para resetar simulador
+        function resetSimulator() {
+            // Limpa fotos
+            photos = [];
+            photosPreview.innerHTML = '';
+            
+            // Reseta formulário
+            document.getElementById('cancel-description').value = 'O pedido está demorando muito para ser entregue. Já se passaram mais de 60 minutos.';
+            document.getElementById('cancel-reason').selectedIndex = 0;
+            document.getElementById('dispute-type').selectedIndex = 0;
+            document.getElementById('order-status').selectedIndex = 0;
+            
+            showToast('Simulador resetado', 'info');
+        }
+        
+        // Event listeners
+        document.addEventListener('DOMContentLoaded', function() {
+            // Upload de fotos
+            uploadArea.addEventListener('click', function() {
+                photoInput.click();
+            });
+            
+            photoInput.addEventListener('change', function() {
+                processSelectedFiles(this.files);
+            });
+            
+            // Arrastar e soltar
+            uploadArea.addEventListener('dragover', function(e) {
+                e.preventDefault();
+                this.style.borderColor = '#ea1d2c';
+            });
+            
+            uploadArea.addEventListener('dragleave', function() {
+                this.style.borderColor = '#ddd';
+            });
+            
+            uploadArea.addEventListener('drop', function(e) {
+                e.preventDefault();
+                this.style.borderColor = '#ddd';
+                processSelectedFiles(e.dataTransfer.files);
+            });
+            
+            // Botão de simular
+            simulateButton.addEventListener('click', function() {
+                const disputeType = document.getElementById('dispute-type').value;
+                
+                // Verifica se precisa mostrar modal de alternativas
+                if (disputeType === 'CANCELLATION_WITH_REFUND_PROPOSAL' || 
+                    disputeType === 'CANCELLATION_WITH_DELAY_PROPOSAL') {
+                    showAlternativesModal();
+                } else {
+                    // Cria alternativas vazias
+                    alternativesConfig = [];
+                    simulateDispute();
+                }
+            });
+            
+            // Botão de resetar
+            resetButton.addEventListener('click', resetSimulator);
+            
+            // Botões do modal de alternativas
+            document.getElementById('close-alternatives-modal').addEventListener('click', hideAlternativesModal);
+            document.getElementById('cancel-alternatives').addEventListener('click', hideAlternativesModal);
+            document.getElementById('confirm-alternatives').addEventListener('click', function() {
+                hideAlternativesModal();
+                simulateDispute();
+            });
+            
+            // Botões do modal de resposta
+            document.getElementById('close-response-modal').addEventListener('click', hideResponseModal);
+            document.getElementById('confirm-response').addEventListener('click', hideResponseModal);
+            
+            // Gera um ID único para o pedido
+            document.getElementById('order-id').value = 'SIM' + Date.now().toString().substring(0, 10);
+        });
+    </script>
+</body>
+</html>
