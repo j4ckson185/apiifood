@@ -242,61 +242,62 @@ async function proporAlternativa(disputeId, alternativeId) {
     try {
         console.log(`🤝 Propondo alternativa ${alternativeId} para disputa ${disputeId}...`);
         showLoading();
-        
-        // Busca a disputa na lista ativa
+
+        // Busca a disputa ativa correspondente
         const disputa = activeDisputes.find(d => d.disputeId === disputeId);
         if (!disputa) {
             throw new Error("Disputa não encontrada na lista ativa");
         }
-        
-        // Log para depuração
-        console.log('Disputa completa:', JSON.stringify(disputa, null, 2));
-        
-        // Construir o body exatamente conforme a documentação
-        const body = {
-            type: "ADDITIONAL_TIME", // Campo obrigatório
-            additionalTimeInMinutes: 15, // Valor padrão
-            reason: "HIGH_STORE_DEMAND" // Valor padrão
-        };
-        
-        // Verificar se temos informações específicas nos metadados
-        if (disputa.metadata && 
-            disputa.metadata.alternatives && 
-            disputa.metadata.alternatives.length > 0) {
-            
-            const alternative = disputa.metadata.alternatives.find(a => a.id === alternativeId);
-            if (alternative && alternative.metadata) {
-                // Se temos opções disponíveis, usar a primeira
-                if (alternative.metadata.allowedsAdditionalTimeInMinutes && 
-                    alternative.metadata.allowedsAdditionalTimeInMinutes.length > 0) {
-                    body.additionalTimeInMinutes = alternative.metadata.allowedsAdditionalTimeInMinutes[0];
-                }
-                
-                if (alternative.metadata.allowedsAdditionalTimeReasons && 
-                    alternative.metadata.allowedsAdditionalTimeReasons.length > 0) {
-                    body.reason = alternative.metadata.allowedsAdditionalTimeReasons[0];
-                }
-            }
+
+        // Busca a alternativa selecionada
+        const alternative = disputa.metadata?.alternatives?.find(a => a.id === alternativeId);
+        if (!alternative) {
+            throw new Error("Alternativa não encontrada nos metadados da disputa");
         }
-        
-        // Log do body antes do envio
-        console.log('Enviando body para alternativa:', JSON.stringify(body, null, 2));
-        
+
+        // Monta o body da requisição de forma dinâmica, com base no tipo da alternativa
+        const body = {
+            type: alternative.type
+        };
+
+        // Preenchimento conforme o tipo
+        switch (alternative.type) {
+            case "ADDITIONAL_TIME":
+                body.additionalTimeInMinutes = alternative.metadata?.allowedsAdditionalTimeInMinutes?.[0] || 15;
+                body.reason = alternative.metadata?.allowedsAdditionalTimeReasons?.[0] || "HIGH_STORE_DEMAND";
+                break;
+
+            case "REFUND":
+            case "BENEFIT":
+                const maxAmount = alternative.metadata?.maxAmount?.value;
+                if (!maxAmount) {
+                    throw new Error("Valor máximo não especificado para alternativa de reembolso/benefício");
+                }
+
+                body.amount = {
+                    value: parseInt(maxAmount), // em centavos
+                    currency: "BRL"
+                };
+                break;
+
+            default:
+                throw new Error(`Tipo de alternativa não suportado: ${alternative.type}`);
+        }
+
+        console.log('📤 Enviando body:', JSON.stringify(body, null, 2));
+
         const response = await makeAuthorizedRequest(
-            `/order/v1.0/disputes/${disputeId}/alternatives/${alternativeId}`, 
+            `/order/v1.0/disputes/${disputeId}/alternatives/${alternativeId}`,
             'POST',
             body
         );
-        
+
         console.log('✅ Alternativa proposta com sucesso:', response);
         showToast('Alternativa de negociação enviada com sucesso', 'success');
-        
-        // Remove da lista de disputas ativas
+
         removeActiveDispute(disputeId);
-        
-        // Fecha o modal
         fecharModalNegociacao();
-        
+
         return true;
     } catch (error) {
         console.error('❌ Erro ao propor alternativa:', error);
