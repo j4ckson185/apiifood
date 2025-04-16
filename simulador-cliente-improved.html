@@ -377,6 +377,64 @@
                 opacity: 1;
             }
         }
+        
+        .pdv-actions {
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px dashed #ddd;
+        }
+
+        .dispute-link {
+            display: inline-block;
+            margin-top: 10px;
+            text-decoration: none;
+            color: #1a73e8;
+        }
+        
+        .dispute-link:hover {
+            text-decoration: underline;
+        }
+
+        .step-indicator {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 20px;
+            position: relative;
+        }
+        
+        .step {
+            flex: 1;
+            text-align: center;
+            padding: 10px;
+            font-weight: 600;
+            position: relative;
+        }
+        
+        .step::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 3px;
+            background-color: #ddd;
+        }
+        
+        .step.active {
+            color: var(--primary-color);
+        }
+        
+        .step.active::after {
+            background-color: var(--primary-color);
+        }
+        
+        .step.completed {
+            color: var(--success-color);
+        }
+        
+        .step.completed::after {
+            background-color: var(--success-color);
+        }
     </style>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
 </head>
@@ -387,7 +445,14 @@
     </header>
     
     <div class="container">
-        <div class="section">
+        <!-- Indicador de passos -->
+        <div class="step-indicator">
+            <div class="step active" id="step-create">1. Criar Pedido</div>
+            <div class="step" id="step-send">2. Enviar para PDV</div>
+            <div class="step" id="step-cancel">3. Solicitar Cancelamento</div>
+        </div>
+        
+        <div class="section" id="create-order-section">
             <h2>Detalhes do Pedido</h2>
             <div class="order-info">
                 <div class="form-group">
@@ -434,9 +499,25 @@
             <div class="order-total">
                 Total: R$ 57,70
             </div>
+            
+            <div class="button-group" style="margin-top: 20px;">
+                <button class="btn btn-secondary" id="reset-order-button">Resetar</button>
+                <button class="btn btn-primary" id="create-order-button">Criar Pedido</button>
+            </div>
         </div>
         
-        <div class="section negotiation-section">
+        <div class="section hidden" id="send-order-section">
+            <h2>Enviar Pedido para o PDV</h2>
+            <p>O pedido foi criado localmente e está pronto para envio ao PDV.</p>
+            <p>Certifique-se de que o PDV está aberto em outra aba do navegador.</p>
+            
+            <div class="button-group" style="margin-top: 20px;">
+                <button class="btn btn-secondary" id="back-to-create-button">Voltar</button>
+                <button class="btn btn-primary" id="send-order-button">Enviar para PDV</button>
+            </div>
+        </div>
+        
+        <div class="section negotiation-section hidden" id="cancel-order-section">
             <h2>Solicitar Cancelamento</h2>
             <div class="form-group">
                 <label for="cancel-reason">Motivo do Cancelamento</label>
@@ -474,8 +555,15 @@
             </div>
             
             <div class="button-group">
-                <button class="btn btn-secondary" id="reset-button">Resetar</button>
-                <button class="btn btn-warning" id="simulate-button">Simular Cancelamento</button>
+                <button class="btn btn-secondary" id="back-to-send-button">Voltar</button>
+                <button class="btn btn-warning" id="simulate-button">Solicitar Cancelamento</button>
+            </div>
+            
+            <div id="pdv-response" class="pdv-actions hidden">
+                <h3>Resposta do PDV</h3>
+                <div id="response-content">
+                    <!-- Preenchido dinamicamente -->
+                </div>
             </div>
         </div>
     </div>
@@ -513,30 +601,12 @@
         </div>
     </div>
     
-    <!-- Modal de resposta do PDV -->
-    <div class="modal hidden" id="response-modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3>Resposta do PDV</h3>
-                <button class="modal-close" id="close-response-modal">&times;</button>
-            </div>
-            <div class="modal-body">
-                <div id="response-content">
-                    <!-- Conteúdo da resposta será adicionado aqui -->
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button class="btn btn-primary" id="confirm-response">OK</button>
-            </div>
-        </div>
-    </div>
-    
     <!-- Container para toasts -->
     <div class="toast-container" id="toast-container"></div>
     
     <script>
-        // Configurações
-        const LOCALHOST_URL = 'http://localhost:8000'; // URL do PDV, ajuste conforme necessário
+        // Estado global
+        let currentOrderData = null;
         let photos = []; // Array para armazenar as fotos
         let alternativesConfig = []; // Array para armazenar as alternativas
         
@@ -545,12 +615,22 @@
         const photoInput = document.getElementById('photo-input');
         const photosPreview = document.getElementById('photos-preview');
         const simulateButton = document.getElementById('simulate-button');
-        const resetButton = document.getElementById('reset-button');
+        const createOrderButton = document.getElementById('create-order-button');
+        const sendOrderButton = document.getElementById('send-order-button');
         const disputeTypeSelect = document.getElementById('dispute-type');
+        
+        // Seções
+        const createOrderSection = document.getElementById('create-order-section');
+        const sendOrderSection = document.getElementById('send-order-section');
+        const cancelOrderSection = document.getElementById('cancel-order-section');
+        
+        // Passos
+        const stepCreate = document.getElementById('step-create');
+        const stepSend = document.getElementById('step-send');
+        const stepCancel = document.getElementById('step-cancel');
         
         // Modais
         const alternativesModal = document.getElementById('alternatives-modal');
-        const responseModal = document.getElementById('response-modal');
         
         // Função para mostrar toast
         function showToast(message, type = 'info') {
@@ -575,9 +655,141 @@
             }, 3000);
         }
         
+        // Alternar para o passo de criar pedido
+        function goToCreateStep() {
+            createOrderSection.classList.remove('hidden');
+            sendOrderSection.classList.add('hidden');
+            cancelOrderSection.classList.add('hidden');
+            
+            stepCreate.classList.add('active');
+            stepCreate.classList.remove('completed');
+            stepSend.classList.remove('active', 'completed');
+            stepCancel.classList.remove('active', 'completed');
+        }
+        
+        // Alternar para o passo de enviar pedido
+        function goToSendStep() {
+            createOrderSection.classList.add('hidden');
+            sendOrderSection.classList.remove('hidden');
+            cancelOrderSection.classList.add('hidden');
+            
+            stepCreate.classList.remove('active');
+            stepCreate.classList.add('completed');
+            stepSend.classList.add('active');
+            stepSend.classList.remove('completed');
+            stepCancel.classList.remove('active', 'completed');
+        }
+        
+        // Alternar para o passo de cancelar pedido
+        function goToCancelStep() {
+            createOrderSection.classList.add('hidden');
+            sendOrderSection.classList.add('hidden');
+            cancelOrderSection.classList.remove('hidden');
+            
+            stepCreate.classList.remove('active');
+            stepCreate.classList.add('completed');
+            stepSend.classList.remove('active');
+            stepSend.classList.add('completed');
+            stepCancel.classList.add('active');
+        }
+        
         // Função para gerar ID único
         function generateUniqueId() {
             return 'id_' + Math.random().toString(36).substr(2, 9);
+        }
+        
+        // Função para criar o pedido
+        function createOrder() {
+            const orderId = document.getElementById('order-id').value;
+            const customerName = document.getElementById('customer-name').value;
+            const orderStatus = document.getElementById('order-status').value;
+            
+            // Cria objeto do pedido
+            currentOrderData = {
+                id: orderId,
+                displayId: orderId.substring(0, 6),
+                customerName: customerName,
+                status: orderStatus,
+                createdAt: new Date().toISOString(),
+                items: [
+                    { 
+                        id: generateUniqueId(), 
+                        name: 'Hambúrguer Especial', 
+                        quantity: 1, 
+                        price: 32.90,
+                        totalPrice: 32.90
+                    },
+                    { 
+                        id: generateUniqueId(), 
+                        name: 'Batata Frita Grande', 
+                        quantity: 1, 
+                        price: 15.90,
+                        totalPrice: 15.90
+                    },
+                    { 
+                        id: generateUniqueId(), 
+                        name: 'Refrigerante 500ml', 
+                        quantity: 1, 
+                        price: 8.90,
+                        totalPrice: 8.90
+                    }
+                ],
+                total: {
+                    subTotal: 57.70,
+                    deliveryFee: 5.00,
+                    orderAmount: 62.70
+                },
+                payments: {
+                    methods: [
+                        {
+                            method: 'CREDIT',
+                            type: 'ONLINE',
+                            value: 62.70,
+                            prepaid: true
+                        }
+                    ]
+                },
+                delivery: {
+                    deliveryAddress: {
+                        streetName: 'Rua Exemplo',
+                        streetNumber: '123',
+                        city: 'São Paulo',
+                        state: 'SP',
+                        postalCode: '01234-567',
+                        complement: 'Apto 42',
+                        reference: 'Próximo ao mercado'
+                    }
+                }
+            };
+            
+            showToast('Pedido criado com sucesso', 'success');
+            goToSendStep();
+        }
+        
+        // Função para enviar o pedido para o PDV
+        function sendOrderToPDV() {
+            if (!currentOrderData) {
+                showToast('Pedido não encontrado', 'error');
+                return;
+            }
+            
+            try {
+                // Salva o pedido no localStorage para o PDV acessar
+                localStorage.setItem('simulatedOrder', JSON.stringify(currentOrderData));
+                
+                // Emite um evento para o PDV capturar
+                localStorage.setItem('simulatedOrderEvent', Date.now().toString());
+                
+                showToast('Pedido enviado para o PDV com sucesso', 'success');
+                
+                // Após um tempo, habilita o botão de cancelamento
+                setTimeout(() => {
+                    goToCancelStep();
+                }, 1500);
+            } catch (error) {
+                console.error('Erro ao enviar pedido:', error);
+                showToast('Erro ao enviar pedido para o PDV', 'error');
+            }
         }
         
         // Função para criar alternativas baseadas no tipo de disputa
@@ -699,135 +911,6 @@
             alternativesModal.classList.add('hidden');
         }
         
-        // Função para mostrar o modal de resposta
-        function showResponseModal(response) {
-            document.getElementById('response-content').innerHTML = `
-                <div style="text-align: center; margin-bottom: 20px;">
-                    <i class="fas fa-check-circle" style="font-size: 48px; color: #28a745;"></i>
-                    <h4 style="margin-top: 10px;">Resposta Recebida</h4>
-                </div>
-                <div style="background-color: #f8f9fa; padding: 15px; border-radius: 6px; margin-bottom: 10px;">
-                    <p><strong>Ação:</strong> ${response.action}</p>
-                    <p><strong>Disputa ID:</strong> ${response.disputeId}</p>
-                    ${response.alternativeId ? `<p><strong>Alternativa ID:</strong> ${response.alternativeId}</p>` : ''}
-                    ${response.customRefundValue ? `<p><strong>Valor de Reembolso:</strong> R$ ${response.customRefundValue.toFixed(2)}</p>` : ''}
-                </div>
-                <p>Simule outro cancelamento para testar mais cenários.</p>
-            `;
-            
-            responseModal.classList.remove('hidden');
-        }
-        
-        // Função para esconder o modal de resposta
-        function hideResponseModal() {
-            responseModal.classList.add('hidden');
-        }
-        
-        // Função para simular o envio de um evento de disputa
-        async function simulateDispute() {
-            // Obtém os valores do formulário
-            const orderId = document.getElementById('order-id').value;
-            const customerName = document.getElementById('customer-name').value;
-            const cancelReason = document.getElementById('cancel-reason').value;
-            const cancelDescription = document.getElementById('cancel-description').value;
-            const disputeType = document.getElementById('dispute-type').value;
-            const orderStatus = document.getElementById('order-status').value;
-            
-            // Verifica quais alternativas estão selecionadas
-            const selectedAlternatives = [];
-            document.querySelectorAll('#alternatives-container input[type="checkbox"]').forEach((checkbox, index) => {
-                if (checkbox.checked) {
-                    selectedAlternatives.push(alternativesConfig[index]);
-                }
-            });
-            
-            // Obtém ação de timeout e tempo de expiração
-            const timeoutAction = document.getElementById('timeout-action').value;
-            const timeoutMinutes = parseInt(document.getElementById('timeout-minutes').value);
-            
-            // Cria a data de expiração
-            const now = new Date();
-            const expiresAt = new Date(now.getTime() + timeoutMinutes * 60000);
-            
-            // Prepara o evento de disputa
-            const disputeEvent = {
-                code: 'HANDSHAKE_DISPUTE',
-                fullCode: 'HANDSHAKE_DISPUTE',
-                orderId: orderId,
-                disputeId: generateUniqueId(),
-                type: disputeType,
-                orderStatus: orderStatus,
-                customerName: customerName,
-                reason: `${cancelReason}: ${cancelDescription}`,
-                expiresAt: expiresAt.toISOString(),
-                timeoutAction: timeoutAction,
-                alternatives: selectedAlternatives,
-                photos: photos.map(p => ({ url: p.data }))
-            };
-            
-            console.log('Enviando evento de disputa:', disputeEvent);
-            
-            try {
-                // Na vida real, isso enviaria o evento para o PDV
-                // Neste simulador, apenas mostra na tela
-                showToast('Negociação iniciada! Verifique a interface do PDV.', 'success');
-                
-                // Aguarda a resposta do PDV (simulado para fins de demonstração)
-                // Em um caso real, isto seria um endpoint que receberia a resposta
-                setTimeout(() => {
-                    simulateResponse(disputeEvent);
-                }, 15000); // Simula um tempo para resposta
-                
-                // Atualiza o status do pedido para refletir a negociação
-                document.getElementById('order-status').value = 'CANCELLATION_REQUESTED';
-                
-                return true;
-            } catch (error) {
-                console.error('Erro ao simular disputa:', error);
-                showToast('Erro ao iniciar negociação', 'error');
-                return false;
-            }
-        }
-        
-        // Função para simular a resposta do PDV (apenas para demonstração)
-        function simulateResponse(disputeEvent) {
-            // Normalmente, isso seria uma chamada real ao endpoint
-            // Aqui, apenas simulamos uma resposta aleatória
-            const actions = ['ACCEPT', 'REJECT', 'ALTERNATIVE'];
-            const randomIndex = Math.floor(Math.random() * actions.length);
-            const action = actions[randomIndex];
-            
-            let response = {
-                action: action,
-                disputeId: disputeEvent.disputeId
-            };
-            
-            // Se a ação for alternativa e existirem alternativas
-            if (action === 'ALTERNATIVE' && disputeEvent.alternatives && disputeEvent.alternatives.length > 0) {
-                const altIndex = Math.floor(Math.random() * disputeEvent.alternatives.length);
-                const selectedAlt = disputeEvent.alternatives[altIndex];
-                
-                response.alternativeId = selectedAlt.id;
-                
-                // Se for reembolso personalizado, adiciona valor
-                if (selectedAlt.type === 'CUSTOM_REFUND') {
-                    response.customRefundValue = Math.floor(Math.random() * 30) + 10; // Valor entre 10 e 40
-                }
-            }
-            
-            // Mostra a resposta
-            showResponseModal(response);
-            
-            // Atualiza o status do pedido
-            if (action === 'ACCEPT') {
-                document.getElementById('order-status').value = 'CANCELLED';
-            } else {
-                document.getElementById('order-status').value = 'CONFIRMED';
-            }
-            
-            return response;
-        }
-        
         // Função para processar arquivos selecionados
         function processSelectedFiles(files) {
             if (!files || files.length === 0) return;
@@ -899,7 +982,248 @@
             document.getElementById('dispute-type').selectedIndex = 0;
             document.getElementById('order-status').selectedIndex = 0;
             
+            // Reseta o pedido
+            currentOrderData = null;
+            
+            // Volta para o primeiro passo
+            goToCreateStep();
+            
+            // Gera um novo ID de pedido
+            document.getElementById('order-id').value = 'SIM' + Date.now().toString().substring(0, 10);
+            
             showToast('Simulador resetado', 'info');
+        }
+        
+        // Função para simular o envio de um evento de disputa
+        function simulateDispute() {
+            if (!currentOrderData) {
+                showToast('É necessário criar e enviar um pedido primeiro', 'error');
+                goToCreateStep();
+                return;
+            }
+            
+            // Obtém os valores do formulário
+            const orderId = currentOrderData.id;
+            const customerName = currentOrderData.customerName;
+            const cancelReason = document.getElementById('cancel-reason').value;
+            const cancelDescription = document.getElementById('cancel-description').value;
+            const disputeType = document.getElementById('dispute-type').value;
+            
+            // Verifica quais alternativas estão selecionadas
+            const selectedAlternatives = [];
+            document.querySelectorAll('#alternatives-container input[type="checkbox"]').forEach((checkbox, index) => {
+                if (checkbox.checked) {
+                    selectedAlternatives.push(alternativesConfig[index]);
+                }
+            });
+            
+            // Obtém ação de timeout e tempo de expiração
+            const timeoutAction = document.getElementById('timeout-action').value;
+            const timeoutMinutes = parseInt(document.getElementById('timeout-minutes').value);
+            
+            // Cria a data de expiração
+            const now = new Date();
+            const expiresAt = new Date(now.getTime() + timeoutMinutes * 60000);
+            
+            // Prepara o evento de disputa
+            const disputeEvent = {
+                code: 'HANDSHAKE_DISPUTE',
+                fullCode: 'HANDSHAKE_DISPUTE',
+                orderId: orderId,
+                disputeId: generateUniqueId(),
+                type: disputeType,
+                orderStatus: currentOrderData.status,
+                customerName: customerName,
+                reason: `${cancelReason}: ${cancelDescription}`,
+                expiresAt: expiresAt.toISOString(),
+                timeoutAction: timeoutAction,
+                alternatives: selectedAlternatives,
+                photos: photos.map(p => ({ url: p.data }))
+            };
+            
+            console.log('Enviando evento de disputa:', disputeEvent);
+            
+            try {
+                // Salva o evento de disputa no localStorage para o PDV pegar
+                localStorage.setItem('simulatedDispute', JSON.stringify(disputeEvent));
+                
+                // Cria um timestamp para garantir que o PDV detecte a mudança
+                localStorage.setItem('simulatedDisputeEvent', Date.now().toString());
+                
+                showToast('Negociação iniciada! Verifique a PDV.', 'success');
+                
+                // Mostra área de resposta
+                document.getElementById('pdv-response').classList.remove('hidden');
+                document.getElementById('response-content').innerHTML = `
+                    <div style="text-align: center; margin: 20px 0;">
+                        <i class="fas fa-spinner fa-spin" style="font-size: 24px; color: #ea1d2c;"></i>
+                        <p style="margin-top: 10px;">Aguardando resposta do PDV...</p>
+                    </div>
+                `;
+                
+                // Configura um listener para verificar respostas
+                setupResponseListener(disputeEvent.disputeId);
+                
+                return true;
+            } catch (error) {
+                console.error('Erro ao simular disputa:', error);
+                showToast('Erro ao iniciar negociação', 'error');
+                return false;
+            }
+        }
+        
+        // Configura um listener para verificar respostas do PDV
+        function setupResponseListener(disputeId) {
+            // Limpa qualquer listener anterior
+            if (window.responseCheckInterval) {
+                clearInterval(window.responseCheckInterval);
+            }
+            
+            // Verifica a cada segundo se há resposta
+            window.responseCheckInterval = setInterval(() => {
+                try {
+                    // Verifica se há uma resposta no localStorage
+                    const responseJson = localStorage.getItem('simulatedDisputeResponse');
+                    if (responseJson) {
+                        const response = JSON.parse(responseJson);
+                        
+                        // Verifica se é para esta disputa
+                        if (response.disputeId === disputeId) {
+                            // Mostra a resposta
+                            displayPDVResponse(response);
+                            
+                            // Limpa o intervalo
+                            clearInterval(window.responseCheckInterval);
+                            
+                            // Limpa a resposta do localStorage
+                            localStorage.removeItem('simulatedDisputeResponse');
+                        }
+                    }
+                } catch (error) {
+                    console.error('Erro ao verificar resposta:', error);
+                }
+            }, 1000);
+            
+            // Limpa o intervalo após 2 minutos (timeout)
+            setTimeout(() => {
+                if (window.responseCheckInterval) {
+                    clearInterval(window.responseCheckInterval);
+                    
+                    // Mostra timeout se não houver resposta
+                    const responseContent = document.getElementById('response-content');
+                    if (responseContent.querySelector('.fa-spinner')) {
+                        responseContent.innerHTML = `
+                            <div style="text-align: center; margin: 20px 0;">
+                                <i class="fas fa-clock" style="font-size: 24px; color: #ffc107;"></i>
+                                <p style="margin-top: 10px;">Tempo esgotado! O PDV não respondeu.</p>
+                                <p>A ação padrão foi aplicada: <strong>${document.getElementById('timeout-action').value}</strong></p>
+                            </div>
+                        `;
+                    }
+                }
+            }, 120000); // 2 minutos
+        }
+        
+        // Exibe a resposta do PDV
+        function displayPDVResponse(response) {
+            const responseContent = document.getElementById('response-content');
+            
+            let actionText = '';
+            let actionIcon = '';
+            let actionColor = '';
+            
+            switch(response.action) {
+                case 'ACCEPT':
+                    actionText = 'Cancelamento Aceito';
+                    actionIcon = 'check-circle';
+                    actionColor = '#28a745';
+                    break;
+                case 'REJECT':
+                    actionText = 'Cancelamento Rejeitado';
+                    actionIcon = 'times-circle';
+                    actionColor = '#dc3545';
+                    break;
+                case 'ALTERNATIVE':
+                    actionText = 'Alternativa Proposta';
+                    actionIcon = 'handshake';
+                    actionColor = '#17a2b8';
+                    break;
+                default:
+                    actionText = 'Resposta Recebida';
+                    actionIcon = 'info-circle';
+                    actionColor = '#6c757d';
+            }
+            
+            let alternativeHtml = '';
+            if (response.action === 'ALTERNATIVE' && response.alternativeId) {
+                // Encontra a alternativa
+                const alternative = alternativesConfig.find(a => a.id === response.alternativeId);
+                
+                if (alternative) {
+                    switch(alternative.type) {
+                        case 'REFUND_PROPOSAL':
+                            alternativeHtml = `
+                                <div style="margin-top: 15px; background-color: #f8f9fa; padding: 10px; border-radius: 5px;">
+                                    <h4 style="margin-bottom: 10px;">Detalhes da Alternativa</h4>
+                                    <p><strong>Tipo:</strong> Proposta de Reembolso</p>
+                                    <p><strong>Descrição:</strong> ${alternative.description}</p>
+                                    <p><strong>Valor:</strong> R$ ${alternative.value.toFixed(2)}</p>
+                                </div>
+                            `;
+                            break;
+                        case 'CUSTOM_REFUND':
+                            alternativeHtml = `
+                                <div style="margin-top: 15px; background-color: #f8f9fa; padding: 10px; border-radius: 5px;">
+                                    <h4 style="margin-bottom: 10px;">Detalhes da Alternativa</h4>
+                                    <p><strong>Tipo:</strong> Reembolso Personalizado</p>
+                                    <p><strong>Descrição:</strong> ${alternative.description}</p>
+                                    <p><strong>Valor Proposto:</strong> R$ ${response.customRefundValue?.toFixed(2) || '0.00'}</p>
+                                </div>
+                            `;
+                            break;
+                        case 'DELIVERY_TIME_PROPOSAL':
+                            alternativeHtml = `
+                                <div style="margin-top: 15px; background-color: #f8f9fa; padding: 10px; border-radius: 5px;">
+                                    <h4 style="margin-bottom: 10px;">Detalhes da Alternativa</h4>
+                                    <p><strong>Tipo:</strong> Novo Prazo de Entrega</p>
+                                    <p><strong>Descrição:</strong> ${alternative.description}</p>
+                                    <p><strong>Tempo Adicional:</strong> ${alternative.additionalTime} minutos</p>
+                                </div>
+                            `;
+                            break;
+                    }
+                }
+            }
+            
+            responseContent.innerHTML = `
+                <div style="text-align: center; margin: 20px 0;">
+                    <i class="fas fa-${actionIcon}" style="font-size: 48px; color: ${actionColor};"></i>
+                    <h3 style="margin-top: 10px; color: ${actionColor};">${actionText}</h3>
+                </div>
+                <div style="background-color: #f8f9fa; padding: 15px; border-radius: 6px; margin-bottom: 10px;">
+                    <p><strong>ID da Disputa:</strong> ${response.disputeId}</p>
+                    <p><strong>Resposta Recebida:</strong> ${new Date().toLocaleString()}</p>
+                </div>
+                ${alternativeHtml}
+                <div style="margin-top: 20px; text-align: center;">
+                    <button class="btn btn-secondary" id="reset-simulation-button">Iniciar Nova Simulação</button>
+                </div>
+            `;
+            
+            // Adiciona o evento ao botão
+            document.getElementById('reset-simulation-button').addEventListener('click', resetSimulator);
+        }
+        
+        // Verifica se o PDV já capturou os dados do pedido
+        function checkOrderReceivedByPDV() {
+            const receiveFlag = localStorage.getItem('simulatedOrderReceived');
+            if (receiveFlag === 'true') {
+                showToast('O PDV recebeu o pedido!', 'success');
+                goToCancelStep();
+                localStorage.removeItem('simulatedOrderReceived');
+            } else {
+                setTimeout(checkOrderReceivedByPDV, 1000);
+            }
         }
         
         // Event listeners
@@ -929,7 +1253,18 @@
                 processSelectedFiles(e.dataTransfer.files);
             });
             
-            // Botão de simular
+            // Botões de navegação
+            createOrderButton.addEventListener('click', createOrder);
+            sendOrderButton.addEventListener('click', function() {
+                sendOrderToPDV();
+                checkOrderReceivedByPDV();
+            });
+            
+            document.getElementById('back-to-create-button').addEventListener('click', goToCreateStep);
+            document.getElementById('back-to-send-button').addEventListener('click', goToSendStep);
+            document.getElementById('reset-order-button').addEventListener('click', resetSimulator);
+            
+            // Botão de simular negociação
             simulateButton.addEventListener('click', function() {
                 const disputeType = document.getElementById('dispute-type').value;
                 
@@ -944,9 +1279,6 @@
                 }
             });
             
-            // Botão de resetar
-            resetButton.addEventListener('click', resetSimulator);
-            
             // Botões do modal de alternativas
             document.getElementById('close-alternatives-modal').addEventListener('click', hideAlternativesModal);
             document.getElementById('cancel-alternatives').addEventListener('click', hideAlternativesModal);
@@ -955,9 +1287,8 @@
                 simulateDispute();
             });
             
-            // Botões do modal de resposta
-            document.getElementById('close-response-modal').addEventListener('click', hideResponseModal);
-            document.getElementById('confirm-response').addEventListener('click', hideResponseModal);
+            // Inicializa com o primeiro passo
+            goToCreateStep();
             
             // Gera um ID único para o pedido
             document.getElementById('order-id').value = 'SIM' + Date.now().toString().substring(0, 10);
