@@ -1,13 +1,6 @@
-// No início do negociacao-simples.js
-const { 
-    aceitarDisputa, 
-    rejeitarDisputa, 
-    fecharModalNegociacao 
-} = window;
-
-// Versão simplificada da plataforma de negociação (standalone)
-(function() {
-    console.log('🤝 Carregando módulo simplificado de negociação');
+document.addEventListener('DOMContentLoaded', function () {
+    (function() {
+        console.log('🤝 Carregando módulo simplificado de negociação');
     
     // Função para exibir o modal de negociação com dados de pedido personalizados
     function mostrarNegociacao(pedidoId, dadosPedido = null) {
@@ -135,15 +128,15 @@ const {
     
 function responderNegociacao(disputeId, orderId, resposta) {
     try {
-        if (resposta === 'ACCEPT') {
-            // Usa as funções globais
-            aceitarDisputa(disputeId);
+if (resposta === 'ACCEPT') {
+    window.aceitarDisputa(disputeId);
+}
         } else if (resposta === 'REJECT') {
-            rejeitarDisputa(disputeId);
+            window.rejeitarDisputa(disputeId);
         }
 
         // Fecha o modal de negociação simples
-        fecharNegociacaoSimples();
+        window.fecharNegociacaoSimples();
     } catch (error) {
         console.error('Erro ao processar resposta:', error);
         showToast('Erro ao processar resposta', 'error');
@@ -247,7 +240,8 @@ function adicionarBotaoTeste() {
     document.body.appendChild(botao);
 }
 
-// Inicializa
-setTimeout(adicionarBotaoTeste, 1000);
-console.log('🤝 Módulo simplificado de negociação carregado com sucesso');
-})();
+        // Inicializa
+        setTimeout(adicionarBotaoTeste, 1000);
+        console.log('🤝 Módulo simplificado de negociação carregado com sucesso');
+    })();
+});
