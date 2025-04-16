@@ -141,6 +141,16 @@ function responderNegociacao(disputeId, orderId, resposta) {
         showToast('Erro ao processar resposta', 'error');
     }
 }
+
+    function aguardarFuncoesGlobais(callback) {
+    const pronto = typeof window.aceitarDisputa === 'function' && typeof window.rejeitarDisputa === 'function';
+    if (pronto) {
+        callback();
+    } else {
+        console.log('⌛ Aguardando carregamento de funções globais...');
+        setTimeout(() => aguardarFuncoesGlobais(callback), 300);
+    }
+}
     
     // Função para mostrar notificação
     function mostrarNotificacao(mensagem, tipo = 'info') {
@@ -232,7 +242,7 @@ function adicionarBotaoTeste() {
         const pedidoId = prompt('Digite o ID do pedido para negociação:', '68192402-8549-4199-be76-7de73cac9595');
         
         if (pedidoId) {
-            abrirNegociacaoComPedidoReal(pedidoId);
+            aguardarFuncoesGlobais(() => abrirNegociacaoComPedidoReal(pedidoId));
         }
     });
     
