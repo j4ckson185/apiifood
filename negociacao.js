@@ -115,7 +115,8 @@ async function processarEventoDisputa(event) {
                 orderId: event.orderId,
                 type: event.metadata?.handshakeType || 'CANCELLATION_REQUEST',
                 reason: event.metadata?.message || 'Motivo não especificado',
-                customerName: 'Cliente',
+                // Use customer name from the order if available
+                customerName: await getCustomerNameFromOrder(event.orderId) || 'Cliente',
                 expiresAt: event.metadata?.expiresAt,
                 timeoutAction: event.metadata?.timeoutAction || 'ACCEPT'
             };
@@ -144,6 +145,7 @@ async function processarEventoDisputa(event) {
         showToast('Erro ao processar solicitação de negociação', 'error');
     }
 }
+
 
 // Função para adicionar uma disputa à lista de ativas
 function addActiveDispute(dispute) {
