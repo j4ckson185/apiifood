@@ -2,10 +2,10 @@
 (function() {
     console.log('🤝 Carregando módulo simplificado de negociação');
     
-    // Função para exibir o modal de negociação com dados de pedido personalizados
-    function mostrarNegociacao(pedidoId, dadosPedido = null) {
-        // Se não forem fornecidos dados do pedido, usa dados de simulação
-        const disputa = dadosPedido ? montarDisputaComPedidoReal(pedidoId, dadosPedido) : {
+    // Função para exibir o modal de negociação
+    function mostrarNegociacao(pedidoId) {
+        // Cria os dados de disputa
+        const disputa = {
             disputeId: 'disp_' + Date.now(),
             orderId: pedidoId,
             type: 'CANCELLATION_REQUEST',
@@ -33,13 +33,6 @@
             document.body.appendChild(modalContainer);
         }
         
-        // Função para formatar valor monetário
-        const formatarValor = (valor) => `R$ ${typeof valor === 'number' ? valor.toFixed(2) : '0,00'}`;
-        
-        // Extrai informações do pedido real, se disponível
-        const nomeCliente = disputa.customerName || (dadosPedido?.customer?.name) || 'Cliente não identificado';
-        const totalPedido = dadosPedido?.total?.orderAmount || dadosPedido?.total?.subTotal || 0;
-        
         // Define o conteúdo do modal
         modalContainer.innerHTML = `
             <div style="background-color: white; border-radius: 10px; max-width: 500px; width: 100%;">
@@ -50,24 +43,11 @@
                 </div>
                 <div style="padding: 20px;">
                     <div style="background-color: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
-                        <p><strong>Cliente:</strong> ${nomeCliente}</p>
-                        <p><strong>Valor Total:</strong> ${formatarValor(totalPedido)}</p>
+                        <p><strong>Cliente:</strong> ${disputa.customerName}</p>
                         <p><strong>Motivo:</strong> ${disputa.reason}</p>
                         <p><strong>Tempo restante:</strong> 5:00</p>
                         <p><strong>Ação automática:</strong> Aceitar cancelamento</p>
                     </div>
-                    
-                    ${dadosPedido?.items ? `
-                    <div style="background-color: #fff3cd; border-left: 4px solid #ffc107; padding: 15px; border-radius: 4px; margin-top: 20px;">
-                        <h3 style="margin-bottom: 10px;">Itens do Pedido</h3>
-                        ${dadosPedido.items.map(item => `
-                            <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
-                                <span>${item.quantity}x ${item.name}</span>
-                                <span>${formatarValor(item.totalPrice || (item.price * item.quantity))}</span>
-                            </div>
-                        `).join('')}
-                    </div>` : ''}
-                    
                     <div style="background-color: #fff3cd; border-left: 4px solid #ffc107; padding: 15px; border-radius: 4px; margin-top: 20px;">
                         <p style="margin: 0; display: flex; align-items: center; gap: 10px;">
                             <i style="font-size: 20px;">ℹ️</i>
@@ -76,12 +56,12 @@
                     </div>
                 </div>
                 <div style="padding: 15px 20px; display: flex; justify-content: flex-end; gap: 10px; border-top: 1px solid #f1f3f4; background-color: #f9f9f9; border-bottom-left-radius: 10px; border-bottom-right-radius: 10px;">
-<button onclick="responderNegociacao('${disputa.disputeId}', '${pedidoId}', 'REJECT')" style="...">
-    Rejeitar
-</button>
-<button onclick="responderNegociacao('${disputa.disputeId}', '${pedidoId}', 'ACCEPT')" style="...">
-    Aceitar
-</button>
+                    <button onclick="responderNegociacao('${disputa.disputeId}', 'REJECT')" style="padding: 10px 20px; background-color: white; color: #dc3545; border: 1px solid #dc3545; border-radius: 6px; font-weight: 600; cursor: pointer;">
+                        Rejeitar
+                    </button>
+                    <button onclick="responderNegociacao('${disputa.disputeId}', 'ACCEPT')" style="padding: 10px 20px; background-color: #ea1d2c; color: white; border: none; border-radius: 6px; font-weight: 600; cursor: pointer;">
+                        Aceitar
+                    </button>
                 </div>
             </div>
         `;
@@ -91,7 +71,7 @@
         
         // Emite alerta sonoro
         try {
-            const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdH2JmKacmH10ZVNXZnuNpK6xraWUiXluZWx2gYqRlJGMgHNpYWRpcH2GjpOTjoR5aVxUUldbYmt3gIuTlZONhXx0b2hibHN5gIaLjY2IgHVrZGNocHN5f4OFhYN/eG9oZGNmaW9ydn+Hi4+RkIyCdmlhXl9jZ3J4f4OEhYGAenRtaGVna283fIGGiouJhoF8d3Nwd3l9f4GBf316dnBraWlrbXF0eH2ChIeIhoN+enZycXJzdXd6e36AgIB+e3dzb21tbW9xdHZ6fYCDhYaFgX15dXFvcHFydXd6fYCAgIB9enZybmxrbG5ucHN2en2ChIaGhIB8eHRwb29wcXR3en2AgIB/fHl1cW5sa2xucHN1eHyCg4WFg4B9eXVxb29wcnV3en2AgIB+e3dzb21sbW9xdHd6fYGDhIWEgX56dnJwcHFzdXh7foCAf316dnJubGxtb3J1eHuAgoSFhIJ/e3dzb29wcnR3en1/gIB+e3hzbWxrbG5wcnV4e3+Cg4WDgX97d3Rvb3Bydnh7foCAf356dnJubGxtb3J1eHuAgoSFhIJ/e3dzb29wcnR3en1/gIB+e3hzbWxrbG5wcnV4e3+Cg4WDgX97d3Rvb3Bydnh7foCAf356dnJubGxtb3J1eHuAgoSFhIJ/e3dzb29wcnR3en1/gIB+e3hzbWxrbG5wcnV4e3+Cg4WDgX97d3Rvb3Bydnh7foCAf356dnJubGxtb3J1eHuAgoSFhIJ/e3dzb29wcnR3en1/gIB+e3hzbWxrbG5wcnV4e3+Cg4WDgX97d3Rvb3Bydnh7foCAf356dnJubGxtb3J1eHuAgoSFhIJ/e3dzb29wcnR3en1/gIB+e3hzbWxrbG5wcnV4e3+Cg4WDgX97d3Rvb3Bydnh7foCAf356dnJubGxtb3J1eHuAgoSFhIJ/e3dzb29wcnR3en1/gIB+e3hzbWxrbG5wcnV4e3+Cg4WDgX97d3Rvb3Bydnh7foCAf356dnJubGxtb3J1eHuAgoSFhIJ/e3dzb29wcnR3en1/gIB+e3hzbWxrbG5wcnV4e3+Cg4WDgX97d3Rvb3Bydnh7foCAf356dnJubGxtb3J1eHuAgoSFhIJ/e3dzb29wcnR3en1/gIB+e3hzbWxrbG5wcnV4e3+Cg4WDgX97d3Rvb3Bydnh7foCAf356dnJubA==');
+            const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdH2JmKacmH10ZVNXZnuNpK6xraWUiXluZWx2gYqRlJGMgHNpYWRpcH2GjpOTjoR5aVxUUldbYmt3gIuTlZONhXx0b2hibHN5gIaLjY2IgHVrZGNocHN5f4OFhYN/eG9oZGNmaW9ydn+Hi4+RkIyCdmlhXl9jZ3J4f4OEhYGAenRtaGVna293fIGGiouJhoF8d3Nwd3l9f4GBf316dnBraWlrbXF0eH2ChouMioaBeXNubGxucHR4e36BgoKBfnp1cW1ra2xvcXR3en2ChIeIhoN+enZycXJzdXd6e36AgIB+e3dzb21tbW9xdHZ6fYCDhYaFgX15dXFvcHFydXd6fYCAgIB9enZybmxrbG5ucHN2en2ChIaGhIB8eHRwb29wcXR3en2AgIB/fHl1cW5sa2xucHN1eHyCg4WFg4B9eXVxb29wcnV3en2AgIB+e3dzb21sbW9xdHd6fYGDhIWEgX56dnJwcHFzdXh7foCAf316dnJubGxtb3J1eHuAgoSFhIJ/e3dzb29wcnR3en1/gIB+e3hzbWxrbG5wcnV4e3+Cg4WDgX97d3Rvb3Bydnh7foCAf356dnJubGxtb3J1eHuAgoSFhIJ/e3dzb29wcnR3en1/gIB+e3hzbWxrbG5wcnV4e3+Cg4WDgX97d3Rvb3Bydnh7foCAf356dnJubGxtb3J1eHuAgoSFhIJ/e3dzb29wcnR3en1/gIB+e3hzbWxrbG5wcnV4e3+Cg4WDgX97d3Rvb3Bydnh7foCAf356dnJubGxtb3J1eHuAgoSFhIJ/e3dzb29wcnR3en1/gIB+e3hzbWxrbG5wcnV4e3+Cg4WDgX97d3Rvb3Bydnh7foCAf356dnJubGxtb3J1eHuAgoSFhIJ/e3dzb29wcnR3en1/gIB+e3hzbWxrbG5wcnV4e3+Cg4WDgX97d3Rvb3Bydnh7foCAf356dnJubGxtb3J1eHuAgoSFhIJ/e3dzb29wcnR3en1/gIB+e3hzbWxrbG5wcnV4e3+Cg4WDgX97d3Rvb3Bydnh7foCAf356dnJubGxtb3J1eHuAgoSFhIJ/e3dzb29wcnR3en1/gIB+e3hzbWxrbG5wcnV4e3+Cg4WDgX97d3Rvb3Bydnh7foCAf356dnJubGxtb3J1eHuAgoSFhIJ/e3dzb29wcnR3en1/gIB+e3hzbWxrbG5wcnV4e3+Cg4WDgX97d3Rvb3Bydnh7foCAf356dnJubGxtb3J1eHuAgoSFhIJ/e3dzb29wcnR3en1/gIB+e3hzbWxrbG5wcnV4e3+Cg4WDgX97d3Rvb3Bydnh7foCAf356dnJubGxtb3J1eHuAgoSFhIJ/e3dzb29wcnR3en1/gIB+e3hzbWxrbG5wcnV4e3+Cg4WDgX97d3Rvb3Bydnh7foCAf356dnJubGxtb3J1eHuAgoSFhIJ/e3dzb29wcnR3en1/gIB+e3hzbWxrbG5wcnV4e3+Cg4WDgX97d3Rvb3Bydnh7foCAf356dnJubA==');
             audio.play();
         } catch (error) {
             console.warn('Erro ao tocar som de alerta:', error);
@@ -105,19 +85,6 @@
         mostrarNotificacao('Nova solicitação de negociação recebida!', 'warning');
     }
     
-    // Função auxiliar para montar a disputa com dados de pedido real
-    function montarDisputaComPedidoReal(pedidoId, dadosPedido) {
-        return {
-            disputeId: 'disp_' + Date.now(),
-            orderId: pedidoId,
-            type: 'CANCELLATION_REQUEST',
-            customerName: dadosPedido.customer?.name || 'Cliente não identificado',
-            reason: 'Solicitação de cancelamento pelo cliente',
-            expiresAt: new Date(Date.now() + 300000).toISOString(),
-            timeoutAction: 'ACCEPT'
-        };
-    }
-    
     // Função para fechar o modal
     function fecharNegociacaoSimples() {
         const modalContainer = document.getElementById('modal-negociacao-simples');
@@ -126,36 +93,12 @@
         }
     }
     
-function responderNegociacao(disputeId, orderId, resposta) {
-    console.log('Funções globais disponíveis:', {
-        aceitarDisputa: typeof window.aceitarDisputa,
-        rejeitarDisputa: typeof window.rejeitarDisputa,
-        fecharModalNegociacao: typeof window.fecharModalNegociacao
-    });
-
-    if (resposta === 'ACCEPT') {
-        // Verifica se a função está disponível antes de chamar
-        if (typeof aceitarDisputa === 'function') {
-            aceitarDisputa(disputeId);
-        } else if (typeof window.aceitarDisputa === 'function') {
-            window.aceitarDisputa(disputeId);
-        } else {
-            console.error('Função aceitarDisputa não encontrada');
-        }
-    } else if (resposta === 'REJECT') {
-        // Verifica se a função está disponível antes de chamar
-        if (typeof rejeitarDisputa === 'function') {
-            rejeitarDisputa(disputeId);
-        } else if (typeof window.rejeitarDisputa === 'function') {
-            window.rejeitarDisputa(disputeId);
-        } else {
-            console.error('Função rejeitarDisputa não encontrada');
-        }
+    // Função para responder a negociação
+    function responderNegociacao(disputeId, resposta) {
+        let tipoResposta = resposta === 'ACCEPT' ? 'aceita' : 'rejeitada';
+        mostrarNotificacao(`Negociação ${tipoResposta} com sucesso!`, 'success');
+        fecharNegociacaoSimples();
     }
-
-    // Fecha o modal de negociação simples
-    fecharNegociacaoSimples();
-}
     
     // Função para mostrar notificação
     function mostrarNotificacao(mensagem, tipo = 'info') {
@@ -208,53 +151,34 @@ function responderNegociacao(disputeId, orderId, resposta) {
         }, 3000);
     }
     
-// Expõe a função principal globalmente
-window.mostrarNegociacao = mostrarNegociacao;
-
-// Função para buscar detalhes do pedido e abrir negociação
-async function abrirNegociacaoComPedidoReal(pedidoId) {
-    try {
-        // Busca os detalhes do pedido usando a função makeAuthorizedRequest
-        const pedido = await makeAuthorizedRequest(`/order/v1.0/orders/${pedidoId}`, 'GET');
+    // Expõe a função principal globalmente
+    window.mostrarNegociacao = mostrarNegociacao;
+    
+    // Adiciona botão de teste na interface
+    function adicionarBotaoTeste() {
+        const botao = document.createElement('button');
+        botao.textContent = 'Testar Negociação';
+        botao.style.position = 'fixed';
+        botao.style.top = '10px';
+        botao.style.right = '10px';
+        botao.style.zIndex = '1000';
+        botao.style.padding = '8px 16px';
+        botao.style.backgroundColor = '#ea1d2c';
+        botao.style.color = 'white';
+        botao.style.border = 'none';
+        botao.style.borderRadius = '4px';
+        botao.style.cursor = 'pointer';
         
-        // Abre o modal de negociação com os detalhes do pedido
-        mostrarNegociacao(pedidoId, pedido);
-    } catch (error) {
-        console.error('Erro ao buscar detalhes do pedido:', error);
-        mostrarNotificacao('Não foi possível buscar os detalhes do pedido', 'error');
+        botao.addEventListener('click', function() {
+            // Usa o ID do pedido fornecido ou gera um novo
+            const pedidoId = '68192402-8549-4199-be76-7de73cac9595';
+            mostrarNegociacao(pedidoId);
+        });
+        
+        document.body.appendChild(botao);
     }
-}
-
-window.abrirNegociacaoComPedidoReal = abrirNegociacaoComPedidoReal;
-
-// Adiciona botão de teste na interface
-function adicionarBotaoTeste() {
-    const botao = document.createElement('button');
-    botao.textContent = 'Testar Negociação';
-    botao.style.position = 'fixed';
-    botao.style.top = '10px';
-    botao.style.right = '10px';
-    botao.style.zIndex = '1000';
-    botao.style.padding = '8px 16px';
-    botao.style.backgroundColor = '#ea1d2c';
-    botao.style.color = 'white';
-    botao.style.border = 'none';
-    botao.style.borderRadius = '4px';
-    botao.style.cursor = 'pointer';
     
-    botao.addEventListener('click', function() {
-        // Abre prompt para inserir ID do pedido
-        const pedidoId = prompt('Digite o ID do pedido para negociação:', '68192402-8549-4199-be76-7de73cac9595');
-        
-        if (pedidoId) {
-            abrirNegociacaoComPedidoReal(pedidoId);
-        }
-    });
-    
-    document.body.appendChild(botao);
-}
-
-// Inicializa
-setTimeout(adicionarBotaoTeste, 1000);
-console.log('🤝 Módulo simplificado de negociação carregado com sucesso');
+    // Inicializa
+    setTimeout(adicionarBotaoTeste, 1000);
+    console.log('🤝 Módulo simplificado de negociação carregado com sucesso');
 })();
