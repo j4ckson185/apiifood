@@ -319,7 +319,6 @@ function criarContainerModalNegociacao() {
     console.log('✅ Container do modal de negociação criado');
 }
 
-// Função para exibir o modal de negociação
 function exibirModalNegociacao(dispute) {
     // Atualiza o ID da disputa atual
     currentDisputeId = dispute.disputeId;
@@ -376,8 +375,50 @@ function exibirModalNegociacao(dispute) {
     
     // Gera HTML para as alternativas
     let alternativesHtml = '';
-    if (alternatives && alternatives.length > 0) {
+    
+    // Verificar se é uma disputa relacionada a atraso
+    const isDelayRelated = disputeType === 'PREPARATION_TIME' || 
+                          disputeType === 'ORDER_LATE' || 
+                          disputeType === 'CANCELLATION_WITH_DELAY_PROPOSAL';
+                    
+    if (isDelayRelated) {
+        // Adiciona a seção de opções de tempo
         alternativesHtml = `
+            <div class="negotiation-alternatives">
+                <h3>Opções de Resposta</h3>
+                <div class="alternatives-container">
+                    <div class="time-options-section">
+                        <h4>Adicionar Tempo ao Pedido</h4>
+                        <div class="time-options-grid">
+                            <button class="time-option-button" onclick="proporTempoAdicional('${dispute.disputeId}', '10', 'HIGH_STORE_DEMAND')">
+                                <i class="fas fa-clock"></i> +10 minutos
+                            </button>
+                            <button class="time-option-button" onclick="proporTempoAdicional('${dispute.disputeId}', '15', 'HIGH_STORE_DEMAND')">
+                                <i class="fas fa-clock"></i> +15 minutos
+                            </button>
+                            <button class="time-option-button" onclick="proporTempoAdicional('${dispute.disputeId}', '20', 'HIGH_STORE_DEMAND')">
+                                <i class="fas fa-clock"></i> +20 minutos
+                            </button>
+                            <button class="time-option-button" onclick="proporTempoAdicional('${dispute.disputeId}', '30', 'HIGH_STORE_DEMAND')">
+                                <i class="fas fa-clock"></i> +30 minutos
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="cancellation-options-section">
+                        <h4>Informar que o Pedido Não Será Entregue</h4>
+                        <button class="cancellation-option-button" onclick="abrirModalMotivoCancelamento('${dispute.disputeId}')">
+                            <i class="fas fa-times-circle"></i> Pedido Não Será Entregue
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+    
+    // Adiciona as alternativas originais da API (se houver)
+    if (alternatives && alternatives.length > 0) {
+        alternativesHtml += `
             <div class="negotiation-alternatives">
                 <h3>Alternativas Disponíveis</h3>
                 <div class="alternatives-container">
@@ -464,6 +505,19 @@ function exibirModalNegociacao(dispute) {
         `;
     }
     
+    // Adiciona seção para resposta do cliente se existir
+    let clientResponseHtml = '';
+    if (dispute.responseFromCustomer) {
+        clientResponseHtml = `
+            <div class="customer-response">
+                <h3>Resposta do Cliente</h3>
+                <div class="response-content">
+                    <p><i class="fas fa-comment"></i> ${dispute.responseFromCustomer}</p>
+                </div>
+            </div>
+        `;
+    }
+    
     // Cria o conteúdo do modal
     modalContainer.innerHTML = `
         <div class="modal-negociacao-content">
@@ -498,6 +552,8 @@ function exibirModalNegociacao(dispute) {
                     ` : ''}
                 </div>
                 
+                ${clientResponseHtml}
+                
                 ${dispute.photos && dispute.photos.length > 0 ? `
                 <div class="dispute-photos">
                     <h3>Evidências do cliente</h3>
@@ -516,9 +572,11 @@ function exibirModalNegociacao(dispute) {
                 <div class="dispute-message">
                     <p class="message-text">
                         <i class="fas fa-info-circle"></i>
-                        ${alternatives.length > 0 ? 
-                            'Você pode aceitar o cancelamento, rejeitá-lo ou oferecer uma alternativa.' : 
-                            'Você pode aceitar ou rejeitar esta solicitação de cancelamento.'}
+                        ${isDelayRelated ? 
+                            'Selecione uma das opções acima ou aceite/rejeite a solicitação de cancelamento.' : 
+                            (alternatives.length > 0 ? 
+                                'Você pode aceitar o cancelamento, rejeitá-lo ou oferecer uma alternativa.' : 
+                                'Você pode aceitar ou rejeitar esta solicitação de cancelamento.')}
                     </p>
                 </div>
             </div>
@@ -543,6 +601,193 @@ function exibirModalNegociacao(dispute) {
     }
     
     console.log('✅ Modal de negociação exibido para a disputa:', dispute);
+}
+
+async function proporTempoAdicional(disputeId, minutos, motivo) {
+    try {
+        console.log(`🤝 Propondo tempo adicional de ${minutos} minutos para a disputa ${disputeId}`);
+        showLoading();
+
+        // Buscar a alternativa relacionada a tempo adicional
+        const disputa = activeDisputes.find(d => d.disputeId === disputeId);
+        if (!disputa) throw new Error("Disputa não encontrada");
+        
+        // Encontra alternativa de tempo adicional (se existir)
+        const alternatives = disputa.metadata?.alternatives || [];
+        const timeAlternative = alternatives.find(a => a.type === "ADDITIONAL_TIME");
+        
+        let alternativeId = null;
+        let endpoint = "";
+        let payload = {
+            type: "ADDITIONAL_TIME",
+            metadata: {
+                additionalTimeInMinutes: String(minutos),
+                additionalTimeReason: motivo
+            }
+        };
+        
+        // Se encontrou uma alternativa específica, usa seu ID
+        if (timeAlternative) {
+            alternativeId = timeAlternative.id;
+            endpoint = `/order/v1.0/disputes/${disputeId}/alternatives/${alternativeId}`;
+        } else {
+            // Caso contrário, usa o endpoint genérico
+            endpoint = `/order/v1.0/disputes/${disputeId}/additionalTime`;
+        }
+
+        console.log("📦 Payload a ser enviado:", payload);
+        console.log("🔗 Endpoint:", endpoint);
+
+        const response = await makeAuthorizedRequest(endpoint, "POST", payload);
+
+        console.log("✅ Tempo adicional proposto com sucesso:", response);
+        showToast(`Tempo adicional de ${minutos} minutos proposto com sucesso`, "success");
+
+        // Remove from active disputes and close modal
+        removeActiveDispute(disputeId);
+        fecharModalNegociacao();
+
+        return true;
+    } catch (error) {
+        console.error("❌ Erro ao propor tempo adicional:", error);
+        showToast(`Erro: ${error.message}`, "error");
+        return false;
+    } finally {
+        hideLoading();
+    }
+}
+
+// Variáveis para controle do modal de motivo de cancelamento
+let currentDisputeIdForCancellation = null;
+
+// Função para abrir o modal de motivo de cancelamento
+function abrirModalMotivoCancelamento(disputeId) {
+    // Atualiza o ID da disputa atual para cancelamento
+    currentDisputeIdForCancellation = disputeId;
+    
+    // Fecha o modal de negociação
+    const modalNegociacao = document.getElementById('modal-negociacao-container');
+    if (modalNegociacao) {
+        modalNegociacao.style.display = 'none';
+    }
+    
+    // Cria o modal se não existir
+    let modalContainer = document.getElementById('modal-motivo-cancelamento');
+    if (!modalContainer) {
+        modalContainer = document.createElement('div');
+        modalContainer.id = 'modal-motivo-cancelamento';
+        modalContainer.className = 'modal';
+        
+        modalContainer.innerHTML = `
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2>Motivo do Cancelamento</h2>
+                    <span class="close-modal" onclick="fecharModalMotivoCancelamento()">&times;</span>
+                </div>
+                <div class="modal-body">
+                    <p>Selecione o motivo pelo qual o pedido não será entregue:</p>
+                    <select id="motivo-cancelamento" class="cancellation-select">
+                        <option value="HIGH_STORE_DEMAND">Alta demanda na loja</option>
+                        <option value="STORE_SYSTEM_ISSUE">Problemas no sistema da loja</option>
+                        <option value="INTERNAL_DIFFICULTIES">A loja está passando por dificuldades internas</option>
+                        <option value="OUT_OF_PRODUCT">Produtos indisponíveis</option>
+                        <option value="CLOSED_STORE">Loja está fechando</option>
+                        <option value="OTHER">Outro motivo</option>
+                    </select>
+                    
+                    <div id="outro-motivo-container" style="display: none; margin-top: 15px;">
+                        <label for="outro-motivo">Especifique o motivo:</label>
+                        <textarea id="outro-motivo" rows="3" class="cancellation-textarea" placeholder="Descreva o motivo do cancelamento..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button id="confirmar-motivo-cancelamento" class="action-button cancel" onclick="confirmarCancelamentoLoja()">Confirmar Cancelamento</button>
+                    <button class="action-button" onclick="fecharModalMotivoCancelamento()">Voltar</button>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(modalContainer);
+        
+        // Adiciona evento para mostrar/ocultar o campo "outro motivo"
+        const selectMotivo = document.getElementById('motivo-cancelamento');
+        selectMotivo.addEventListener('change', function() {
+            const outroMotivoContainer = document.getElementById('outro-motivo-container');
+            if (this.value === 'OTHER') {
+                outroMotivoContainer.style.display = 'block';
+            } else {
+                outroMotivoContainer.style.display = 'none';
+            }
+        });
+    }
+    
+    // Exibe o modal
+    modalContainer.style.display = 'flex';
+}
+
+// Função para fechar o modal de motivo de cancelamento
+function fecharModalMotivoCancelamento() {
+    const modalContainer = document.getElementById('modal-motivo-cancelamento');
+    if (modalContainer) {
+        modalContainer.style.display = 'none';
+    }
+    
+    // Reexibe o modal de negociação
+    const modalNegociacao = document.getElementById('modal-negociacao-container');
+    if (modalNegociacao) {
+        modalNegociacao.style.display = 'flex';
+    }
+    
+    // Limpa o ID atual
+    currentDisputeIdForCancellation = null;
+}
+
+// Função para confirmar cancelamento pela loja
+async function confirmarCancelamentoLoja() {
+    try {
+        if (!currentDisputeIdForCancellation) {
+            showToast('Erro: ID da disputa não encontrado', 'error');
+            return;
+        }
+        
+        // Obtém o motivo selecionado
+        const selectMotivo = document.getElementById('motivo-cancelamento');
+        const motivoSelecionado = selectMotivo.value;
+        
+        // Verifica se é "outro" e obtém a descrição
+        let motivoDescricao = selectMotivo.options[selectMotivo.selectedIndex].text;
+        if (motivoSelecionado === 'OTHER') {
+            const outroMotivo = document.getElementById('outro-motivo').value.trim();
+            if (!outroMotivo) {
+                showToast('Por favor, especifique o motivo do cancelamento', 'warning');
+                return;
+            }
+            motivoDescricao = outroMotivo;
+        }
+        
+        // Fechar o modal
+        fecharModalMotivoCancelamento();
+        showLoading();
+        
+        // Enviar a requisição de aceitação de cancelamento
+        const response = await makeAuthorizedRequest(`/order/v1.0/disputes/${currentDisputeIdForCancellation}/accept`, 'POST', {
+            reason: motivoSelecionado,
+            detailReason: motivoDescricao
+        });
+        
+        console.log('✅ Cancelamento confirmado com sucesso:', response);
+        showToast('Cancelamento confirmado com sucesso!', 'success');
+        
+        // Remove da lista de disputas ativas
+        removeActiveDispute(currentDisputeIdForCancellation);
+        
+    } catch (error) {
+        console.error('❌ Erro ao confirmar cancelamento:', error);
+        showToast(`Erro ao confirmar cancelamento: ${error.message}`, 'error');
+    } finally {
+        hideLoading();
+        currentDisputeIdForCancellation = null;
+    }
 }
 
 // Função para fechar o modal de negociação
@@ -1035,6 +1280,124 @@ function adicionarEstilosNegociacao() {
             justify-content: center;
         }
 
+        /* Novos estilos para opções de tempo */
+        .time-options-section,
+        .cancellation-options-section {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border-left: 4px solid #007bff;
+        }
+        
+        .cancellation-options-section {
+            border-left-color: #dc3545;
+        }
+        
+        .time-options-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 10px;
+            margin-top: 15px;
+        }
+        
+        .time-option-button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            padding: 12px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            transition: background-color 0.2s, transform 0.2s;
+        }
+        
+        .time-option-button:hover {
+            background-color: #0069d9;
+            transform: translateY(-2px);
+        }
+        
+        .time-option-button i {
+            font-size: 18px;
+        }
+        
+        .cancellation-option-button {
+            background-color: #dc3545;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            padding: 12px;
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 15px;
+            cursor: pointer;
+            transition: background-color 0.2s, transform 0.2s;
+            font-weight: 600;
+        }
+        
+        .cancellation-option-button:hover {
+            background-color: #c82333;
+            transform: translateY(-2px);
+        }
+        
+        /* Estilos para resposta do cliente */
+        .customer-response {
+            background-color: #e6f3ff;
+            border-left: 4px solid #007bff;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .customer-response h3 {
+            font-size: 16px;
+            margin-bottom: 10px;
+            color: #0056b3;
+        }
+        
+        .response-content {
+            padding: 10px;
+            background-color: rgba(255, 255, 255, 0.6);
+            border-radius: 6px;
+        }
+        
+        .response-content p {
+            margin: 0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .response-content i {
+            color: #0056b3;
+        }
+        
+        /* Estilos para o modal de motivo de cancelamento */
+        .cancellation-select {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            margin-top: 15px;
+            font-size: 16px;
+        }
+        
+        .cancellation-textarea {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-family: inherit;
+            font-size: 16px;
+            resize: vertical;
+        }
+
         /* Animações */
         @keyframes pulse {
             0% { opacity: 1; }
@@ -1060,5 +1423,9 @@ window.fecharModalNegociacao = fecharModalNegociacao;
 window.aceitarDisputa = aceitarDisputa;
 window.rejeitarDisputa = rejeitarDisputa;
 window.proporAlternativa = proporAlternativa;
+window.proporTempoAdicional = proporTempoAdicional;
+window.abrirModalMotivoCancelamento = abrirModalMotivoCancelamento;
+window.fecharModalMotivoCancelamento = fecharModalMotivoCancelamento;
+window.confirmarCancelamentoLoja = confirmarCancelamentoLoja;
 window.abrirImagemAmpliada = abrirImagemAmpliada;
 window.fecharImagemAmpliada = fecharImagemAmpliada;
