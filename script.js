@@ -520,6 +520,9 @@ function displayOrder(order) {
         emailParagraph.textContent = `Email: ${customerEmail}`;
         orderElement.querySelector('.customer-info').appendChild(emailParagraph);
     }
+
+    // Adiciona campo "Troco Para" se disponível
+addChangeForField(orderElement, order);
     
     // Formatação correta do telefone
     let phoneText = 'Tel: N/A';
@@ -1752,6 +1755,20 @@ function showEditModal() {
     
     modal.classList.remove('hidden');
     modal.classList.add('show');
+}
+
+// Função para adicionar o campo "Troco Para" às informações do cliente
+function addChangeForField(orderElement, order) {
+    // Check if the order has changeFor information
+    if (order.payments && order.payments.changeFor) {
+        const customerInfo = orderElement.querySelector('.customer-info');
+        if (customerInfo) {
+            const changeForParagraph = document.createElement('p');
+            changeForParagraph.className = 'customer-change-for';
+            changeForParagraph.textContent = `Troco para: R$ ${order.payments.changeFor.toFixed(2)}`;
+            customerInfo.appendChild(changeForParagraph);
+        }
+    }
 }
 
 // Event Listeners
