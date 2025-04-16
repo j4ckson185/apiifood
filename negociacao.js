@@ -2010,7 +2010,6 @@ window.rejeitarDisputa = rejeitarDisputa;
 window.proporAlternativa = proporAlternativa;
 window.abrirImagemAmpliada = abrirImagemAmpliada;
 window.fecharImagemAmpliada = fecharImagemAmpliada;
-
 // Expor funções adicionais para teste direto
 window.exibirModalNegociacao = exibirModalNegociacao;
 window.processarDisputaSimulada = function(disputa) {
@@ -2018,6 +2017,3 @@ window.processarDisputaSimulada = function(disputa) {
     exibirModalNegociacao(disputa);
     emitirAlertaNegociacao();
 };
-
-// ✅ Adicione esta linha no final:
-window.initNegociacao = initNegociacao;
