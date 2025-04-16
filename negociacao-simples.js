@@ -128,9 +128,8 @@ document.addEventListener('DOMContentLoaded', function () {
     
 function responderNegociacao(disputeId, orderId, resposta) {
     try {
-if (resposta === 'ACCEPT') {
-    window.aceitarDisputa(disputeId);
-}
+        if (resposta === 'ACCEPT') {
+            window.aceitarDisputa(disputeId);
         } else if (resposta === 'REJECT') {
             window.rejeitarDisputa(disputeId);
         }
