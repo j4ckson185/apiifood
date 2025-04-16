@@ -127,32 +127,21 @@
     }
     
 function responderNegociacao(disputeId, orderId, resposta) {
-    if (resposta === 'ACCEPT') {
-        // Chamada direta para a API de cancelamento
-        makeAuthorizedRequest(`/order/v1.0/disputes/${disputeId}/accept`, 'POST')
-            .then(() => {
-                showToast('Cancelamento aceito com sucesso', 'success');
-                updateOrderStatus(orderId, 'CANCELLED');
-            })
-            .catch(error => {
-                console.error('Erro ao aceitar cancelamento:', error);
-                showToast('Erro ao processar cancelamento', 'error');
-            });
-    } else if (resposta === 'REJECT') {
-        // Chamada direta para a API de rejeição
-        makeAuthorizedRequest(`/order/v1.0/disputes/${disputeId}/reject`, 'POST')
-            .then(() => {
-                showToast('Cancelamento rejeitado', 'success');
-                updateOrderStatus(orderId, 'CONFIRMED');
-            })
-            .catch(error => {
-                console.error('Erro ao rejeitar cancelamento:', error);
-                showToast('Erro ao processar rejeição', 'error');
-            });
-    }
+    try {
+        if (resposta === 'ACCEPT') {
+            // Chama a função de aceitação já existente
+            aceitarDisputa(disputeId);
+        } else if (resposta === 'REJECT') {
+            // Chama a função de rejeição já existente
+            rejeitarDisputa(disputeId);
+        }
 
-    // Fecha o modal de negociação simples
-    fecharNegociacaoSimples();
+        // Fecha o modal de negociação simples
+        fecharNegociacaoSimples();
+    } catch (error) {
+        console.error('Erro ao processar resposta:', error);
+        showToast('Erro ao processar resposta', 'error');
+    }
 }
     
     // Função para mostrar notificação
