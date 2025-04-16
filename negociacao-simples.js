@@ -126,18 +126,22 @@
         }
     }
     
-    // Função para responder a negociação
-    function responderNegociacao(disputeId, resposta) {
-        let tipoResposta = resposta === 'ACCEPT' ? 'aceita' : 'rejeitada';
-        mostrarNotificacao(`Negociação ${tipoResposta} com sucesso!`, 'success');
-        fecharNegociacaoSimples();
-        
-        // Salva a resposta no localStorage para o seu sistema capturar
-        localStorage.setItem('simulatedDisputeResponse', JSON.stringify({
-            disputeId: disputeId,
-            action: resposta
-        }));
+// Função para responder a negociação
+function responderNegociacao(disputeId, resposta) {
+    const orderId = currentOrderId; // Usando a variável que já existe no seu sistema
+
+    if (resposta === 'ACCEPT') {
+        // Usa a função handleOrderAction já existente para solicitar cancelamento
+        handleOrderAction(orderId, 'requestCancellation');
+    } else if (resposta === 'REJECT') {
+        // Implementa a lógica de rejeição usando as funções padrão
+        showToast('Cancelamento rejeitado', 'info');
+        updateOrderStatus(orderId, 'CONFIRMED'); // Força status de confirmado
     }
+
+    // Fecha o modal de negociação simples
+    fecharNegociacaoSimples();
+}
     
     // Função para mostrar notificação
     function mostrarNotificacao(mensagem, tipo = 'info') {
