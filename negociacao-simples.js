@@ -142,7 +142,7 @@ function responderNegociacao(disputeId, orderId, resposta) {
     }
 }
 
-    function aguardarFuncoesGlobais(callback) {
+function aguardarFuncoesGlobais(callback) {
     const pronto = typeof window.aceitarDisputa === 'function' && typeof window.rejeitarDisputa === 'function';
     if (pronto) {
         callback();
@@ -237,14 +237,16 @@ function adicionarBotaoTeste() {
     botao.style.borderRadius = '4px';
     botao.style.cursor = 'pointer';
     
-    botao.addEventListener('click', function() {
-        // Abre prompt para inserir ID do pedido
-        const pedidoId = prompt('Digite o ID do pedido para negociação:', '68192402-8549-4199-be76-7de73cac9595');
-        
-        if (pedidoId) {
-            aguardarFuncoesGlobais(() => abrirNegociacaoComPedidoReal(pedidoId));
+botao.addEventListener('click', function() {
+    const pedidoId = prompt('Digite o ID do pedido para negociação:', '68192402-8549-4199-be76-7de73cac9595');
+    if (pedidoId) {
+        if (typeof window.initNegociacao === 'function') {
+            window.initNegociacao(); // 🔥 força a inicialização
         }
-    });
+
+        aguardarFuncoesGlobais(() => abrirNegociacaoComPedidoReal(pedidoId));
+    }
+});
     
     document.body.appendChild(botao);
 }
