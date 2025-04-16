@@ -101,34 +101,19 @@ async function processarEventoDisputa(event) {
         // Now we have the disputeId, we can proceed with the rest of the function
         console.log('✅ Processando disputa com ID:', disputeId);
         
-        // Buscar detalhes completos da disputa
-        let disputeDetails;
-        try {
-            disputeDetails = await makeAuthorizedRequest(`/order/v1.0/disputes/${disputeId}`, 'GET');
-            console.log('✅ Detalhes da disputa recebidos:', disputeDetails);
-        } catch (error) {
-            console.warn('⚠️ Não foi possível obter detalhes adicionais da disputa:', error);
-            
-            // Cria um objeto de disputa a partir dos dados do evento
-            disputeDetails = {
-                disputeId: disputeId,
-                orderId: event.orderId,
-                type: event.metadata?.handshakeType || 'CANCELLATION_REQUEST',
-                reason: event.metadata?.message || 'Motivo não especificado',
-                // Use customer name from the order if available
-                customerName: await getCustomerNameFromOrder(event.orderId) || 'Cliente',
-                expiresAt: event.metadata?.expiresAt,
-                timeoutAction: event.metadata?.timeoutAction || 'ACCEPT'
-            };
-            
-            console.log('✅ Criado objeto de disputa a partir do evento:', disputeDetails);
-        }
-        
-        // Combina os dados do evento com os detalhes obtidos
+        // NÃO buscar detalhes adicionais - usar diretamente os dados do evento
         const disputeData = {
-            ...event,
-            ...disputeDetails,
-            disputeId: disputeId
+            disputeId: disputeId,
+            orderId: event.orderId,
+            customerName: await getCustomerNameFromOrder(event.orderId) || 'Cliente',
+            type: event.metadata?.handshakeType || 'UNKNOWN',
+            reason: event.metadata?.message || 'Motivo não especificado',
+            expiresAt: event.metadata?.expiresAt,
+            timeoutAction: event.metadata?.timeoutAction,
+            alternatives: event.metadata?.alternatives || [],
+            metadata: event.metadata, // Preservar todo o metadata para uso posterior
+            // Preservar outros campos do evento
+            ...event
         };
         
         // Adiciona à lista de disputas ativas
@@ -186,8 +171,22 @@ async function aceitarDisputa(disputeId) {
         console.log(`🤝 Aceitando disputa ${disputeId}...`);
         showLoading();
         
-        // Corrected endpoint URL format
-        const response = await makeAuthorizedRequest(`/order/v1.0/disputes/${disputeId}/accept`, 'POST');
+        // Busca a disputa na lista ativa
+        const disputa = activeDisputes.find(d => d.disputeId === disputeId);
+        let body = null;
+        
+        // Verifica se precisa enviar reason baseado no metadata
+        if (disputa && disputa.metadata && disputa.metadata.metadata && 
+            disputa.metadata.metadata.acceptCancellationReasons) {
+            body = {
+                reason: disputa.metadata.metadata.acceptCancellationReasons[0], // Usa o primeiro disponível
+                detailReason: "Confirmado pelo estabelecimento"
+            };
+            console.log('✅ Enviando reason para aceitação:', body);
+        }
+        
+        // Usa o endpoint correto com ou sem body conforme necessário
+        const response = await makeAuthorizedRequest(`/order/v1.0/disputes/${disputeId}/accept`, 'POST', body);
         
         console.log('✅ Disputa aceita com sucesso:', response);
         showToast('Negociação aceita com sucesso', 'success');
@@ -213,10 +212,12 @@ async function rejeitarDisputa(disputeId) {
         console.log(`🤝 Rejeitando disputa ${disputeId}...`);
         showLoading();
         
-        // Corrected endpoint URL format
-        const response = await makeAuthorizedRequest(`/order/v1.0/disputes/${disputeId}/reject`, 'POST', {
-            reason: "Rejeição feita pelo estabelecimento"
-        });
+        // Obrigatório enviar reason para rejeição
+        const body = {
+            reason: "Rejeitado pelo estabelecimento"
+        };
+        
+        const response = await makeAuthorizedRequest(`/order/v1.0/disputes/${disputeId}/reject`, 'POST', body);
         
         console.log('✅ Disputa rejeitada com sucesso:', response);
         showToast('Negociação rejeitada com sucesso', 'success');
@@ -242,23 +243,48 @@ async function proporAlternativa(disputeId, alternativeId) {
         console.log(`🤝 Propondo alternativa ${alternativeId} para disputa ${disputeId}...`);
         showLoading();
         
-        // No caso de reembolso personalizado, pode ser necessário enviar um valor no body
-        let body = null;
+        // Busca a disputa e a alternativa específica
         const disputa = activeDisputes.find(d => d.disputeId === disputeId);
+        let body = null;
         
-        // Se for reembolso personalizado, adiciona o valor ao body
         if (disputa && disputa.alternatives) {
-            const alternative = disputa.alternatives.find(a => a.id === alternativeId);
-            if (alternative && alternative.type === 'CUSTOM_REFUND') {
-                // Obtém o valor do input de reembolso personalizado
-                const customRefundValue = document.getElementById('custom-refund-value').value;
-                if (customRefundValue) {
-                    body = { value: parseFloat(customRefundValue) };
+            // Busca nos alternatives em metadata (caminho correto)
+            const alternativas = disputa.metadata && disputa.metadata.alternatives 
+                ? disputa.metadata.alternatives 
+                : disputa.alternatives;
+            
+            const alternative = alternativas.find(a => a.id === alternativeId);
+            
+            // Configuração do body conforme o tipo de alternativa
+            if (alternative) {
+                console.log('✅ Alternativa encontrada:', alternative);
+                
+                // Reembolso personalizado
+                if (alternative.type === 'CUSTOM_REFUND') {
+                    const customRefundValue = document.getElementById('custom-refund-value').value;
+                    if (customRefundValue) {
+                        body = { value: parseFloat(customRefundValue) };
+                    }
+                }
+                // Tempo adicional
+                else if (alternative.type === 'ADDITIONAL_TIME') {
+                    // Verificar se a alternativa tem opções de tempo disponíveis
+                    const timeOptions = alternative.metadata?.allowedsAdditionalTimeInMinutes;
+                    const reasonOptions = alternative.metadata?.allowedsAdditionalTimeReasons;
+                    
+                    // Se houver opções, usar a primeira como padrão
+                    if (timeOptions && timeOptions.length > 0 && reasonOptions && reasonOptions.length > 0) {
+                        body = {
+                            additionalTimeInMinutes: timeOptions[0],
+                            reason: reasonOptions[0]
+                        };
+                    }
                 }
             }
         }
         
-        // Corrected endpoint URL format
+        console.log('✅ Enviando body para alternativa:', body);
+        
         const response = await makeAuthorizedRequest(
             `/order/v1.0/disputes/${disputeId}/alternatives/${alternativeId}`, 
             'POST',
@@ -336,8 +362,15 @@ function exibirModalNegociacao(dispute) {
         timeRemaining = diffMins > 0 ? `${diffMins} minutos` : 'expirando';
     }
     
-    // Verifica se há alternativas disponíveis
-    const hasAlternatives = dispute.alternatives && dispute.alternatives.length > 0;
+// Verifica se há alternativas disponíveis
+const hasAlternatives = dispute.metadata && dispute.metadata.alternatives 
+    ? dispute.metadata.alternatives.length > 0 
+    : (dispute.alternatives && dispute.alternatives.length > 0);
+
+// Obter a lista de alternativas do local correto
+const alternatives = dispute.metadata && dispute.metadata.alternatives 
+    ? dispute.metadata.alternatives 
+    : dispute.alternatives || [];
     
     // Cria o título baseado no tipo de disputa
     let disputeTitle = 'Solicitação de Negociação';
@@ -402,7 +435,7 @@ function exibirModalNegociacao(dispute) {
                 <div class="alternatives-container">
         `;
         
-        dispute.alternatives.forEach(alternative => {
+        alternatives.forEach(alternative => {
             let altContent = '';
             
             switch (alternative.type) {
