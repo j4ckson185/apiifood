@@ -127,12 +127,30 @@
     }
     
 function responderNegociacao(disputeId, orderId, resposta) {
+    console.log('Funções globais disponíveis:', {
+        aceitarDisputa: typeof window.aceitarDisputa,
+        rejeitarDisputa: typeof window.rejeitarDisputa,
+        fecharModalNegociacao: typeof window.fecharModalNegociacao
+    });
+
     if (resposta === 'ACCEPT') {
-        // Usa a função aceitarDisputa do módulo de negociação
-        aceitarDisputa(disputeId);
+        // Verifica se a função está disponível antes de chamar
+        if (typeof aceitarDisputa === 'function') {
+            aceitarDisputa(disputeId);
+        } else if (typeof window.aceitarDisputa === 'function') {
+            window.aceitarDisputa(disputeId);
+        } else {
+            console.error('Função aceitarDisputa não encontrada');
+        }
     } else if (resposta === 'REJECT') {
-        // Usa a função rejeitarDisputa do módulo de negociação
-        rejeitarDisputa(disputeId);
+        // Verifica se a função está disponível antes de chamar
+        if (typeof rejeitarDisputa === 'function') {
+            rejeitarDisputa(disputeId);
+        } else if (typeof window.rejeitarDisputa === 'function') {
+            window.rejeitarDisputa(disputeId);
+        } else {
+            console.error('Função rejeitarDisputa não encontrada');
+        }
     }
 
     // Fecha o modal de negociação simples
