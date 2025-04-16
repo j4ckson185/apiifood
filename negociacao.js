@@ -146,6 +146,18 @@ async function processarEventoDisputa(event) {
     }
 }
 
+// Helper function to get customer name from order
+async function getCustomerNameFromOrder(orderId) {
+    if (!orderId) return null;
+    
+    try {
+        const order = await makeAuthorizedRequest(`/order/v1.0/orders/${orderId}`, 'GET');
+        return order?.customer?.name || null;
+    } catch (error) {
+        console.warn('⚠️ Não foi possível obter nome do cliente do pedido:', error);
+        return null;
+    }
+}
 
 // Função para adicionar uma disputa à lista de ativas
 function addActiveDispute(dispute) {
