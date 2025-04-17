@@ -291,6 +291,65 @@ function fecharResumoNegociacao() {
     }
 }
 
+// Verificar se uma disputa está relacionada a atraso
+function isDelayRelatedDispute(dispute) {
+    if (!dispute) return false;
+    
+    // Verifica pelo tipo da disputa
+    const disputeType = dispute.type || dispute.metadata?.handshakeType || '';
+    const isDelayType = 
+        disputeType.toUpperCase().includes('DELAY') || 
+        disputeType.toUpperCase().includes('PREPARATION_TIME') || 
+        disputeType.toUpperCase() === 'ORDER_LATE';
+    
+    // Verifica pelo motivo (reason)
+    const reason = dispute.reason || '';
+    const isDelayReason = 
+        reason.toLowerCase().includes('atraso') || 
+        reason.toLowerCase().includes('demora') || 
+        reason.toLowerCase().includes('delay');
+    
+    return isDelayType || isDelayReason;
+}
+
+// Função para ocultar o botão "Rejeitar" em disputas por atraso
+function ocultarBotaoRejeitar() {
+    // Estende a função existente
+    const originalExibirModalNegociacao = window.exibirModalNegociacao;
+    
+    if (typeof originalExibirModalNegociacao !== 'function') {
+        console.error('❌ Função exibirModalNegociacao não encontrada');
+        return;
+    }
+    
+    window.exibirModalNegociacao = function(dispute) {
+        // Primeiro, chama a função original
+        originalExibirModalNegociacao(dispute);
+        
+        try {
+            // Verifica se é uma disputa relacionada a atraso
+            if (isDelayRelatedDispute(dispute)) {
+                console.log('⏱️ Disputa relacionada a atraso, ocultando botão de rejeitar');
+                
+                // Usa setTimeout para garantir que o DOM esteja atualizado
+                setTimeout(() => {
+                    const rejectButton = document.querySelector('.modal-negociacao-footer .dispute-button.reject');
+                    if (rejectButton) {
+                        rejectButton.style.display = 'none';
+                        console.log('⏱️ Botão de rejeição ocultado com sucesso');
+                    } else {
+                        console.log('⏱️ Botão de rejeição não encontrado');
+                    }
+                }, 100);
+            }
+        } catch (error) {
+            console.error('❌ Erro ao processar modal de atraso:', error);
+        }
+    };
+    
+    console.log('✅ Interceptor para ocultar botão rejeitar adicionado');
+}
+
 // Adiciona estilos CSS específicos para o resumo
 function adicionarEstilosMinimalistas() {
     // Verifica se os estilos já foram adicionados
@@ -439,49 +498,7 @@ function adicionarEstilosMinimalistas() {
     document.head.appendChild(estilosElement);
 }
 
-// Apenas adiciona um interceptor mínimo para HANDSHAKE_SETTLEMENT
-function adicionarInterceptorSettlement() {
-    // Busca eventos HANDSHAKE_SETTLEMENT no polling existente
-    const originalPollEvents = window.pollEvents;
-    
-    if (typeof originalPollEvents !== 'function') {
-        console.error('❌ Função pollEvents não encontrada');
-        return;
-    }
-    
-    // Sobrescreve de forma segura
-    window.pollEvents = async function() {
-        if (!state.isPolling || !state.accessToken) return;
-
-        try {
-            const events = await makeAuthorizedRequest('/events/v1.0/events:polling', 'GET');
-            
-            // Se há eventos, verifica se algum é HANDSHAKE_SETTLEMENT
-            if (events && Array.isArray(events) && events.length > 0) {
-                for (const event of events) {
-                    // Intercepta apenas eventos HANDSHAKE_SETTLEMENT
-                    if ((event.code === 'HANDSHAKE_SETTLEMENT' || event.fullCode === 'HANDSHAKE_SETTLEMENT') && 
-                        event.metadata?.disputeId && 
-                        event.metadata?.status) {
-                        console.log('🤝 Interceptado HANDSHAKE_SETTLEMENT no polling');
-                        processarEventoSettlement(event);
-                    }
-                }
-            }
-            
-            // Continua com o processamento normal do polling
-            return await originalPollEvents.apply(this, arguments);
-        } catch (error) {
-            console.error('❌ Erro no interceptor de HANDSHAKE_SETTLEMENT:', error);
-            // Continua com o processamento normal em caso de erro
-            return await originalPollEvents.apply(this, arguments);
-        }
-    };
-    
-    console.log('✅ Interceptor minimalista para HANDSHAKE_SETTLEMENT adicionado');
-}
-
-// Registra funções de negociação estendidas
+// Estender proporTempoAdicional para registrar tipo de resposta
 function estenderProporTempoAdicional() {
     const originalProporTempoAdicional = window.proporTempoAdicional;
     
@@ -506,6 +523,39 @@ function estenderProporTempoAdicional() {
     };
 }
 
+// Apenas adiciona um interceptor mínimo para HANDSHAKE_SETTLEMENT
+function adicionarInterceptorSettlement() {
+    // Busca eventos HANDSHAKE_SETTLEMENT no polling existente
+    const originalHandleEvent = window.handleEvent;
+    
+    if (typeof originalHandleEvent !== 'function') {
+        console.error('❌ Função handleEvent não encontrada');
+        return;
+    }
+    
+    // Sobrescreve de forma segura
+    window.handleEvent = async function(event) {
+        try {
+            // Intercepta apenas eventos HANDSHAKE_SETTLEMENT antes de prosseguir
+            if ((event.code === 'HANDSHAKE_SETTLEMENT' || event.fullCode === 'HANDSHAKE_SETTLEMENT') &&
+                event.metadata?.disputeId && 
+                event.metadata?.status) {
+                console.log('🤝 Interceptado HANDSHAKE_SETTLEMENT no handleEvent');
+                processarEventoSettlement(event);
+            }
+            
+            // Continua com o processamento normal
+            return await originalHandleEvent.apply(this, arguments);
+        } catch (error) {
+            console.error('❌ Erro no interceptor de HANDSHAKE_SETTLEMENT:', error);
+            // Continua com o processamento normal em caso de erro
+            return await originalHandleEvent.apply(this, arguments);
+        }
+    };
+    
+    console.log('✅ Interceptor minimalista para HANDSHAKE_SETTLEMENT adicionado');
+}
+
 // Função principal para inicializar (sem afetar outros componentes)
 function initMinimalistaSettlement() {
     console.log('🚀 Inicializando tratamento minimalista para HANDSHAKE_SETTLEMENT...');
@@ -521,6 +571,9 @@ function initMinimalistaSettlement() {
     
     // Estende proporTempoAdicional para registrar o tipo de resposta
     estenderProporTempoAdicional();
+    
+    // Adiciona interceptor para ocultar botão rejeitar em disputas por atraso
+    ocultarBotaoRejeitar();
     
     // Expõe funções globalmente
     window.processarEventoSettlement = processarEventoSettlement;
