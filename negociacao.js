@@ -399,9 +399,6 @@ function exibirModalNegociacao(dispute) {
     console.log("Tempos permitidos:", allowedTimes);
     console.log("Motivos permitidos:", allowedReasons);
     
-    // Motivo padrão (primeiro da lista ou HIGH_STORE_DEMAND)
-    const defaultReason = allowedReasons[0] || "HIGH_STORE_DEMAND";
-    
     // Inicia HTML vazio
     let alternativesHtml = '';
     
@@ -418,7 +415,7 @@ function exibirModalNegociacao(dispute) {
         // Adiciona um botão para cada tempo permitido
         allowedTimes.forEach(minutes => {
             alternativesHtml += `
-                <button class="time-option-button" onclick="proporTempoAdicional('${dispute.disputeId}', '${minutes}', '${defaultReason}', '${timeAlternative?.id || ''}')">
+                <button class="time-option-button" onclick="selecionarMotivoTempo('${dispute.disputeId}', '${minutes}', '${timeAlternative?.id || ''}', ${JSON.stringify(allowedReasons)})">
                     <i class="fas fa-clock"></i> +${minutes} minutos
                 </button>`;
         });
@@ -620,9 +617,156 @@ function exibirModalNegociacao(dispute) {
     console.log('✅ Modal de negociação exibido para a disputa:', dispute);
 }
 
+// Variáveis para controle do modal de seleção de motivo
+let currentDisputeIdForReason = null;
+let currentSelectedMinutes = null;
+let currentAlternativeId = null;
+let currentAllowedReasons = [];
+
+// Função para abrir o modal de seleção de motivo após escolher o tempo
+function abrirModalSelecaoMotivo(disputeId, minutos, alternativeId, allowedReasons) {
+    // Atualiza as variáveis globais
+    currentDisputeIdForReason = disputeId;
+    currentSelectedMinutes = minutos;
+    currentAlternativeId = alternativeId;
+    currentAllowedReasons = allowedReasons;
+    
+    // Fecha o modal de negociação
+    const modalNegociacao = document.getElementById('modal-negociacao-container');
+    if (modalNegociacao) {
+        modalNegociacao.style.display = 'none';
+    }
+    
+    // Cria o modal se não existir
+    let modalContainer = document.getElementById('modal-selecao-motivo');
+    if (!modalContainer) {
+        modalContainer = document.createElement('div');
+        modalContainer.id = 'modal-selecao-motivo';
+        modalContainer.className = 'modal';
+        
+        modalContainer.innerHTML = `
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2>Motivo do Atraso</h2>
+                    <span class="close-modal" onclick="fecharModalSelecaoMotivo()">&times;</span>
+                </div>
+                <div class="modal-body">
+                    <p>Selecione o motivo pelo qual o pedido atrasará <strong>${minutos} minutos</strong>:</p>
+                    <select id="motivo-atraso" class="cancellation-select">
+                        <!-- Os motivos serão adicionados dinamicamente -->
+                    </select>
+                </div>
+                <div class="modal-footer">
+                    <button id="confirmar-motivo-atraso" class="action-button confirm" onclick="confirmarTempoAdicional()">Confirmar Atraso</button>
+                    <button class="action-button" onclick="fecharModalSelecaoMotivo()">Voltar</button>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(modalContainer);
+    } else {
+        // Atualiza o texto para o tempo selecionado
+        const textoMotivo = modalContainer.querySelector('.modal-body p');
+        if (textoMotivo) {
+            textoMotivo.innerHTML = `Selecione o motivo pelo qual o pedido atrasará <strong>${minutos} minutos</strong>:`;
+        }
+    }
+    
+    // Preenche os motivos disponíveis
+    const selectMotivo = document.getElementById('motivo-atraso');
+    if (selectMotivo) {
+        selectMotivo.innerHTML = '';
+        
+        // Mapeamento de códigos para textos mais amigáveis
+        const motivosTexto = {
+            'HIGH_STORE_DEMAND': 'Alta demanda na loja',
+            'OPERATIONAL_ISSUES': 'Problemas operacionais',
+            'LACK_OF_DRIVERS': 'Falta de entregadores',
+            'ORDER_OUT_FOR_DELIVERY': 'Pedido já saiu para entrega',
+            'DRIVER_IS_ALREADY_AT_THE_ADDRESS': 'Entregador já está no endereço',
+            'DRIVER_COULDNT_FIND_THE_ADDRESS': 'Entregador não encontrou o endereço',
+            'LACK_OF_PRODUCTS': 'Falta de produtos',
+            'LOW_STORE_CAPACITY': 'Capacidade limitada da loja',
+            'SYSTEM_ISSUES': 'Problemas no sistema'
+        };
+        
+        // Adiciona cada motivo como uma opção
+        currentAllowedReasons.forEach(motivo => {
+            const option = document.createElement('option');
+            option.value = motivo;
+            option.textContent = motivosTexto[motivo] || motivo;
+            selectMotivo.appendChild(option);
+        });
+    }
+    
+    // Exibe o modal
+    modalContainer.style.display = 'flex';
+}
+
+// Função para fechar o modal de seleção de motivo
+function fecharModalSelecaoMotivo() {
+    const modalContainer = document.getElementById('modal-selecao-motivo');
+    if (modalContainer) {
+        modalContainer.style.display = 'none';
+    }
+    
+    // Reexibe o modal de negociação
+    const modalNegociacao = document.getElementById('modal-negociacao-container');
+    if (modalNegociacao) {
+        modalNegociacao.style.display = 'flex';
+    }
+    
+    // Limpa as variáveis globais
+    currentDisputeIdForReason = null;
+    currentSelectedMinutes = null;
+    currentAlternativeId = null;
+    currentAllowedReasons = [];
+}
+
+// Função para confirmar o tempo adicional com o motivo selecionado
+async function confirmarTempoAdicional() {
+    try {
+        if (!currentDisputeIdForReason || !currentSelectedMinutes) {
+            showToast('Erro: Dados incompletos', 'error');
+            return;
+        }
+        
+        // Obtém o motivo selecionado
+        const selectMotivo = document.getElementById('motivo-atraso');
+        const motivoSelecionado = selectMotivo.value;
+        
+        // Fecha o modal
+        fecharModalSelecaoMotivo();
+        showLoading();
+        
+        // Chama a função de propor tempo adicional com o motivo selecionado
+        await proporTempoAdicional(
+            currentDisputeIdForReason, 
+            currentSelectedMinutes, 
+            motivoSelecionado, 
+            currentAlternativeId
+        );
+        
+    } catch (error) {
+        console.error('❌ Erro ao confirmar tempo adicional:', error);
+        showToast(`Erro ao confirmar tempo adicional: ${error.message}`, 'error');
+    }
+}
+
+// Função intermediária que abre o modal de seleção de motivo
+function selecionarMotivoTempo(disputeId, minutos, alternativeId, allowedReasons) {
+    console.log(`🕰️ Selecionando motivo para atraso de ${minutos} minutos`);
+    console.log("Motivos permitidos:", allowedReasons);
+    
+    // Abre o modal de seleção de motivo
+    abrirModalSelecaoMotivo(disputeId, minutos, alternativeId, allowedReasons);
+}
+
+// Função original ajustada para receber o motivo selecionado
 async function proporTempoAdicional(disputeId, minutos, motivo, alternativeId = '') {
     try {
         console.log(`🤝 Propondo tempo adicional de ${minutos} minutos para a disputa ${disputeId}`);
+        console.log(`📝 Motivo selecionado: ${motivo}`);
         showLoading();
 
         // Prepara o payload
@@ -1390,6 +1534,55 @@ function adicionarEstilosNegociacao() {
     font-size: 20px;
 }
 
+/* Estilos para o modal de seleção de motivo */
+#modal-selecao-motivo .modal-content {
+    max-width: 500px;
+}
+
+#modal-selecao-motivo .modal-header {
+    background-color: #0d6efd;
+}
+
+#modal-selecao-motivo .modal-body {
+    padding: 20px;
+}
+
+#modal-selecao-motivo .modal-body p {
+    margin-bottom: 15px;
+    font-size: 16px;
+}
+
+#modal-selecao-motivo .modal-body p strong {
+    color: #0d6efd;
+    font-size: 18px;
+}
+
+#motivo-atraso {
+    width: 100%;
+    padding: 12px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    font-size: 16px;
+    margin-top: 10px;
+    background-color: #f8f9fa;
+}
+
+#modal-selecao-motivo .modal-footer {
+    padding: 15px 20px;
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+}
+
+#confirmar-motivo-atraso {
+    background-color: #0d6efd;
+    padding: 12px 20px;
+}
+
+#confirmar-motivo-atraso:hover {
+    background-color: #0b5ed7;
+}
+
         /* Animações */
         @keyframes pulse {
             0% { opacity: 1; }
@@ -1416,6 +1609,10 @@ window.aceitarDisputa = aceitarDisputa;
 window.rejeitarDisputa = rejeitarDisputa;
 window.proporAlternativa = proporAlternativa;
 window.proporTempoAdicional = proporTempoAdicional;
+window.selecionarMotivoTempo = selecionarMotivoTempo;
+window.abrirModalSelecaoMotivo = abrirModalSelecaoMotivo;
+window.fecharModalSelecaoMotivo = fecharModalSelecaoMotivo;
+window.confirmarTempoAdicional = confirmarTempoAdicional;
 window.abrirModalMotivoCancelamento = abrirModalMotivoCancelamento;
 window.fecharModalMotivoCancelamento = fecharModalMotivoCancelamento;
 window.confirmarCancelamentoLoja = confirmarCancelamentoLoja;
