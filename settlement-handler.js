@@ -119,27 +119,29 @@ async function handleSettlementEvent(event) {
     try {
         console.log('🔍 Processando evento HANDSHAKE_SETTLEMENT:', event);
         
-        if (!event.orderId || !event.disputeId) {
-            console.error('❌ Evento HANDSHAKE_SETTLEMENT inválido:', event);
-            return;
-        }
+const disputeId = event.disputeId || event.metadata?.disputeId;
+if (!event.orderId || !disputeId) {
+    console.error('❌ Evento HANDSHAKE_SETTLEMENT inválido:', event);
+    return;
+}
         
         // Traduz o status do settlement
-        const statusMap = {
-            'ACCEPTED': 'ACEITA',
-            'REJECTED': 'REJEITADA',
-            'ALTERNATIVE_OFFERED': 'ALTERNATIVA OFERECIDA',
-            'EXPIRED': 'EXPIRADA'
-        };
+const statusMap = {
+    'ACCEPTED': 'ACEITA',
+    'REJECTED': 'REJEITADA',
+    'ALTERNATIVE_OFFERED': 'ALTERNATIVA OFERECIDA',
+    'ALTERNATIVE_REPLIED': 'ALTERNATIVA ACEITA',
+    'EXPIRED': 'EXPIRADA'
+};
         
         // Busca detalhes da disputa original
-        const originalDispute = activeDisputes.find(d => d.disputeId === event.disputeId);
+        const originalDispute = activeDisputes.find(d => d.disputeId === disputeId);
         
         // Cria registro da disputa resolvida
         const resolvedDispute = {
             orderId: event.orderId,
             disputeId: event.disputeId,
-            statusFinal: statusMap[event.status] || event.status,
+            statusFinal: statusMap[event.metadata?.status] || event.metadata?.status || 'DESCONHECIDO',
             tipoDeResposta: originalDispute?.responseType || 'NÃO ESPECIFICADO',
             dataConclusao: new Date().toISOString(),
             detalhesResposta: originalDispute?.responseDetails || {},
@@ -147,7 +149,7 @@ async function handleSettlementEvent(event) {
         };
         
         // Remove qualquer registro anterior da mesma disputa
-        resolvedDisputes = resolvedDisputes.filter(d => d.disputeId !== event.disputeId);
+        resolvedDisputes = resolvedDisputes.filter(d => d.disputeId !== disputeId);
         
         // Adiciona o novo registro
         resolvedDisputes.push(resolvedDispute);
@@ -156,7 +158,7 @@ async function handleSettlementEvent(event) {
         saveResolvedDisputes();
         
         // Remove da lista de disputas ativas
-        removeActiveDispute(event.disputeId);
+        removeActiveDispute(disputeId);
         
         // Fecha o modal de negociação se estiver aberto
         fecharModalNegociacao();
@@ -168,7 +170,7 @@ async function handleSettlementEvent(event) {
         }
         
         // Atualiza o status do pedido baseado no settlement
-        if (event.status === 'ACCEPTED') {
+        if (event.metadata?.status === 'ACCEPTED' || event.metadata?.status === 'ALTERNATIVE_REPLIED') {
             updateOrderStatus(event.orderId, 'CANCELLED');
         }
         
