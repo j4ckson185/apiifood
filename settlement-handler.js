@@ -169,10 +169,15 @@ const statusMap = {
             addNegotiationSummaryButton(orderCard, resolvedDispute);
         }
         
-        // Atualiza o status do pedido baseado no settlement
-        if (event.metadata?.status === 'ACCEPTED' || event.metadata?.status === 'ALTERNATIVE_REPLIED') {
-            updateOrderStatus(event.orderId, 'CANCELLED');
-        }
+// Atualiza o status do pedido somente se for cancelamento aceito de fato
+const settlementStatus = event.metadata?.status || 'UNKNOWN';
+
+if (
+    settlementStatus === 'ACCEPTED' &&
+    originalDispute?.type === 'CANCELLATION'
+) {
+    updateOrderStatus(event.orderId, 'CANCELLED');
+}
         
         // Exibe notificação
         showToast(`Negociação ${resolvedDispute.statusFinal.toLowerCase()}`, 'info');
@@ -188,19 +193,16 @@ const originalAddActionButtons = window.addActionButtons;
 window.addActionButtons = function(container, dispute) {
     // Se for disputa por atraso, modifica o container antes de adicionar botões
     if (isDelayDispute(dispute)) {
-        // Adiciona classe especial ao container
-        container.classList.add('delay-dispute-actions');
-        
-        // Adiciona estilo inline para ocultar botão rejeitar
-        const style = document.createElement('style');
-        style.textContent = `
-            .delay-dispute-actions .action-button.reject {
-                display: none !important;
+        // Oculta o botão de rejeitar diretamente via DOM após renderizar
+        setTimeout(() => {
+            const rejectBtn = container.querySelector('.action-button.reject');
+            if (rejectBtn) {
+                rejectBtn.style.display = 'none';
+                console.log('⏱️ Botão de rejeição ocultado para disputa por atraso');
             }
-        `;
-        document.head.appendChild(style);
+        }, 50); // pequeno delay pra garantir que o botão já foi inserido
     }
-    
+
     // Chama função original
     return originalAddActionButtons(container, dispute);
 };
