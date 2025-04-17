@@ -347,10 +347,11 @@ function abrirModalPedido(card, orderId, orderNumber, conteudoOriginal, actionBu
         </div>
     `;
     
-    // Adiciona os botões de ação atualizados ao modal
-    const acoesContainer = modalContainer.querySelector(`#modal-actions-container-${orderId}`);
-    if (acoesContainer && currentActionButtons) {
-        // Clona os botões atuais (que já estão funcionando no card)
+// Adiciona os botões de ação atualizados ao modal
+const acoesContainer = modalContainer.querySelector(`#modal-actions-container-${orderId}`);
+if (acoesContainer) {
+    // Clona os botões atuais (que já estão funcionando no card)
+    if (currentActionButtons) {
         const clonedButtons = currentActionButtons.cloneNode(true);
         clonedButtons.classList.add('modal-actions');
         
@@ -363,16 +364,35 @@ function abrirModalPedido(card, orderId, orderNumber, conteudoOriginal, actionBu
         });
         
         acoesContainer.insertBefore(clonedButtons, acoesContainer.firstChild);
+    } else {
+        // Se não há botões atuais, tenta buscar o status atual e criar os botões
+        makeAuthorizedRequest(`/order/v1.0/orders/${orderId}`, 'GET')
+            .then(orderDetails => {
+                if (orderDetails && orderDetails.status) {
+                    // Cria um container temporário para os botões
+                    const tempContainer = document.createElement('div');
+                    tempContainer.className = 'order-actions modal-actions';
+                    
+                    // Adiciona os botões baseados no status atual
+                    addActionButtons(tempContainer, orderDetails);
+                    
+                    // Adiciona ao modal
+                    acoesContainer.insertBefore(tempContainer, acoesContainer.firstChild);
+                }
+            })
+            .catch(error => {
+                console.error('❌ Erro ao buscar detalhes do pedido para o modal:', error);
+            });
     }
-    
-    // Exibe o modal
-    modalContainer.style.display = 'flex';
-    
-    // Adiciona a função de fechar no escopo global
-    window.fecharModal = function() {
-        modalContainer.style.display = 'none';
-    };
 }
+
+// Exibe o modal
+modalContainer.style.display = 'flex';
+
+// Adiciona a função de fechar no escopo global
+window.fecharModal = function() {
+    modalContainer.style.display = 'none';
+};
 
 // Função para adicionar os estilos CSS
 function adicionarEstilos() {
