@@ -115,20 +115,16 @@ function stopDisputePolling() {
 }
 
 // Função principal para tratar eventos HANDSHAKE_SETTLEMENT
+// Modifique a função handleSettlementEvent, adicionando a chamada para restoreOrderButtons
 async function handleSettlementEvent(event) {
     try {
         console.log('🔍 Processando evento HANDSHAKE_SETTLEMENT:', event);
         
-        // Extrair o disputeId e orderId adequadamente
         const disputeId = event.disputeId || event.metadata?.disputeId;
-        const orderId = event.orderId;
-        
-        if (!orderId) {
-            console.error('❌ Evento HANDSHAKE_SETTLEMENT inválido (sem orderId):', event);
+        if (!event.orderId || !disputeId) {
+            console.error('❌ Evento HANDSHAKE_SETTLEMENT inválido:', event);
             return;
         }
-        
-        console.log(`🔍 Processando HANDSHAKE_SETTLEMENT para pedido ${orderId} e disputa ${disputeId || 'desconhecida'}`);
         
         // Traduz o status do settlement
         const statusMap = {
@@ -139,13 +135,13 @@ async function handleSettlementEvent(event) {
             'EXPIRED': 'EXPIRADA'
         };
         
-        // Busca detalhes da disputa original mesmo se disputeId for undefined
-        const originalDispute = disputeId ? activeDisputes.find(d => d.disputeId === disputeId) : null;
+        // Busca detalhes da disputa original
+        const originalDispute = activeDisputes.find(d => d.disputeId === disputeId);
         
         // Cria registro da disputa resolvida
         const resolvedDispute = {
-            orderId: orderId,
-            disputeId: disputeId || 'unknown',
+            orderId: event.orderId,
+            disputeId: event.disputeId,
             statusFinal: statusMap[event.metadata?.status] || event.metadata?.status || 'DESCONHECIDO',
             tipoDeResposta: originalDispute?.responseType || 'NÃO ESPECIFICADO',
             dataConclusao: new Date().toISOString(),
@@ -153,10 +149,8 @@ async function handleSettlementEvent(event) {
             isDelayRelated: isDelayDispute(originalDispute)
         };
         
-        // Remove qualquer registro anterior da mesma disputa se houver disputeId
-        if (disputeId) {
-            resolvedDisputes = resolvedDisputes.filter(d => d.disputeId !== disputeId);
-        }
+        // Remove qualquer registro anterior da mesma disputa
+        resolvedDisputes = resolvedDisputes.filter(d => d.disputeId !== disputeId);
         
         // Adiciona o novo registro
         resolvedDisputes.push(resolvedDispute);
@@ -164,23 +158,19 @@ async function handleSettlementEvent(event) {
         // Salva no localStorage
         saveResolvedDisputes();
         
-        // Remove da lista de disputas ativas se tiver disputeId
-        if (disputeId) {
-            removeActiveDispute(disputeId);
-        }
+        // Remove da lista de disputas ativas
+        removeActiveDispute(disputeId);
         
         // Fecha o modal de negociação se estiver aberto
         fecharModalNegociacao();
         
-        // Atualiza a interface
-        const orderCard = document.querySelector(`.order-card[data-order-id="${orderId}"]`);
+        // Atualiza a interface se necessário
+        const orderCard = document.querySelector(`.order-card[data-order-id="${event.orderId}"]`);
         if (orderCard) {
             addNegotiationSummaryButton(orderCard, resolvedDispute);
             
-            // IMPORTANTE: Forçar a restauração dos botões de ação independente do disputeId
-            setTimeout(() => {
-                restoreOrderButtons(orderId);
-            }, 1000);
+            // AQUI: Adicione a chamada para restaurar os botões de ação
+            await restoreOrderButtons(event.orderId);
         }
         
         // Atualiza o status do pedido somente se for cancelamento aceito de fato
@@ -190,7 +180,7 @@ async function handleSettlementEvent(event) {
             settlementStatus === 'ACCEPTED' &&
             originalDispute?.type === 'CANCELLATION'
         ) {
-            updateOrderStatus(orderId, 'CANCELLED');
+            updateOrderStatus(event.orderId, 'CANCELLED');
         }
         
         // Exibe notificação
@@ -352,17 +342,6 @@ async function restoreOrderButtons(orderId) {
             return;
         }
         
-        // Salva as classes originais para restaurar depois
-        const originalClasses = actionsContainer.className;
-        
-        // Limpa o container de ações atual preservando apenas os elementos que não são botões de ação
-        Array.from(actionsContainer.children).forEach(child => {
-            if (child.classList.contains('action-button') || 
-                child.classList.contains('no-actions')) {
-                child.remove();
-            }
-        });
-        
         // Busca o status atual do pedido via API
         const orderDetails = await makeAuthorizedRequest(`/order/v1.0/orders/${orderId}`, 'GET');
         
@@ -376,46 +355,7 @@ async function restoreOrderButtons(orderId) {
         // Recria os botões de ação baseados no status atual do pedido
         addActionButtons(actionsContainer, orderDetails);
         
-        // Restaura as classes originais para manter os estilos CSS
-        actionsContainer.className = originalClasses;
-        
         console.log('✅ Botões de ação restaurados para o pedido:', orderId);
-        
-        // Se o pedido estiver aberto no modal, atualiza o modal também
-        const modalContainer = document.getElementById('modal-pedido-container');
-        if (modalContainer && modalContainer.style.display === 'flex') {
-            const modalActionsContainer = modalContainer.querySelector(`#modal-actions-container-${orderId}`);
-            if (modalActionsContainer) {
-                // Salva as classes originais do container de ações do modal
-                const originalModalClasses = modalActionsContainer.className;
-                
-                // Limpa o container de ações do modal preservando apenas o botão "Fechar"
-                Array.from(modalActionsContainer.children).forEach(child => {
-                    if (child.tagName !== 'BUTTON' || 
-                        !child.classList.contains('modal-pedido-fechar')) {
-                        child.remove();
-                    }
-                });
-                
-                // Clona os botões do card para o modal
-                const newButtons = actionsContainer.cloneNode(true);
-                newButtons.classList.add('modal-actions');
-                
-                // Adiciona eventos aos botões clonados
-                newButtons.querySelectorAll('.action-button').forEach((button, index) => {
-                    const originalButton = actionsContainer.querySelectorAll('.action-button')[index];
-                    if (originalButton && originalButton.onclick) {
-                        button.onclick = originalButton.onclick;
-                    }
-                });
-                
-                // Adiciona ao início do container
-                modalActionsContainer.insertBefore(newButtons, modalActionsContainer.firstChild);
-                
-                // Restaura as classes originais do container de ações do modal
-                modalActionsContainer.className = originalModalClasses;
-            }
-        }
     } catch (error) {
         console.error('❌ Erro ao restaurar botões de ação:', error);
     }
