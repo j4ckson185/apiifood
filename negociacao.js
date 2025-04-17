@@ -617,7 +617,18 @@ function exibirModalNegociacao(dispute) {
         iniciarContadorTempo(expiresAt);
     }
     
-    console.log('✅ Modal de negociação exibido para a disputa:', dispute);
+console.log('✅ Modal de negociação exibido para a disputa:', dispute);
+
+// Oculta o botão "Rejeitar" se for disputa de atraso
+if (isDelayRelated) {
+    setTimeout(() => {
+        const rejectBtn = document.querySelector('.modal-negociacao-footer .dispute-button.reject');
+        if (rejectBtn) {
+            rejectBtn.remove(); // remove o botão de rejeição
+            console.log('⛔ Botão de rejeitar removido por ser disputa de atraso');
+        }
+    }, 100);
+}
 }
 
 async function proporTempoAdicional(disputeId, minutos, motivo, alternativeId = '') {
