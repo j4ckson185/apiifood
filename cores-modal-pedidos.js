@@ -315,12 +315,14 @@ function abrirModalPedido(card, orderId, orderNumber, conteudoOriginal, actionBu
         conteudoModificado = tempDiv.innerHTML;
     }
     
-    // Remove os botões de ação do conteúdo original para evitar duplicação
-    const actionButtonsElement = tempDiv.querySelector('.order-actions');
-    if (actionButtonsElement) {
-        actionButtonsElement.remove();
-        conteudoModificado = tempDiv.innerHTML;
-    }
+ // Em vez de remover os botões do conteúdo original, preserve-os para reaproveitar
+const actionButtonsElement = tempDiv.querySelector('.order-actions');
+if (actionButtonsElement) {
+    // Não remove os botões aqui — apenas os ignora na hora de mostrar o conteúdo,
+    // pois eles serão reaproveitados no final.
+    actionButtonsElement.style.display = 'none';
+    conteudoModificado = tempDiv.innerHTML;
+}
     
     // Obtém os botões de ação atualizados do card
     const currentActionButtons = card.querySelector('.compact-actions');
