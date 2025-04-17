@@ -54,13 +54,14 @@ function processarEventoSettlement(event) {
     try {
         console.log('🤝 Evento HANDSHAKE_SETTLEMENT recebido:', event);
         
-        // Extrai informações importantes
-        const disputeId = event.disputeId || event.metadata?.disputeId;
+        // Extrai informações importantes - CORREÇÃO AQUI
+        // O disputeId está APENAS dentro do metadata, não no evento principal
+        const disputeId = event.metadata?.disputeId;
         const orderId = event.orderId;
         const status = event.metadata?.status;
         
         if (!disputeId || !status) {
-            console.error('❌ Evento HANDSHAKE_SETTLEMENT inválido:', event);
+            console.error('❌ Evento HANDSHAKE_SETTLEMENT inválido - Faltando disputeId ou status:', event);
             return;
         }
         
