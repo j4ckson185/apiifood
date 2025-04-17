@@ -412,13 +412,13 @@ function exibirModalNegociacao(dispute) {
                     <h4>Adicionar Tempo ao Pedido</h4>
                     <div class="time-options-grid">`;
                     
-        // Adiciona um botão para cada tempo permitido
-        allowedTimes.forEach(minutes => {
-            alternativesHtml += `
-                <button class="time-option-button" onclick="selecionarMotivoTempo('${dispute.disputeId}', '${minutes}', '${timeAlternative?.id || ''}', ${JSON.stringify(allowedReasons)})">
-                    <i class="fas fa-clock"></i> +${minutes} minutos
-                </button>`;
-        });
+// Adiciona um botão para cada tempo permitido
+allowedTimes.forEach(minutes => {
+    alternativesHtml += `
+        <button class="time-option-button" onclick="selecionarMotivoTempo('${dispute.disputeId}', '${minutes}', '${timeAlternative?.id || ''}', ${JSON.stringify(allowedReasons)})">
+            <i class="fas fa-clock"></i> +${minutes} minutos
+        </button>`;
+});
         
         alternativesHtml += `
                     </div>
@@ -617,149 +617,88 @@ function exibirModalNegociacao(dispute) {
     console.log('✅ Modal de negociação exibido para a disputa:', dispute);
 }
 
-// Variáveis para controle do modal de seleção de motivo
+// Variáveis para controle do seletor de motivo
 let currentDisputeIdForReason = null;
 let currentSelectedMinutes = null;
 let currentAlternativeId = null;
-let currentAllowedReasons = [];
 
-// Função para abrir o modal de seleção de motivo após escolher o tempo
-function abrirModalSelecaoMotivo(disputeId, minutos, alternativeId, allowedReasons) {
-    // Atualiza as variáveis globais
-    currentDisputeIdForReason = disputeId;
-    currentSelectedMinutes = minutos;
-    currentAlternativeId = alternativeId;
-    currentAllowedReasons = allowedReasons;
-    
-    // Fecha o modal de negociação
-    const modalNegociacao = document.getElementById('modal-negociacao-container');
-    if (modalNegociacao) {
-        modalNegociacao.style.display = 'none';
-    }
-    
-    // Cria o modal se não existir
-    let modalContainer = document.getElementById('modal-selecao-motivo');
-    if (!modalContainer) {
-        modalContainer = document.createElement('div');
-        modalContainer.id = 'modal-selecao-motivo';
-        modalContainer.className = 'modal';
-        
-        modalContainer.innerHTML = `
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h2>Motivo do Atraso</h2>
-                    <span class="close-modal" onclick="fecharModalSelecaoMotivo()">&times;</span>
-                </div>
-                <div class="modal-body">
-                    <p>Selecione o motivo pelo qual o pedido atrasará <strong>${minutos} minutos</strong>:</p>
-                    <select id="motivo-atraso" class="cancellation-select">
-                        <!-- Os motivos serão adicionados dinamicamente -->
-                    </select>
-                </div>
-                <div class="modal-footer">
-                    <button id="confirmar-motivo-atraso" class="action-button confirm" onclick="confirmarTempoAdicional()">Confirmar Atraso</button>
-                    <button class="action-button" onclick="fecharModalSelecaoMotivo()">Voltar</button>
-                </div>
-            </div>
-        `;
-        
-        document.body.appendChild(modalContainer);
-    } else {
-        // Atualiza o texto para o tempo selecionado
-        const textoMotivo = modalContainer.querySelector('.modal-body p');
-        if (textoMotivo) {
-            textoMotivo.innerHTML = `Selecione o motivo pelo qual o pedido atrasará <strong>${minutos} minutos</strong>:`;
-        }
-    }
-    
-    // Preenche os motivos disponíveis
-    const selectMotivo = document.getElementById('motivo-atraso');
-    if (selectMotivo) {
-        selectMotivo.innerHTML = '';
-        
-        // Mapeamento de códigos para textos mais amigáveis
-        const motivosTexto = {
-            'HIGH_STORE_DEMAND': 'Alta demanda na loja',
-            'OPERATIONAL_ISSUES': 'Problemas operacionais',
-            'LACK_OF_DRIVERS': 'Falta de entregadores',
-            'ORDER_OUT_FOR_DELIVERY': 'Pedido já saiu para entrega',
-            'DRIVER_IS_ALREADY_AT_THE_ADDRESS': 'Entregador já está no endereço',
-            'DRIVER_COULDNT_FIND_THE_ADDRESS': 'Entregador não encontrou o endereço',
-            'LACK_OF_PRODUCTS': 'Falta de produtos',
-            'LOW_STORE_CAPACITY': 'Capacidade limitada da loja',
-            'SYSTEM_ISSUES': 'Problemas no sistema'
-        };
-        
-        // Adiciona cada motivo como uma opção
-        currentAllowedReasons.forEach(motivo => {
-            const option = document.createElement('option');
-            option.value = motivo;
-            option.textContent = motivosTexto[motivo] || motivo;
-            selectMotivo.appendChild(option);
-        });
-    }
-    
-    // Exibe o modal
-    modalContainer.style.display = 'flex';
-}
-
-// Função para fechar o modal de seleção de motivo
-function fecharModalSelecaoMotivo() {
-    const modalContainer = document.getElementById('modal-selecao-motivo');
-    if (modalContainer) {
-        modalContainer.style.display = 'none';
-    }
-    
-    // Reexibe o modal de negociação
-    const modalNegociacao = document.getElementById('modal-negociacao-container');
-    if (modalNegociacao) {
-        modalNegociacao.style.display = 'flex';
-    }
-    
-    // Limpa as variáveis globais
-    currentDisputeIdForReason = null;
-    currentSelectedMinutes = null;
-    currentAlternativeId = null;
-    currentAllowedReasons = [];
-}
-
-// Função para confirmar o tempo adicional com o motivo selecionado
-async function confirmarTempoAdicional() {
-    try {
-        if (!currentDisputeIdForReason || !currentSelectedMinutes) {
-            showToast('Erro: Dados incompletos', 'error');
-            return;
-        }
-        
-        // Obtém o motivo selecionado
-        const selectMotivo = document.getElementById('motivo-atraso');
-        const motivoSelecionado = selectMotivo.value;
-        
-        // Fecha o modal
-        fecharModalSelecaoMotivo();
-        showLoading();
-        
-        // Chama a função de propor tempo adicional com o motivo selecionado
-        await proporTempoAdicional(
-            currentDisputeIdForReason, 
-            currentSelectedMinutes, 
-            motivoSelecionado, 
-            currentAlternativeId
-        );
-        
-    } catch (error) {
-        console.error('❌ Erro ao confirmar tempo adicional:', error);
-        showToast(`Erro ao confirmar tempo adicional: ${error.message}`, 'error');
-    }
-}
-
-// Função intermediária que abre o modal de seleção de motivo
+// Função para abrir seleção de motivo após escolher o tempo
 function selecionarMotivoTempo(disputeId, minutos, alternativeId, allowedReasons) {
     console.log(`🕰️ Selecionando motivo para atraso de ${minutos} minutos`);
     console.log("Motivos permitidos:", allowedReasons);
     
-    // Abre o modal de seleção de motivo
-    abrirModalSelecaoMotivo(disputeId, minutos, alternativeId, allowedReasons);
+    // Preserva todos os valores para uso posterior
+    currentDisputeIdForReason = disputeId;
+    currentSelectedMinutes = minutos;
+    currentAlternativeId = alternativeId;
+    
+    // Cria modal diretamente - abordagem simplificada
+    const modalHTML = `
+        <div id="modal-selecao-motivo" class="modal" style="display: flex; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.7); z-index: 10000; justify-content: center; align-items: center;">
+            <div class="modal-content" style="background-color: white; border-radius: 10px; width: 100%; max-width: 500px; overflow: hidden; box-shadow: 0 5px 20px rgba(0,0,0,0.3);">
+                <div class="modal-header" style="background-color: #0d6efd; color: white; padding: 15px 20px; position: relative;">
+                    <h2 style="margin: 0; font-size: 18px;">Motivo do Atraso</h2>
+                    <button onclick="document.getElementById('modal-selecao-motivo').remove(); document.getElementById('modal-negociacao-container').style.display='flex';" style="position: absolute; right: 15px; top: 50%; transform: translateY(-50%); background: rgba(255,255,255,0.2); border: none; width: 30px; height: 30px; border-radius: 50%; color: white; font-size: 20px; cursor: pointer; display: flex; align-items: center; justify-content: center;">&times;</button>
+                </div>
+                <div class="modal-body" style="padding: 20px;">
+                    <p style="margin-bottom: 15px;">Selecione o motivo pelo qual o pedido atrasará <strong style="color: #0d6efd; font-size: 18px;">${minutos} minutos</strong>:</p>
+                    <select id="motivo-atraso-select" style="width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 16px; margin-top: 10px; background-color: #f8f9fa;">
+                        ${allowedReasons.map(reason => {
+                            const reasonText = getReasonText(reason);
+                            return `<option value="${reason}">${reasonText}</option>`;
+                        }).join('')}
+                    </select>
+                </div>
+                <div class="modal-footer" style="padding: 15px 20px; display: flex; justify-content: flex-end; gap: 10px; border-top: 1px solid #eee;">
+                    <button onclick="document.getElementById('modal-selecao-motivo').remove(); document.getElementById('modal-negociacao-container').style.display='flex';" style="padding: 10px 18px; background-color: #6c757d; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 14px;">Cancelar</button>
+                    <button onclick="confirmarMotivoSelecionado()" style="padding: 10px 18px; background-color: #0d6efd; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 14px;">Confirmar</button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Adiciona o modal ao body
+    const modalDiv = document.createElement('div');
+    modalDiv.innerHTML = modalHTML;
+    document.body.appendChild(modalDiv.firstChild);
+    
+    // Oculta o modal de negociação
+    document.getElementById('modal-negociacao-container').style.display = 'none';
+}
+
+// Função auxiliar para obter texto amigável para os motivos
+function getReasonText(reason) {
+    const reasonMap = {
+        'HIGH_STORE_DEMAND': 'Alta demanda na loja',
+        'OPERATIONAL_ISSUES': 'Problemas operacionais',
+        'LACK_OF_DRIVERS': 'Falta de entregadores',
+        'ORDER_OUT_FOR_DELIVERY': 'Pedido já saiu para entrega',
+        'DRIVER_IS_ALREADY_AT_THE_ADDRESS': 'Entregador já está no endereço',
+        'DRIVER_COULDNT_FIND_THE_ADDRESS': 'Entregador não encontrou o endereço',
+        'LACK_OF_PRODUCTS': 'Falta de produtos',
+        'LOW_STORE_CAPACITY': 'Capacidade limitada da loja',
+        'SYSTEM_ISSUES': 'Problemas no sistema'
+    };
+    
+    return reasonMap[reason] || reason;
+}
+
+// Função para confirmar o motivo selecionado
+function confirmarMotivoSelecionado() {
+    // Obtém o motivo selecionado
+    const motivoSelect = document.getElementById('motivo-atraso-select');
+    const motivo = motivoSelect.value;
+    
+    // Remove o modal
+    document.getElementById('modal-selecao-motivo').remove();
+    
+    // Chama a função para propor o tempo adicional com o motivo selecionado
+    proporTempoAdicional(
+        currentDisputeIdForReason,
+        currentSelectedMinutes,
+        motivo,
+        currentAlternativeId
+    );
 }
 
 // Função original ajustada para receber o motivo selecionado
@@ -1609,10 +1548,9 @@ window.aceitarDisputa = aceitarDisputa;
 window.rejeitarDisputa = rejeitarDisputa;
 window.proporAlternativa = proporAlternativa;
 window.proporTempoAdicional = proporTempoAdicional;
-window.selecionarMotivoTempo = selecionarMotivoTempo;
-window.abrirModalSelecaoMotivo = abrirModalSelecaoMotivo;
-window.fecharModalSelecaoMotivo = fecharModalSelecaoMotivo;
-window.confirmarTempoAdicional = confirmarTempoAdicional;
+window.selecionarMotivoTempo = selecionarMotivoTempo; // Nova função que estamos adicionando
+window.getReasonText = getReasonText; // Nova função que estamos adicionando
+window.confirmarMotivoSelecionado = confirmarMotivoSelecionado; // Nova função que estamos adicionando
 window.abrirModalMotivoCancelamento = abrirModalMotivoCancelamento;
 window.fecharModalMotivoCancelamento = fecharModalMotivoCancelamento;
 window.confirmarCancelamentoLoja = confirmarCancelamentoLoja;
