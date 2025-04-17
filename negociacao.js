@@ -286,20 +286,10 @@ async function proporAlternativa(disputeId, alternativeId) {
         console.log("✅ Alternativa enviada com sucesso:", response);
         showToast("Alternativa proposta com sucesso", "success");
 
-        // Armazena o orderId antes de remover a disputa
-        const orderId = disputa.orderId;
-
         // Remove from active disputes and close modal
         removeActiveDispute(disputeId);
         fecharModalNegociacao();
-        
-        // Restaura os botões de ação normais após um pequeno delay
-        if (orderId) {
-            setTimeout(() => {
-                restoreOrderButtons(orderId);
-            }, 1000);
-        }
-        
+
         return true;
     } catch (error) {
         console.error("❌ Erro ao propor alternativa:", error);
