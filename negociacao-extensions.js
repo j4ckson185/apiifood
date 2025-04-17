@@ -55,7 +55,7 @@ function processarEventoSettlement(event) {
         console.log('🤝 Evento HANDSHAKE_SETTLEMENT recebido:', event);
         
         // Extrai informações importantes
-        const disputeId = event.disputeId;
+        const disputeId = event.disputeId || event.metadata?.disputeId;
         const orderId = event.orderId;
         const status = event.metadata?.status;
         
@@ -87,7 +87,7 @@ function processarEventoSettlement(event) {
         adicionarDisputaResolvida(disputaResolvida);
         
         // Remove da lista de disputas ativas
-        if (activeDisputes.includes(disputaAtiva)) {
+        if (disputaAtiva) {
             console.log(`🤝 Removendo disputa ${disputeId} da lista de ativas`);
             removeActiveDispute(disputeId);
         }
@@ -391,6 +391,11 @@ function atualizarBotaoResumoNegociacao(orderId) {
 
 // Adiciona estilos CSS para os novos componentes
 function adicionarEstilosExtendidos() {
+    // Verifica se os estilos já foram adicionados
+    if (document.getElementById('estilos-negociacao-extendidos')) {
+        return;
+    }
+
     const estilosElement = document.createElement('style');
     estilosElement.id = 'estilos-negociacao-extendidos';
     estilosElement.textContent = `
@@ -539,22 +544,41 @@ function adicionarEstilosExtendidos() {
     document.head.appendChild(estilosElement);
 }
 
-// Verifica periodicamente por disputas ativas (polling de backup)
-function iniciarPollingDeDisputas() {
-    console.log('🔄 Iniciando polling de backup para disputas...');
-    
+// Verifica por disputas ativas via polling sem interferir com o polling padrão
+function verificarDisputasViaPollingSeparado() {
     // Define intervalo para verificar disputas a cada 60 segundos
     setInterval(async () => {
         if (!state.accessToken) return;
         
         try {
-            console.log('🔄 Verificando disputas ativas via polling...');
+            console.log('🔄 Verificando disputas ativas via polling separado...');
             
-            // Busca eventos via polling
-            const events = await makeAuthorizedRequest('/events/v1.0/events:polling', 'GET');
+            // Busca eventos via polling diretamente (não usa polling do sistema principal)
+            const response = await fetch('/.netlify/functions/ifood-proxy', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    path: '/events/v1.0/events:polling',
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${state.accessToken}`,
+                        'Content-Type': 'application/json',
+                        'x-polling-merchants': CONFIG.merchantUUID
+                    }
+                })
+            });
+            
+            if (!response.ok) {
+                throw new Error(`Erro na requisição: ${response.status}`);
+            }
+            
+            const responseText = await response.text();
+            const events = responseText ? JSON.parse(responseText) : [];
             
             if (events && Array.isArray(events) && events.length > 0) {
-                console.log(`🔄 ${events.length} eventos recebidos via polling`);
+                console.log(`🔄 ${events.length} eventos recebidos via polling separado`);
                 
                 // Filtra eventos de disputa
                 const disputeEvents = events.filter(event => 
@@ -565,7 +589,7 @@ function iniciarPollingDeDisputas() {
                 );
                 
                 if (disputeEvents.length > 0) {
-                    console.log(`🔄 ${disputeEvents.length} eventos de disputa encontrados`);
+                    console.log(`🔄 ${disputeEvents.length} eventos de disputa encontrados em polling separado`);
                     
                     // Processa cada evento de disputa
                     for (const event of disputeEvents) {
@@ -575,8 +599,8 @@ function iniciarPollingDeDisputas() {
                             const alreadyProcessed = activeDisputes.some(d => d.disputeId === disputeId);
                             
                             if (!alreadyProcessed && disputeId) {
-                                console.log(`🔄 Nova disputa ${disputeId} encontrada via polling`);
-                                await processarEventoDisputa(event);
+                                console.log(`🔄 Nova disputa ${disputeId} encontrada via polling separado`);
+                                processarEventoDisputa(event);
                             }
                         }
                         else if (event.code === 'HANDSHAKE_SETTLEMENT' || event.fullCode === 'HANDSHAKE_SETTLEMENT') {
@@ -592,76 +616,67 @@ function iniciarPollingDeDisputas() {
                 try {
                     // Envia acknowledgment para todos os eventos
                     await makeAuthorizedRequest('/events/v1.0/events/acknowledgment', 'POST', acknowledgmentFormat);
-                    console.log('✅ Acknowledgment enviado com sucesso');
+                    console.log('✅ Acknowledgment enviado com sucesso do polling separado');
                 } catch (ackError) {
-                    console.error('❌ Erro ao enviar acknowledgment:', ackError);
+                    console.error('❌ Erro ao enviar acknowledgment do polling separado:', ackError);
                 }
             }
         } catch (error) {
-            console.error('❌ Erro no polling de disputas:', error);
+            console.error('❌ Erro no polling separado de disputas:', error);
         }
     }, 60000); // 60 segundos
 }
 
-// Sobrescreve algumas funções existentes para adicionar as novas funcionalidades
-
-// 1. Estender função de processamento de evento de disputa original
-const originalProcessarEventoDisputa = processarEventoDisputa;
-window.processarEventoDisputa = async function(event) {
+// Função para configurar a detecção de expiração para uma disputa
+function configurarTimerExpiracao(disputeId) {
     try {
-        // Verifica se é um evento de settlement
-        if (event.code === 'HANDSHAKE_SETTLEMENT' || event.fullCode === 'HANDSHAKE_SETTLEMENT') {
-            return processarEventoSettlement(event);
-        }
-        
-        // Para eventos de disputa, chama a função original
-        await originalProcessarEventoDisputa(event);
-        
-        // Depois que a função original for executada, busca a disputa na lista de ativas
-        // para configurar o timer de expiração
-        const disputeId = event.disputeId || event.metadata?.disputeId;
-        
-        if (disputeId) {
-            const disputa = activeDisputes.find(d => d.disputeId === disputeId);
+        const disputa = activeDisputes.find(d => d.disputeId === disputeId);
             
-            if (disputa && disputa.expiresAt) {
-                // Configura o timer para expiração
-                const expiresAt = new Date(disputa.expiresAt);
-                const now = new Date();
-                const diffMs = expiresAt - now;
+        if (disputa && disputa.expiresAt) {
+            // Configura o timer para expiração
+            const expiresAt = new Date(disputa.expiresAt);
+            const now = new Date();
+            const diffMs = expiresAt - now;
+            
+            if (diffMs > 0) {
+                console.log(`⏰ Configurando timer para disputa ${disputeId}, expira em ${Math.round(diffMs/1000)} segundos`);
                 
-                if (diffMs > 0) {
-                    console.log(`⏰ Configurando timer para disputa ${disputeId}, expira em ${Math.round(diffMs/1000)} segundos`);
-                    
-                    // Limpa qualquer timer existente para esta disputa
-                    if (disputeTimerIntervals[disputeId]) {
-                        clearTimeout(disputeTimerIntervals[disputeId]);
-                    }
-                    
-                    // Configura o timer para executar quando o tempo expirar
-                    disputeTimerIntervals[disputeId] = setTimeout(() => {
-                        lidarComExpiracao(disputeId);
-                    }, diffMs);
+                // Limpa qualquer timer existente para esta disputa
+                if (disputeTimerIntervals[disputeId]) {
+                    clearTimeout(disputeTimerIntervals[disputeId]);
                 }
-                else {
-                    // Já expirou
-                    console.log(`⏰ Disputa ${disputeId} já expirou`);
+                
+                // Configura o timer para executar quando o tempo expirar
+                disputeTimerIntervals[disputeId] = setTimeout(() => {
                     lidarComExpiracao(disputeId);
-                }
+                }, diffMs);
+            }
+            else {
+                // Já expirou
+                console.log(`⏰ Disputa ${disputeId} já expirou`);
+                lidarComExpiracao(disputeId);
             }
         }
     } catch (error) {
-        console.error('❌ Erro ao processar evento de disputa extendido:', error);
+        console.error('❌ Erro ao configurar timer de expiração:', error);
     }
-};
+}
 
-// 2. Estender função de exibição do modal de negociação
-const originalExibirModalNegociacao = exibirModalNegociacao;
+// MODIFICAÇÕES DAS FUNÇÕES EXISTENTES - VERSÃO CORRIGIDA
+// =====================================================
+
+// 1. Modificação da função exibirModalNegociacao para ocultar botão de rejeitar em disputas por atraso
+const originalExibirModalNegociacao = window.exibirModalNegociacao;
 window.exibirModalNegociacao = function(dispute) {
     // Primeiro, chama a função original
     originalExibirModalNegociacao(dispute);
     
     try {
+        // Configura o timer de expiração para esta disputa
+        if (dispute.disputeId) {
+            configurarTimerExpiracao(dispute.disputeId);
+        }
+        
         // Depois, adiciona as adaptações para disputas por atraso
         if (isDelayRelatedDispute(dispute)) {
             console.log('⏱️ Disputa relacionada a atraso, adaptando modal...');
@@ -678,8 +693,27 @@ window.exibirModalNegociacao = function(dispute) {
     }
 };
 
-// 3. Estender função de proporAlternativa para registrar o tipo de resposta
-const originalProporAlternativa = proporAlternativa;
+// 2. Estender a função original processarEventoDisputa para salvar informações
+const originalProcessarEventoDisputa = window.processarEventoDisputa;
+window.processarEventoDisputa = async function(event) {
+    try {
+        // Verifica se é um evento de settlement
+        if (event.code === 'HANDSHAKE_SETTLEMENT' || event.fullCode === 'HANDSHAKE_SETTLEMENT') {
+            // Processa evento settlement separadamente
+            processarEventoSettlement(event);
+            return;
+        }
+        
+        // Para eventos de disputa, chama a função original
+        await originalProcessarEventoDisputa(event);
+        
+    } catch (error) {
+        console.error('❌ Erro ao processar evento de disputa extendido:', error);
+    }
+};
+
+// 3. Adiciona interceptor na função proporAlternativa para rastrear o tipo de resposta
+const originalProporAlternativa = window.proporAlternativa;
 window.proporAlternativa = async function(disputeId, alternativeId) {
     try {
         // Busca a disputa e alternativa correspondentes
@@ -724,7 +758,7 @@ window.proporAlternativa = async function(disputeId, alternativeId) {
 };
 
 // 4. Estender função de aceitarDisputa para registrar o tipo de resposta
-const originalAceitarDisputa = aceitarDisputa;
+const originalAceitarDisputa = window.aceitarDisputa;
 window.aceitarDisputa = async function(disputeId) {
     try {
         // Atualiza informações de resposta
@@ -744,7 +778,7 @@ window.aceitarDisputa = async function(disputeId) {
 };
 
 // 5. Estender função de rejeitarDisputa para registrar o tipo de resposta
-const originalRejeitarDisputa = rejeitarDisputa;
+const originalRejeitarDisputa = window.rejeitarDisputa;
 window.rejeitarDisputa = async function(disputeId) {
     try {
         // Atualiza informações de resposta
@@ -763,8 +797,8 @@ window.rejeitarDisputa = async function(disputeId) {
     }
 };
 
-// 6. Estender função de proporTempoAdicional para registrar o tipo de resposta
-const originalProporTempoAdicional = proporTempoAdicional;
+// 6. Adiciona rastreamento na função proporTempoAdicional
+const originalProporTempoAdicional = window.proporTempoAdicional;
 window.proporTempoAdicional = async function(disputeId, minutos, motivo, alternativeId = '') {
     try {
         // Atualiza informações de resposta
@@ -786,25 +820,36 @@ window.proporTempoAdicional = async function(disputeId, minutos, motivo, alterna
     }
 };
 
-// Estende o handler de eventos existente para processar HANDSHAKE_SETTLEMENT
-const originalHandlerEventos = window.handleEvent;
-window.handleEvent = async function(event) {
-    try {
-        // Verifica se é um evento HANDSHAKE_SETTLEMENT
-        if (event.code === 'HANDSHAKE_SETTLEMENT' || event.fullCode === 'HANDSHAKE_SETTLEMENT') {
-            console.log('🤝 Evento de HANDSHAKE_SETTLEMENT recebido:', event);
-            processarEventoSettlement(event);
-            return;
-        }
-        
-        // Para outros eventos, executa o handler original
-        return originalHandlerEventos(event);
-    } catch (error) {
-        console.error('❌ Erro no handler de eventos extendido:', error);
-        // Executa o handler original para garantir que o evento seja processado
-        return originalHandlerEventos(event);
+// IMPORTANTE: Versão corrigida do estendedor de handleEvent - apenas intercepta eventos SETTLEMENT
+// Não sobrescreve a função original handleEvent, mas adiciona detecção
+function adicionarDeteccaoSettlementEventos() {
+    const originalHandleEvent = window.handleEvent;
+    
+    if (typeof originalHandleEvent !== 'function') {
+        console.error('❌ Função handleEvent não encontrada, não foi possível adicionar detecção de SETTLEMENT');
+        return;
     }
-};
+    
+    window.handleEvent = async function(event) {
+        try {
+            // Verifica se é um evento HANDSHAKE_SETTLEMENT
+            if (event.code === 'HANDSHAKE_SETTLEMENT' || event.fullCode === 'HANDSHAKE_SETTLEMENT') {
+                console.log('🤝 Evento de HANDSHAKE_SETTLEMENT detectado pelo interceptor:', event);
+                processarEventoSettlement(event);
+            }
+            
+            // Chama a função original para todos os eventos (incluindo SETTLEMENT)
+            // garantindo que todos os eventos continuem sendo processados normalmente
+            return await originalHandleEvent(event);
+        } catch (error) {
+            console.error('❌ Erro no interceptor handleEvent:', error);
+            // Em caso de erro, ainda tenta executar o handler original
+            return await originalHandleEvent(event);
+        }
+    };
+    
+    console.log('✅ Interceptor de HANDSHAKE_SETTLEMENT adicionado ao handleEvent');
+}
 
 // Função para inicializar as extensões de negociação
 function initNegociacaoExtensions() {
@@ -816,12 +861,24 @@ function initNegociacaoExtensions() {
     // Carrega disputas resolvidas do localStorage
     carregarDisputasResolvidas();
     
-    // Inicia polling de backup para disputas
-    iniciarPollingDeDisputas();
+    // Adiciona interceptor para HANDSHAKE_SETTLEMENT
+    adicionarDeteccaoSettlementEventos();
+    
+    // Inicia polling de backup para disputas (sem interferir no polling principal)
+    verificarDisputasViaPollingSeparado();
     
     // Adiciona função global para exibir resumo
     window.exibirResumoNegociacao = exibirResumoNegociacao;
     window.fecharResumoNegociacao = fecharResumoNegociacao;
+    
+    // Verifica disputas já resolvidas para adicionar botões nas fichas
+    setTimeout(() => {
+        resolvedDisputes.forEach(disputa => {
+            if (disputa.orderId) {
+                atualizarBotaoResumoNegociacao(disputa.orderId);
+            }
+        });
+    }, 2000);
     
     console.log('✅ Extensões do módulo de negociação inicializadas com sucesso');
 }
