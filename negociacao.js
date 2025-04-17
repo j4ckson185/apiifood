@@ -415,7 +415,7 @@ function exibirModalNegociacao(dispute) {
 // Adiciona um botão para cada tempo permitido
 allowedTimes.forEach(minutes => {
     alternativesHtml += `
-        <button class="time-option-button" onclick="selecionarMotivoTempo('${dispute.disputeId}', '${minutes}', '${timeAlternative?.id || ''}', ${JSON.stringify(allowedReasons)})">
+        <button class="time-option-button" onclick="selecionarMotivoTempo('${dispute.disputeId}', '${minutes}', '${timeAlternative?.id || ''}', '${JSON.stringify(allowedReasons).replace(/'/g, "\\'")}')">
             <i class="fas fa-clock"></i> +${minutes} minutos
         </button>`;
 });
@@ -623,7 +623,13 @@ let currentSelectedMinutes = null;
 let currentAlternativeId = null;
 
 // Função para abrir seleção de motivo após escolher o tempo
-function selecionarMotivoTempo(disputeId, minutos, alternativeId, allowedReasons) {
+// Função para abrir seleção de motivo após escolher o tempo
+function selecionarMotivoTempo(disputeId, minutos, alternativeId, allowedReasonsString) {
+    // Parse do array de motivos que veio como string
+    const allowedReasons = typeof allowedReasonsString === 'string' ? 
+        JSON.parse(allowedReasonsString) : 
+        ["HIGH_STORE_DEMAND"];
+    
     console.log(`🕰️ Selecionando motivo para atraso de ${minutos} minutos`);
     console.log("Motivos permitidos:", allowedReasons);
     
@@ -860,11 +866,16 @@ async function confirmarCancelamentoLoja() {
         fecharModalMotivoCancelamento();
         showLoading();
         
-        // Enviar a requisição de aceitação de cancelamento
-        const response = await makeAuthorizedRequest(`/order/v1.0/disputes/${currentDisputeIdForCancellation}/accept`, 'POST', {
+        // Body conforme exigido pela API do iFood
+        const body = {
             reason: motivoSelecionado,
             detailReason: motivoDescricao
-        });
+        };
+        
+        console.log('📦 Enviando aceitação de cancelamento:', body);
+        
+        // Endpoint correto de acordo com a API do iFood
+        const response = await makeAuthorizedRequest(`/order/v1.0/disputes/${currentDisputeIdForCancellation}/accept`, 'POST', body);
         
         console.log('✅ Cancelamento confirmado com sucesso:', response);
         showToast('Cancelamento confirmado com sucesso!', 'success');
