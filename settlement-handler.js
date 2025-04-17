@@ -333,7 +333,6 @@ function closeNegotiationSummaryModal() {
 }
 
 // Função para restaurar os botões de ação normais do pedido após uma negociação
-// Função para restaurar os botões de ação normais do pedido após uma negociação
 async function restoreOrderButtons(orderId) {
     try {
         console.log('🔄 Restaurando botões de ação para o pedido:', orderId);
@@ -353,10 +352,16 @@ async function restoreOrderButtons(orderId) {
             return;
         }
         
-        // Limpa o container de ações atual
-        while (actionsContainer.firstChild) {
-            actionsContainer.removeChild(actionsContainer.firstChild);
-        }
+        // Salva as classes originais para restaurar depois
+        const originalClasses = actionsContainer.className;
+        
+        // Limpa o container de ações atual preservando apenas os elementos que não são botões de ação
+        Array.from(actionsContainer.children).forEach(child => {
+            if (child.classList.contains('action-button') || 
+                child.classList.contains('no-actions')) {
+                child.remove();
+            }
+        });
         
         // Busca o status atual do pedido via API
         const orderDetails = await makeAuthorizedRequest(`/order/v1.0/orders/${orderId}`, 'GET');
@@ -371,6 +376,9 @@ async function restoreOrderButtons(orderId) {
         // Recria os botões de ação baseados no status atual do pedido
         addActionButtons(actionsContainer, orderDetails);
         
+        // Restaura as classes originais para manter os estilos CSS
+        actionsContainer.className = originalClasses;
+        
         console.log('✅ Botões de ação restaurados para o pedido:', orderId);
         
         // Se o pedido estiver aberto no modal, atualiza o modal também
@@ -378,15 +386,16 @@ async function restoreOrderButtons(orderId) {
         if (modalContainer && modalContainer.style.display === 'flex') {
             const modalActionsContainer = modalContainer.querySelector(`#modal-actions-container-${orderId}`);
             if (modalActionsContainer) {
-                // Limpa o container de ações do modal
-                while (modalActionsContainer.firstChild) {
-                    if (modalActionsContainer.firstChild.tagName !== 'BUTTON' || 
-                        !modalActionsContainer.firstChild.classList.contains('modal-pedido-fechar')) {
-                        modalActionsContainer.removeChild(modalActionsContainer.firstChild);
-                    } else {
-                        break; // Mantém o botão "Fechar"
+                // Salva as classes originais do container de ações do modal
+                const originalModalClasses = modalActionsContainer.className;
+                
+                // Limpa o container de ações do modal preservando apenas o botão "Fechar"
+                Array.from(modalActionsContainer.children).forEach(child => {
+                    if (child.tagName !== 'BUTTON' || 
+                        !child.classList.contains('modal-pedido-fechar')) {
+                        child.remove();
                     }
-                }
+                });
                 
                 // Clona os botões do card para o modal
                 const newButtons = actionsContainer.cloneNode(true);
@@ -402,6 +411,9 @@ async function restoreOrderButtons(orderId) {
                 
                 // Adiciona ao início do container
                 modalActionsContainer.insertBefore(newButtons, modalActionsContainer.firstChild);
+                
+                // Restaura as classes originais do container de ações do modal
+                modalActionsContainer.className = originalModalClasses;
             }
         }
     } catch (error) {
