@@ -2163,3 +2163,31 @@ window.initialize = async function() {
     showToast('Erro ao inicializar aplicação com webhook', 'error');
   }
 };
+
+// Adicione no módulo webhookIntegration
+function verificarEventosDiretamente() {
+  console.log('[WEBHOOK-CHECK] Verificando eventos diretamente...');
+  
+  // Verifica se há eventos armazenados diretamente na função webhook
+  fetch('/.netlify/functions/ifood-webhook?check=true', {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+    }
+  })
+  .then(response => response.json())
+  .then(data => {
+    console.log('[WEBHOOK-CHECK] Resposta da verificação direta:', data);
+    if (data.lastEvent) {
+      console.log('[WEBHOOK-CHECK] Último evento recebido:', data.lastEvent);
+    } else {
+      console.log('[WEBHOOK-CHECK] Nenhum evento encontrado diretamente na função webhook');
+    }
+  })
+  .catch(error => {
+    console.error('[WEBHOOK-CHECK] Erro na verificação direta:', error);
+  });
+}
+
+// Exponha a função para uso no console
+window.verificarWebhookEventos = verificarEventosDiretamente;
