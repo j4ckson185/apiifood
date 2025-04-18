@@ -1975,13 +1975,16 @@ async function initialize() {
     } finally {
         hideLoading();
        
-        // Adicional: Garantir que o modal esteja oculto após carregar
+// Adicional: Garantir que o modal esteja oculto após carregar
         const cancelModal = document.getElementById('cancellation-modal');
         if (cancelModal) {
             cancelModal.classList.add('hidden');
             cancelModal.style.display = 'none';
             cancelModal.setAttribute('hidden', 'true');
         }
+        
+        // Iniciar verificação periódica de pedidos concluídos
+        setupCompletedOrdersCheck();
     }
 }
 
