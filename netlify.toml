@@ -6,3 +6,15 @@
   from = "/*"
   to = "/index.html"
   status = 200
+
+[[redirects]]
+  from = "/webhook"
+  to = "/.netlify/functions/ifood-webhook"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/webhook-events"
+  to = "/.netlify/functions/ifood-webhook-events"
+  status = 200
+  force = true
