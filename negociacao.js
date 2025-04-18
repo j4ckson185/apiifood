@@ -170,8 +170,14 @@ async function aceitarDisputa(disputeId) {
         console.log(`🤝 Aceitando disputa ${disputeId}...`);
         showLoading();
         
-        // Busca a disputa na lista ativa
+        // Busca a disputa na lista ativa antes de removê-la
         const disputa = activeDisputes.find(d => d.disputeId === disputeId);
+        const orderId = disputa ? disputa.orderId : null;
+        
+        // Guarda o orderId para restaurar botões depois
+        const savedOrderId = orderId;
+        console.log(`📦 Order ID preservado para restauração posterior: ${savedOrderId}`);
+        
         let body = null;
         
         // Verifica se precisa enviar reason baseado no metadata
@@ -193,8 +199,60 @@ async function aceitarDisputa(disputeId) {
         // Remove da lista de disputas ativas
         removeActiveDispute(disputeId);
         
+        // Processa como um settlement se possível
+        if (typeof window.handleSettlementEvent === 'function' && savedOrderId) {
+            try {
+                // Cria um objeto que simula um evento settlement
+                const settlementEvent = {
+                    orderId: savedOrderId,
+                    disputeId: disputeId,
+                    metadata: {
+                        status: 'ACCEPTED'
+                    }
+                };
+                
+                // Processa o "falso" evento
+                window.handleSettlementEvent(settlementEvent);
+            } catch (err) {
+                console.error('❌ Erro ao processar resposta como settlement:', err);
+            }
+        }
+        
         // Fecha o modal
         fecharModalNegociacao();
+        
+        // Restaura os botões específicos para este pedido
+        if (savedOrderId) {
+            setTimeout(() => {
+                try {
+                    console.log(`⏳ Tentando restaurar botões para pedido ${savedOrderId}`);
+                    
+                    if (typeof window.restoreOrderButtons === 'function') {
+                        window.restoreOrderButtons(savedOrderId);
+                    } else {
+                        // Fallback para código direto
+                        const orderCard = document.querySelector(`.order-card[data-order-id="${savedOrderId}"]`);
+                        if (orderCard) {
+                            const actionsContainer = orderCard.querySelector('.order-actions');
+                            if (actionsContainer) {
+                                // Usa o status conhecido, normalmente CONFIRMED
+                                addActionButtons(actionsContainer, { id: savedOrderId, status: 'CONFIRMED' });
+                                console.log('✅ Botões de ação restaurados diretamente');
+                            }
+                        }
+                    }
+                } catch (innerError) {
+                    console.error('❌ Erro ao restaurar botões após aceitar disputa:', innerError);
+                }
+            }, 500);
+            
+            // Tenta garantir a restauração dos botões com múltiplas tentativas
+            if (typeof window.garantirRestauracaoBotoes === 'function') {
+                setTimeout(() => {
+                    window.garantirRestauracaoBotoes(savedOrderId);
+                }, 1000);
+            }
+        }
         
         return true;
     } catch (error) {
@@ -211,6 +269,14 @@ async function rejeitarDisputa(disputeId) {
         console.log(`🤝 Rejeitando disputa ${disputeId}...`);
         showLoading();
         
+        // Busca a disputa na lista ativa antes de removê-la
+        const disputa = activeDisputes.find(d => d.disputeId === disputeId);
+        const orderId = disputa ? disputa.orderId : null;
+        
+        // Guarda o orderId para restaurar botões depois
+        const savedOrderId = orderId;
+        console.log(`📦 Order ID preservado para restauração posterior: ${savedOrderId}`);
+        
         // Obrigatório enviar reason para rejeição
         const body = {
             reason: "Rejeitado pelo estabelecimento"
@@ -224,8 +290,61 @@ async function rejeitarDisputa(disputeId) {
         // Remove da lista de disputas ativas
         removeActiveDispute(disputeId);
         
+        // Processa como um settlement se possível
+        if (typeof window.handleSettlementEvent === 'function' && savedOrderId) {
+            try {
+                // Cria um objeto que simula um evento settlement
+                const settlementEvent = {
+                    orderId: savedOrderId,
+                    disputeId: disputeId,
+                    metadata: {
+                        status: 'REJECTED'
+                    }
+                };
+                
+                // Processa o "falso" evento
+                window.handleSettlementEvent(settlementEvent);
+            } catch (err) {
+                console.error('❌ Erro ao processar resposta como settlement:', err);
+            }
+        }
+        
         // Fecha o modal
         fecharModalNegociacao();
+        
+        // Restaura os botões específicos para este pedido
+        if (savedOrderId) {
+            setTimeout(() => {
+                try {
+                    console.log(`⏳ Tentando restaurar botões para pedido ${savedOrderId}`);
+                    
+                    if (typeof window.restoreOrderButtons === 'function') {
+                        window.restoreOrderButtons(savedOrderId);
+                    } else {
+                        // Fallback para código direto
+                        const orderCard = document.querySelector(`.order-card[data-order-id="${savedOrderId}"]`);
+                        if (orderCard) {
+                            const actionsContainer = orderCard.querySelector('.order-actions');
+                            if (actionsContainer) {
+// Continuação da função rejeitarDisputa a partir de onde parou
+                                // Usa o status conhecido, normalmente CONFIRMED
+                                addActionButtons(actionsContainer, { id: savedOrderId, status: 'CONFIRMED' });
+                                console.log('✅ Botões de ação restaurados diretamente');
+                            }
+                        }
+                    }
+                } catch (innerError) {
+                    console.error('❌ Erro ao restaurar botões após rejeitar disputa:', innerError);
+                }
+            }, 500);
+            
+            // Tenta garantir a restauração dos botões com múltiplas tentativas
+            if (typeof window.garantirRestauracaoBotoes === 'function') {
+                setTimeout(() => {
+                    window.garantirRestauracaoBotoes(savedOrderId);
+                }, 1000);
+            }
+        }
         
         return true;
     } catch (error) {
@@ -237,67 +356,147 @@ async function rejeitarDisputa(disputeId) {
     }
 }
 
-async function proporAlternativa(disputeId, alternativeId) {
+// Modificação da função proporAlternativa no arquivo negociacao.js
+// Substitui a versão original da função proporTempoAdicional
+// Versão corrigida da função proporTempoAdicional
+async function proporTempoAdicional(disputeId, minutos, motivo, alternativeId = '') {
     try {
-        console.log(`🤝 Propondo alternativa ${alternativeId} para disputa ${disputeId}`);
+        console.log(`🤝 Propondo tempo adicional de ${minutos} minutos para a disputa ${disputeId}`);
         showLoading();
-
-        // Find the dispute in the active disputes array
-        const disputa = activeDisputes.find(d => d.disputeId === disputeId);
-        if (!disputa) throw new Error("Disputa não encontrada");
-
-        // Find the specific alternative in the dispute
-        const alternatives = disputa.metadata?.alternatives || [];
-        const alternative = alternatives.find(a => a.id === alternativeId);
-        if (!alternative) throw new Error("Alternativa não encontrada");
         
-        console.log("Alternativa selecionada:", alternative);
+        // Busca a disputa na lista de ativas para obter o orderId antes que seja removida
+        const disputa = activeDisputes.find(d => d.disputeId === disputeId);
+        const orderId = disputa ? disputa.orderId : null;
+        console.log(`📦 Order ID obtido para restauração posterior: ${orderId}`);
 
-        // Create a proper payload according to iFood API
+        // Prepara o payload
         const payload = {
-            type: alternative.type
+            type: "ADDITIONAL_TIME",
+            metadata: {
+                additionalTimeInMinutes: String(minutos),
+                additionalTimeReason: motivo
+            }
         };
+        
+        let endpoint = '';
+        if (alternativeId && alternativeId.trim() !== '') {
+            // Usa endpoint de alternativa
+            endpoint = `/order/v1.0/disputes/${disputeId}/alternatives/${alternativeId}`;
+        } else {
+            // Usa endpoint padrão
+            endpoint = `/order/v1.0/disputes/${disputeId}/additionalTime`;
+        }
 
-        // Add metadata based on alternative type
-        if (alternative.type === "ADDITIONAL_TIME") {
-            payload.metadata = {
-                additionalTimeInMinutes: String(alternative.metadata?.additionalTimeInMinutes || "15"),
-                additionalTimeReason: alternative.metadata?.additionalTimeReason || "HIGH_STORE_DEMAND"
-            };
-        } else if (alternative.type === "REFUND" || alternative.type === "BENEFIT") {
-            if (alternative.metadata?.maxAmount?.value) {
-                payload.metadata = {
-                    amount: {
-                        value: String(parseInt(alternative.metadata.maxAmount.value)),
-                        currency: "BRL"
+        console.log("📦 Payload a ser enviado:", payload);
+        console.log("🔗 Endpoint:", endpoint);
+
+        const response = await makeAuthorizedRequest(endpoint, "POST", payload);
+
+        console.log("✅ Tempo adicional proposto com sucesso:", response);
+        showToast(`Tempo adicional de ${minutos} minutos proposto com sucesso`, "success");
+
+        // Remove from active disputes
+        removeActiveDispute(disputeId);
+        
+        // Salva o orderId para restaurar botões depois
+        const savedOrderId = orderId;
+        
+        // Fecha o modal
+        fecharModalNegociacao();
+        
+        // Restaura os botões específicos para este pedido
+        if (savedOrderId) {
+            setTimeout(() => {
+                try {
+                    console.log(`⏳ Tentando restaurar botões para pedido ${savedOrderId} após propor tempo adicional`);
+                    
+                    if (typeof window.restoreOrderButtons === 'function') {
+                        window.restoreOrderButtons(savedOrderId);
+                    } else {
+                        // Fallback para código direto
+                        const orderCard = document.querySelector(`.order-card[data-order-id="${savedOrderId}"]`);
+                        if (orderCard) {
+                            const actionsContainer = orderCard.querySelector('.order-actions');
+                            if (actionsContainer) {
+                                // Usa o status conhecido, normalmente CONFIRMED para operações de atraso
+                                addActionButtons(actionsContainer, { id: savedOrderId, status: 'CONFIRMED' });
+                                console.log('✅ Botões de ação restaurados diretamente');
+                            }
+                        }
                     }
-                };
+                } catch (innerError) {
+                    console.error('❌ Erro ao restaurar botões após propor tempo:', innerError);
+                }
+            }, 500);
+            
+            // Tenta garantir a restauração dos botões com múltiplas tentativas
+            if (typeof window.garantirRestauracaoBotoes === 'function') {
+                setTimeout(() => {
+                    window.garantirRestauracaoBotoes(savedOrderId);
+                }, 1000);
             }
         }
 
-        console.log("Payload a ser enviado:", payload);
-
-        const response = await makeAuthorizedRequest(
-            `/order/v1.0/disputes/${disputeId}/alternatives/${alternativeId}`,
-            "POST",
-            payload
-        );
-
-        console.log("✅ Alternativa enviada com sucesso:", response);
-        showToast("Alternativa proposta com sucesso", "success");
-
-        // Remove from active disputes and close modal
-        removeActiveDispute(disputeId);
-        fecharModalNegociacao();
-
         return true;
     } catch (error) {
-        console.error("❌ Erro ao propor alternativa:", error);
+        console.error("❌ Erro ao propor tempo adicional:", error);
         showToast(`Erro: ${error.message}`, "error");
         return false;
     } finally {
         hideLoading();
     }
+}
+
+// Nova função para preservar estado do pedido antes de fechar modal
+function anteciparLimpezaModalNegociacao() {
+    // Obtém a disputa atual antes que seja limpa
+    const disputa = activeDisputes.find(d => d.disputeId === currentDisputeId);
+    let pedidoId = null;
+    
+    if (disputa) {
+        pedidoId = disputa.orderId;
+        
+        // Armazena o status original do pedido para restauração
+        const orderCard = document.querySelector(`.order-card[data-order-id="${pedidoId}"]`);
+        if (orderCard) {
+            const statusElement = orderCard.querySelector('.order-status');
+            if (statusElement) {
+                const statusText = statusElement.textContent;
+                
+                // Armazena o status em um dataAttribute para usar depois
+                orderCard.setAttribute('data-original-status', statusText);
+                console.log(`💾 Status original do pedido ${pedidoId} preservado: ${statusText}`);
+            }
+        }
+    }
+    
+    return pedidoId;
+}
+
+// Nova função para garantir a restauração dos botões
+function garantirRestauracaoBotoes(orderId) {
+    if (!orderId) return;
+    
+    console.log(`🔄 Garantindo restauração dos botões para pedido ${orderId}`);
+    
+    // Tenta múltiplas vezes para garantir
+    const tentativas = [300, 800, 1500]; // Tempos em ms
+    
+    tentativas.forEach(tempo => {
+        setTimeout(() => {
+            const card = document.querySelector(`.order-card[data-order-id="${orderId}"]`);
+            if (!card) return;
+            
+            // Verifica se já tem botões de ação (exceto o resumo)
+            const acoesExistentes = Array.from(card.querySelectorAll('.action-button'))
+                .filter(btn => !btn.classList.contains('ver-resumo-negociacao'));
+                
+            if (acoesExistentes.length === 0) {
+                console.log(`⚠️ Restaurando botões em ${tempo}ms para o pedido ${orderId}`);
+                restoreOrderButtons(orderId);
+            }
+        }, tempo);
+    });
 }
 
 // Função para criar o modal de negociação
@@ -809,8 +1008,18 @@ async function confirmarCancelamentoLoja() {
     }
 }
 
-// Função para fechar o modal de negociação
+// Função melhorada para fechar o modal de negociação
 function fecharModalNegociacao() {
+    // Antes de fechar, obtém o ID do pedido associado à disputa atual
+    let orderId = null;
+    if (currentDisputeId) {
+        const disputa = activeDisputes.find(d => d.disputeId === currentDisputeId);
+        if (disputa) {
+            orderId = disputa.orderId;
+            console.log(`🔄 Preservando orderId ${orderId} para restauração de botões após fechar o modal`);
+        }
+    }
+    
     // Obtém o container do modal
     const modalContainer = document.getElementById('modal-negociacao-container');
     if (modalContainer) {
@@ -824,6 +1033,61 @@ function fecharModalNegociacao() {
     if (window.timeUpdateInterval) {
         clearInterval(window.timeUpdateInterval);
         window.timeUpdateInterval = null;
+    }
+    
+    // IMPORTANTE: Agora restaura os botões se tiver o ID do pedido
+    if (orderId) {
+        console.log(`🔄 Restaurando botões de ação para o pedido ${orderId} após fechar modal`);
+        
+        // Delay para garantir que o DOM está atualizado
+        setTimeout(() => {
+            try {
+                // Verifica se a função restoreOrderButtons está disponível
+                if (typeof window.restoreOrderButtons === 'function') {
+                    window.restoreOrderButtons(orderId);
+                } else {
+                    // Fallback para atualizarStatus se restoreOrderButtons não estiver disponível
+                    const orderCard = document.querySelector(`.order-card[data-order-id="${orderId}"]`);
+                    if (orderCard) {
+                        const statusElement = orderCard.querySelector('.order-status');
+                        if (statusElement) {
+                            const statusText = statusElement.textContent;
+                            console.log(`🔍 Status atual do pedido: ${statusText}`);
+                            
+                            // Mapeia o texto do status para o código
+                            const statusMap = {
+                                'Novo': 'PLACED',
+                                'Confirmado': 'CONFIRMED',
+                                'Em Preparação': 'IN_PREPARATION',
+                                'Pronto para Retirada': 'READY_TO_PICKUP',
+                                'A Caminho': 'DISPATCHED',
+                                'Concluído': 'CONCLUDED',
+                                'Cancelado': 'CANCELLED'
+                            };
+                            
+                            const statusCode = statusMap[statusText] || 'CONFIRMED';
+                            console.log(`🔄 Usando status ${statusCode} para restaurar botões`);
+                            
+                            // Atualiza os botões
+                            updateOrderStatus(orderId, statusCode);
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error('❌ Erro ao restaurar botões após fechar modal:', error);
+            }
+        }, 300);
+        
+        // Para garantir, tenta restaurar novamente após um tempo maior
+        setTimeout(() => {
+            try {
+                if (typeof window.garantirRestauracaoBotoes === 'function') {
+                    window.garantirRestauracaoBotoes(orderId);
+                }
+            } catch (err) {
+                console.error('❌ Erro na segunda tentativa de restaurar botões:', err);
+            }
+        }, 800);
     }
     
     console.log('✅ Modal de negociação fechado');
