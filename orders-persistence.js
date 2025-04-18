@@ -102,7 +102,11 @@ async function updateAllVisibleOrders() {
                         const currentStatus = currentStatusElem.textContent;
                         const newStatusText = getStatusText(orderDetails.status);
                         
-                        if (currentStatus !== newStatusText) {
+                        const estadosFinais = ['DISPATCHED', 'CONCLUDED', 'CANCELLED'];
+                        if (
+                            currentStatus !== newStatusText &&
+                            !estadosFinais.includes(currentStatus)
+                        ) {
                             console.log(`Status do pedido ${orderId} mudou de "${currentStatus}" para "${newStatusText}"`);
                             updateOrderStatus(orderId, orderDetails.status);
                         }
@@ -136,15 +140,28 @@ window.displayOrder = function(order) {
 // Sobrescreve a função updateOrderStatus original para incluir cache
 const originalUpdateOrderStatus = updateOrderStatus;
 window.updateOrderStatus = function(orderId, status) {
-    // Se o pedido estiver no cache, atualiza seu status
+    const currentStatus = ordersCache[orderId]?.status;
+
+    // Protege contra rebaixamento de status
+    const estadosFinais = ['DISPATCHED', 'CONCLUDED', 'CANCELLED'];
+    if (estadosFinais.includes(currentStatus) && currentStatus !== status) {
+        console.log(`⚠️ Ignorando update para ${orderId} de ${currentStatus} para ${status}`);
+        return;
+    }
+
     if (ordersCache[orderId]) {
         ordersCache[orderId].status = status;
     }
-    
-    // Chama função original
+
     originalUpdateOrderStatus(orderId, status);
-    
-    // Salva no localStorage
+    // Reinsere botão de resumo da negociação, se houver disputa resolvida
+if (resolvedDisputes?.[orderId]) {
+    const orderCard = document.querySelector(`.order-card[data-order-id="${orderId}"]`);
+    if (orderCard) {
+        addNegotiationSummaryButton(orderCard, resolvedDisputes[orderId]);
+        console.log('🔁 Botão de resumo de negociação reinserido após update de status');
+    }
+}
     saveOrdersToLocalStorage();
 };
 
