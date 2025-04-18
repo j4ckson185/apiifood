@@ -114,6 +114,58 @@ function stopDisputePolling() {
     console.log('⏹️ Polling de disputas parado');
 }
 
+// Nova função para preservar estado do pedido antes de fechar modal
+function anteciparLimpezaModalNegociacao() {
+    // Obtém a disputa atual antes que seja limpa
+    const disputa = activeDisputes.find(d => d.disputeId === currentDisputeId);
+    let pedidoId = null;
+    
+    if (disputa) {
+        pedidoId = disputa.orderId;
+        
+        // Armazena o status original do pedido para restauração
+        const orderCard = document.querySelector(`.order-card[data-order-id="${pedidoId}"]`);
+        if (orderCard) {
+            const statusElement = orderCard.querySelector('.order-status');
+            if (statusElement) {
+                const statusText = statusElement.textContent;
+                
+                // Armazena o status em um dataAttribute para usar depois
+                orderCard.setAttribute('data-original-status', statusText);
+                console.log(`💾 Status original do pedido ${pedidoId} preservado: ${statusText}`);
+            }
+        }
+    }
+    
+    return pedidoId;
+}
+
+// Nova função para garantir a restauração dos botões
+function garantirRestauracaoBotoes(orderId) {
+    if (!orderId) return;
+    
+    console.log(`🔄 Garantindo restauração dos botões para pedido ${orderId}`);
+    
+    // Tenta múltiplas vezes para garantir
+    const tentativas = [300, 800, 1500]; // Tempos em ms
+    
+    tentativas.forEach(tempo => {
+        setTimeout(() => {
+            const card = document.querySelector(`.order-card[data-order-id="${orderId}"]`);
+            if (!card) return;
+            
+            // Verifica se já tem botões de ação (exceto o resumo)
+            const acoesExistentes = Array.from(card.querySelectorAll('.action-button'))
+                .filter(btn => !btn.classList.contains('ver-resumo-negociacao'));
+                
+            if (acoesExistentes.length === 0) {
+                console.log(`⚠️ Restaurando botões em ${tempo}ms para o pedido ${orderId}`);
+                restoreOrderButtons(orderId);
+            }
+        }, tempo);
+    });
+}
+
 // Função principal para tratar eventos HANDSHAKE_SETTLEMENT
 async function handleSettlementEvent(event) {
     try {
@@ -162,6 +214,26 @@ async function handleSettlementEvent(event) {
                         console.log('✅ Status deduzido das classes do card:', cardStatus);
                         originalStatus = cardStatus;
                     }
+                }
+            }
+            
+            // Verifica também qualquer status armazenado no atributo personalizado
+            if (!originalStatus || originalStatus === 'PLACED') {
+                const storedStatus = orderCard.getAttribute('data-original-status');
+                if (storedStatus) {
+                    // Converte texto do status para código
+                    const statusMap = {
+                        'Novo': 'PLACED',
+                        'Confirmado': 'CONFIRMED',
+                        'Em Preparação': 'IN_PREPARATION',
+                        'Pronto para Retirada': 'READY_TO_PICKUP',
+                        'A Caminho': 'DISPATCHED',
+                        'Concluído': 'CONCLUDED',
+                        'Cancelado': 'CANCELLED'
+                    };
+                    
+                    originalStatus = statusMap[storedStatus] || originalStatus;
+                    console.log('✅ Status encontrado no atributo data:', originalStatus);
                 }
             }
             
@@ -293,6 +365,11 @@ async function handleSettlementEvent(event) {
                     // Cria um objeto simples com o status correto
                     const orderWithStatus = { id: event.orderId, status: currentStatus };
                     
+                    // Limpa o container de ações
+                    while (actionsContainer.firstChild) {
+                        actionsContainer.removeChild(actionsContainer.firstChild);
+                    }
+                    
                     // Adiciona os botões corretos
                     addActionButtons(actionsContainer, orderWithStatus);
                     
@@ -302,6 +379,10 @@ async function handleSettlementEvent(event) {
                         console.log('🔄 Botão de resumo de negociação readicionado');
                     }, 200);
                 }
+                
+                // Garantir que os botões de ação sejam restaurados mesmo após todas as tentativas
+                garantirRestauracaoBotoes(event.orderId);
+                
             } catch (error) {
                 console.error('❌ Erro ao restaurar botões de ação:', error);
             }
@@ -320,16 +401,15 @@ async function handleSettlementEvent(event) {
 const originalAddActionButtons = window.addActionButtons;
 window.addActionButtons = function(container, dispute) {
     // Se for disputa por atraso, modifica o container antes de adicionar botões
-if (isDelayDispute(dispute)) {
-    setTimeout(() => {
-        const rejectBtn = document.querySelector('.modal-negociacao-footer .action-button.reject');
-        if (rejectBtn) {
-            rejectBtn.remove(); // Remove mesmo que ele tenha sido re-inserido depois
-            console.log('⛔ Botão de rejeição removido para disputa por atraso');
-        }
-    }, 100); // delay suficiente pra garantir que tudo foi renderizado
-}
-
+    if (isDelayDispute(dispute)) {
+        setTimeout(() => {
+            const rejectBtn = document.querySelector('.modal-negociacao-footer .action-button.reject');
+            if (rejectBtn) {
+                rejectBtn.remove(); // Remove mesmo que ele tenha sido re-inserido depois
+                console.log('⛔ Botão de rejeição removido para disputa por atraso');
+            }
+        }, 100); // delay suficiente pra garantir que tudo foi renderizado
+    }
 
     // Chama função original
     return originalAddActionButtons(container, dispute);
@@ -542,13 +622,38 @@ async function restoreOrderButtons(orderId) {
             }
         }
         
-        // Estratégia 4: usar CONFIRMED como fallback seguro
+        // Estratégia 4: verificar o atributo data-original-status
+        if (!orderStatus || orderStatus === 'PLACED') {
+            const storedStatus = orderCard.getAttribute('data-original-status');
+            if (storedStatus) {
+                // Converte texto do status para código
+                const statusMap = {
+                    'Novo': 'PLACED',
+                    'Confirmado': 'CONFIRMED',
+                    'Em Preparação': 'IN_PREPARATION',
+                    'Pronto para Retirada': 'READY_TO_PICKUP',
+                    'A Caminho': 'DISPATCHED',
+                    'Concluído': 'CONCLUDED',
+                    'Cancelado': 'CANCELLED'
+                };
+                
+                orderStatus = statusMap[storedStatus] || orderStatus;
+                console.log('✅ Status encontrado no atributo data:', orderStatus);
+            }
+        }
+        
+        // Estratégia 5: usar CONFIRMED como fallback seguro
         if (!orderStatus || orderStatus === 'PLACED') {
             console.warn('⚠️ Usando CONFIRMED como fallback de segurança');
             orderStatus = 'CONFIRMED';
         }
         
         console.log('✅ Status final para restauração de botões:', orderStatus);
+        
+        // Limpa o container de ações antes de adicionar novos botões
+        while (actionsContainer.firstChild) {
+            actionsContainer.removeChild(actionsContainer.firstChild);
+        }
         
         // Recria os botões de ação baseados no status atual do pedido
         addActionButtons(actionsContainer, { id: orderId, status: orderStatus });
@@ -781,3 +886,5 @@ window.showNegotiationSummaryModal = showNegotiationSummaryModal;
 window.closeNegotiationSummaryModal = closeNegotiationSummaryModal;
 window.startDisputePolling = startDisputePolling;
 window.stopDisputePolling = stopDisputePolling;
+window.garantirRestauracaoBotoes = garantirRestauracaoBotoes;
+window.restoreOrderButtons = restoreOrderButtons;
