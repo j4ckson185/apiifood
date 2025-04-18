@@ -1759,57 +1759,64 @@ function showEditModal() {
 
 // Função para adicionar o campo "Troco Para" às informações do cliente
 function addChangeForField(orderElement, order) {
+    console.log('Verificando troco para pedido:', order.id);
+    
     // Verifica se o pedido tem informações de pagamento
     if (order.payments && order.payments.methods && Array.isArray(order.payments.methods)) {
-        // Procura por métodos de pagamento em dinheiro que tenham changeFor
-        let trocoEncontrado = false;
-        let valorTroco = 0;
+        console.log('Métodos de pagamento encontrados:', order.payments.methods.length);
         
         // Percorre todos os métodos de pagamento
         for (const method of order.payments.methods) {
+            console.log('Verificando método:', method.method);
+            
             // Verifica se é um pagamento em dinheiro com troco
             if (method.method && method.method.trim().toLowerCase().includes('cash') && 
                 method.cash && method.cash.changeFor) {
-                trocoEncontrado = true;
-                valorTroco = method.cash.changeFor;
-                break;
-            }
-        }
-        
-        // Se encontrou informação de troco, adiciona onde for possível
-        if (trocoEncontrado) {
-            // Texto que será exibido
-            const textoTroco = `Troco para: R$ ${valorTroco.toFixed(2)}`;
-            
-            // Tenta adicionar nas informações de pagamento
-            const paymentInfo = orderElement.querySelector('.payment-info');
-            if (paymentInfo) {
-                const paymentList = paymentInfo.querySelector('ul');
+                
+                const valorTroco = method.cash.changeFor;
+                console.log('Troco encontrado:', valorTroco);
+                
+                // Busca o elemento de lista de pagamentos
+                const paymentList = orderElement.querySelector('.payment-info ul');
+                
                 if (paymentList) {
-                    // Adiciona como item na lista de pagamentos
-                    const li = document.createElement('li');
-                    li.className = 'payment-change-for';
-                    li.textContent = textoTroco;
-                    paymentList.appendChild(li);
+                    // Busca o item da lista que corresponde ao pagamento em dinheiro
+                    const paymentItems = paymentList.querySelectorAll('li');
+                    
+                    for (const item of paymentItems) {
+                        // Verifica se este item contém informação sobre pagamento em dinheiro
+                        if (item.textContent.toLowerCase().includes('dinheiro') || 
+                            item.textContent.toLowerCase().includes('cash')) {
+                            
+                            // Adiciona a informação de troco diretamente a este item
+                            item.innerHTML += `<br><span class="change-for-info">Troco para: R$ ${valorTroco.toFixed(2)}</span>`;
+                            console.log('Troco adicionado ao item de pagamento em dinheiro');
+                            return; // Encerra após adicionar
+                        }
+                    }
+                    
+                    // Se não encontrou o item específico, adiciona como um novo item
+                    const trocoItem = document.createElement('li');
+                    trocoItem.className = 'payment-change-for';
+                    trocoItem.innerHTML = `<strong>Troco para:</strong> R$ ${valorTroco.toFixed(2)}`;
+                    paymentList.appendChild(trocoItem);
+                    console.log('Troco adicionado como novo item na lista de pagamentos');
                 } else {
-                    // Adiciona como parágrafo após toda info de pagamento
-                    const p = document.createElement('p');
-                    p.className = 'payment-change-for';
-                    p.textContent = textoTroco;
-                    paymentInfo.appendChild(p);
+                    console.log('Lista de pagamentos não encontrada');
+                    
+                    // Fallback: adiciona às informações do cliente
+                    const customerInfo = orderElement.querySelector('.customer-info');
+                    if (customerInfo) {
+                        const changeForParagraph = document.createElement('p');
+                        changeForParagraph.className = 'customer-change-for';
+                        changeForParagraph.innerHTML = `<strong>Troco para:</strong> R$ ${valorTroco.toFixed(2)}`;
+                        customerInfo.appendChild(changeForParagraph);
+                        console.log('Troco adicionado às informações do cliente (fallback)');
+                    }
                 }
+                
+                break; // Encerra o loop após encontrar o troco
             }
-            
-            // Adiciona também nas informações do cliente como backup
-            const customerInfo = orderElement.querySelector('.customer-info');
-            if (customerInfo) {
-                const p = document.createElement('p');
-                p.className = 'customer-change-for';
-                p.textContent = textoTroco;
-                customerInfo.appendChild(p);
-            }
-            
-            console.log('Informação de troco adicionada:', textoTroco);
         }
     }
 }
