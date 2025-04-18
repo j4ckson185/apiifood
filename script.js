@@ -1776,20 +1776,40 @@ function addChangeForField(orderElement, order) {
             }
         }
         
-        // Se encontrou informação de troco, adiciona após as informações de pagamento
+        // Se encontrou informação de troco, adiciona onde for possível
         if (trocoEncontrado) {
-            // Busca o elemento de informações de pagamento
-            const paymentInfo = orderElement.querySelector('.payment-info');
+            // Texto que será exibido
+            const textoTroco = `Troco para: R$ ${valorTroco.toFixed(2)}`;
             
+            // Tenta adicionar nas informações de pagamento
+            const paymentInfo = orderElement.querySelector('.payment-info');
             if (paymentInfo) {
-                // Cria um parágrafo para o troco
-                const changeForParagraph = document.createElement('p');
-                changeForParagraph.className = 'payment-change-for';
-                changeForParagraph.textContent = `Troco para: R$ ${valorTroco.toFixed(2)}`;
-                
-                // Adiciona o parágrafo após a última informação de pagamento
-                paymentInfo.appendChild(changeForParagraph);
+                const paymentList = paymentInfo.querySelector('ul');
+                if (paymentList) {
+                    // Adiciona como item na lista de pagamentos
+                    const li = document.createElement('li');
+                    li.className = 'payment-change-for';
+                    li.textContent = textoTroco;
+                    paymentList.appendChild(li);
+                } else {
+                    // Adiciona como parágrafo após toda info de pagamento
+                    const p = document.createElement('p');
+                    p.className = 'payment-change-for';
+                    p.textContent = textoTroco;
+                    paymentInfo.appendChild(p);
+                }
             }
+            
+            // Adiciona também nas informações do cliente como backup
+            const customerInfo = orderElement.querySelector('.customer-info');
+            if (customerInfo) {
+                const p = document.createElement('p');
+                p.className = 'customer-change-for';
+                p.textContent = textoTroco;
+                customerInfo.appendChild(p);
+            }
+            
+            console.log('Informação de troco adicionada:', textoTroco);
         }
     }
 }
