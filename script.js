@@ -520,9 +520,6 @@ function displayOrder(order) {
         emailParagraph.textContent = `Email: ${customerEmail}`;
         orderElement.querySelector('.customer-info').appendChild(emailParagraph);
     }
-
-    // Adiciona campo "Troco Para" se disponível
-addChangeForField(orderElement, order);
     
     // Formatação correta do telefone
     let phoneText = 'Tel: N/A';
@@ -698,6 +695,9 @@ if (payment.type) {
         // Insere após as informações do tipo de pedido
         orderTypeDiv.parentNode.insertBefore(paymentDiv, orderTypeDiv.nextSibling);
     }
+
+    // Agora que o bloco de pagamento existe, adiciona o troco
+addChangeForField(orderElement, order);
 
     // Preenche itens do pedido
     const itemsList = orderElement.querySelector('.items-list');
