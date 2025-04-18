@@ -551,6 +551,33 @@ function preservarStatusOriginal(orderId) {
     }
 }
 
+// Função para propor alternativa (genérica, não só para tempo)
+async function proporAlternativa(disputeId, alternativeId) {
+    try {
+        console.log(`🤝 Propondo alternativa ${alternativeId} para a disputa ${disputeId}`);
+        showLoading();
+        
+        const response = await makeAuthorizedRequest(`/order/v1.0/disputes/${disputeId}/alternatives/${alternativeId}`, 'POST');
+        
+        console.log('✅ Alternativa proposta com sucesso:', response);
+        showToast('Alternativa proposta com sucesso', 'success');
+        
+        // Remove da lista de disputas ativas
+        removeActiveDispute(disputeId);
+        
+        // Fecha o modal
+        fecharModalNegociacao();
+        
+        return true;
+    } catch (error) {
+        console.error('❌ Erro ao propor alternativa:', error);
+        showToast(`Erro ao propor alternativa: ${error.message}`, 'error');
+        return false;
+    } finally {
+        hideLoading();
+    }
+}
+
 function exibirModalNegociacao(dispute) {
     // Preserva o status original do pedido
     if (dispute && dispute.orderId) {
