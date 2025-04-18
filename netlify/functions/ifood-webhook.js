@@ -21,9 +21,9 @@ function validarAssinatura(payload, assinatura, clientSecret) {
 }
 
 exports.handler = async (event) => {
-  // Adicionando logs detalhados logo no início para diagnóstico
-  const timestamp = new Date().toISOString();
-  console.log(`[WEBHOOK][${timestamp}] VERIFICAÇÃO DE INVOCAÇÃO`);
+  // ADICIONE ISSO NO INÍCIO DA FUNÇÃO (PRIMEIRAS LINHAS)
+  const logTimestamp = new Date().toISOString();
+  console.log(`[WEBHOOK][${logTimestamp}] VERIFICAÇÃO DE INVOCAÇÃO`);
   console.log('[WEBHOOK] Método HTTP:', event.httpMethod);
   console.log('[WEBHOOK] Cabeçalhos completos:', JSON.stringify(event.headers));
   console.log('[WEBHOOK] Corpo da requisição:', event.body ? 'Presente' : 'Ausente');
