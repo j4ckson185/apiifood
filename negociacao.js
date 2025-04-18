@@ -366,8 +366,6 @@ async function rejeitarDisputa(disputeId) {
     }
 }
 
-// Modificação da função proporAlternativa no arquivo negociacao.js
-// Substitui a versão original da função proporTempoAdicional
 // Versão corrigida da função proporTempoAdicional
 async function proporTempoAdicional(disputeId, minutos, motivo, alternativeId = '') {
     try {
@@ -528,13 +526,12 @@ function criarContainerModalNegociacao() {
     console.log('✅ Container do modal de negociação criado');
 }
 
-// Arquivo: negociacao.js - Nova função para armazenar o status original de forma mais robusta
-function preservarStatusOriginalRobusto(orderId) {
+// Função para preservar o status original do pedido antes de iniciar negociação
+function preservarStatusOriginal(orderId) {
     if (!orderId) return;
     
-    console.log(`🔍 Preservando status original do pedido ${orderId} de forma robusta`);
+    console.log(`🔍 Preservando status original do pedido ${orderId}`);
     
-    // Busca o card do pedido
     const orderCard = document.querySelector(`.order-card[data-order-id="${orderId}"]`);
     if (!orderCard) {
         console.log(`❌ Card não encontrado para pedido ${orderId}`);
@@ -546,40 +543,9 @@ function preservarStatusOriginalRobusto(orderId) {
     if (statusElement) {
         const statusText = statusElement.textContent;
         
-        // Armazena no atributo data- com um prefixo especial para indicar que é o status PRÉ-negociação
-        orderCard.setAttribute('data-pre-negotiation-status', statusText);
-        
-        // Também armazena no localStorage para maior garantia
-        try {
-            const savedPreNegotiationStatuses = JSON.parse(localStorage.getItem('preNegotiationStatuses') || '{}');
-            savedPreNegotiationStatuses[orderId] = statusText;
-            localStorage.setItem('preNegotiationStatuses', JSON.stringify(savedPreNegotiationStatuses));
-        } catch (err) {
-            console.error('❌ Erro ao salvar status no localStorage:', err);
-        }
-        
+        // Armazena no atributo data-
+        orderCard.setAttribute('data-original-status', statusText);
         console.log(`✅ Status original "${statusText}" preservado para pedido ${orderId}`);
-        
-        // Mapeamento para código
-        const statusMap = {
-            'Novo': 'PLACED',
-            'Confirmado': 'CONFIRMED',
-            'Em Preparação': 'IN_PREPARATION', 
-            'Pronto para Retirada': 'READY_TO_PICKUP',
-            'A Caminho': 'DISPATCHED',
-            'Concluído': 'CONCLUDED',
-            'Cancelado': 'CANCELLED',
-            'Cancelamento Solicitado': 'CANCELLATION_REQUESTED'
-        };
-        
-        const statusCode = statusMap[statusText] || 'CONFIRMED'; // Fallback para CONFIRMED
-        console.log(`🔍 Status mapeado para código: ${statusCode}`);
-        
-        // CRÍTICO: Adiciona no window para garantir acesso global
-        if (!window.preNegotiationStatuses) {
-            window.preNegotiationStatuses = {};
-        }
-        window.preNegotiationStatuses[orderId] = statusCode;
     } else {
         console.log(`⚠️ Elemento de status não encontrado para pedido ${orderId}`);
     }
