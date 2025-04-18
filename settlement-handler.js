@@ -221,7 +221,7 @@ function garantirRestauracaoBotoes(orderId) {
     });
 }
 
-// Modificação na função handleSettlementEvent no arquivo settlement-handler.js
+// Função principal para tratar eventos HANDSHAKE_SETTLEMENT
 async function handleSettlementEvent(event) {
     try {
         console.log('🔍 Processando evento HANDSHAKE_SETTLEMENT:', event);
@@ -446,51 +446,55 @@ async function handleSettlementEvent(event) {
         // Exibe notificação
         showToast(`Negociação ${resolvedDispute.statusFinal.toLowerCase()}`, 'info');
         
-console.log('✅ Evento HANDSHAKE_SETTLEMENT processado com sucesso');
+        console.log('✅ Evento HANDSHAKE_SETTLEMENT processado com sucesso');
 
-// MODIFICAÇÃO CRÍTICA: Após processar o settlement, forçar a restauração dos botões
-setTimeout(() => {
-    if (typeof window.forcarRestauracaoBotoes === 'function') {
-        window.forcarRestauracaoBotoes(event.orderId);
-        console.log('🛠️ Forçada restauração de botões após settlement');
-    } else {
-        console.log('⚠️ Função forcarRestauracaoBotoes não disponível, tentando alternativa');
+        // MODIFICAÇÃO CRÍTICA: Restaurar os botões com o status original
+        setTimeout(() => {
+            const orderCard = document.querySelector(`.order-card[data-order-id="${event.orderId}"]`);
+            if (orderCard) {
+                // Tenta obter o status original
+                const originalStatus = orderCard.getAttribute('data-original-status');
+                console.log(`🔍 Status original do pedido: ${originalStatus}`);
+                
+                if (originalStatus) {
+                    // Converte o texto para o código de status
+                    const statusMap = {
+                        'Novo': 'PLACED',
+                        'Confirmado': 'CONFIRMED',
+                        'Em Preparação': 'IN_PREPARATION', 
+                        'Pronto para Retirada': 'READY_TO_PICKUP',
+                        'A Caminho': 'DISPATCHED',
+                        'Concluído': 'CONCLUDED',
+                        'Cancelado': 'CANCELLED'
+                    };
+                    
+                    const statusCode = statusMap[originalStatus] || 'CONFIRMED';
+                    
+                    // Busca o container de ações
+                    const actionsContainer = orderCard.querySelector('.order-actions');
+                    if (actionsContainer) {
+                        // Salva o botão de resumo se existir
+                        const resumoBtn = actionsContainer.querySelector('.ver-resumo-negociacao');
+                        
+                        // Limpa o container
+                        actionsContainer.innerHTML = '';
+                        
+                        // Adiciona botões para o status original
+                        addActionButtons(actionsContainer, { id: event.orderId, status: statusCode });
+                        console.log(`✅ Botões restaurados com status original: ${statusCode}`);
+                        
+                        // Readiciona o botão de resumo
+                        if (resumoBtn) {
+                            actionsContainer.appendChild(resumoBtn);
+                        }
+                    }
+                }
+            }
+        }, 500);
         
-        const orderCard = document.querySelector(`.order-card[data-order-id="${event.orderId}"]`);
-        if (orderCard) {
-            const preStatus = orderCard.getAttribute('data-pre-negotiation-status');
-            console.log(`🔍 Status pré-negociação encontrado: ${preStatus}`);
-            
-            // Mapear para código
-            const statusMap = {
-                'Novo': 'PLACED',
-                'Confirmado': 'CONFIRMED',
-                'Em Preparação': 'IN_PREPARATION', 
-                'Pronto para Retirada': 'READY_TO_PICKUP',
-                'A Caminho': 'DISPATCHED',
-                'Concluído': 'CONCLUDED',
-                'Cancelado': 'CANCELLED'
-            };
-            
-            const statusCode = statusMap[preStatus] || 'CONFIRMED';
-            
-            // Forçar atualização com este status
-            window.updateOrderStatus(event.orderId, statusCode);
-            console.log(`🛠️ Forçado updateOrderStatus com ${statusCode}`);
-        }
+    } catch (error) {
+        console.error('❌ Erro ao processar HANDSHAKE_SETTLEMENT:', error);
     }
-}, 500);
-
-// Faça mais uma tentativa para garantir
-setTimeout(() => {
-    if (typeof window.forcarRestauracaoBotoes === 'function') {
-        window.forcarRestauracaoBotoes(event.orderId);
-        console.log('🛠️ Segunda tentativa de forçar restauração de botões');
-    }
-}, 1500);
-
-} catch (error) {
-    console.error('❌ Erro ao processar HANDSHAKE_SETTLEMENT:', error);
 }
 
 // Estende a função addActionButtons do cores-modal-pedidos.js
