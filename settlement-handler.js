@@ -221,7 +221,7 @@ function garantirRestauracaoBotoes(orderId) {
     });
 }
 
-// Função principal para tratar eventos HANDSHAKE_SETTLEMENT
+// Modificação na função handleSettlementEvent no arquivo settlement-handler.js
 async function handleSettlementEvent(event) {
     try {
         console.log('🔍 Processando evento HANDSHAKE_SETTLEMENT:', event);
@@ -446,10 +446,51 @@ async function handleSettlementEvent(event) {
         // Exibe notificação
         showToast(`Negociação ${resolvedDispute.statusFinal.toLowerCase()}`, 'info');
         
-        console.log('✅ Evento HANDSHAKE_SETTLEMENT processado com sucesso');
-    } catch (error) {
-        console.error('❌ Erro ao processar HANDSHAKE_SETTLEMENT:', error);
+console.log('✅ Evento HANDSHAKE_SETTLEMENT processado com sucesso');
+
+// MODIFICAÇÃO CRÍTICA: Após processar o settlement, forçar a restauração dos botões
+setTimeout(() => {
+    if (typeof window.forcarRestauracaoBotoes === 'function') {
+        window.forcarRestauracaoBotoes(event.orderId);
+        console.log('🛠️ Forçada restauração de botões após settlement');
+    } else {
+        console.log('⚠️ Função forcarRestauracaoBotoes não disponível, tentando alternativa');
+        
+        const orderCard = document.querySelector(`.order-card[data-order-id="${event.orderId}"]`);
+        if (orderCard) {
+            const preStatus = orderCard.getAttribute('data-pre-negotiation-status');
+            console.log(`🔍 Status pré-negociação encontrado: ${preStatus}`);
+            
+            // Mapear para código
+            const statusMap = {
+                'Novo': 'PLACED',
+                'Confirmado': 'CONFIRMED',
+                'Em Preparação': 'IN_PREPARATION', 
+                'Pronto para Retirada': 'READY_TO_PICKUP',
+                'A Caminho': 'DISPATCHED',
+                'Concluído': 'CONCLUDED',
+                'Cancelado': 'CANCELLED'
+            };
+            
+            const statusCode = statusMap[preStatus] || 'CONFIRMED';
+            
+            // Forçar atualização com este status
+            window.updateOrderStatus(event.orderId, statusCode);
+            console.log(`🛠️ Forçado updateOrderStatus com ${statusCode}`);
+        }
     }
+}, 500);
+
+// Faça mais uma tentativa para garantir
+setTimeout(() => {
+    if (typeof window.forcarRestauracaoBotoes === 'function') {
+        window.forcarRestauracaoBotoes(event.orderId);
+        console.log('🛠️ Segunda tentativa de forçar restauração de botões');
+    }
+}, 1500);
+
+} catch (error) {
+    console.error('❌ Erro ao processar HANDSHAKE_SETTLEMENT:', error);
 }
 
 // Estende a função addActionButtons do cores-modal-pedidos.js
