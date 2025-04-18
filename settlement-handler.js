@@ -140,27 +140,82 @@ function anteciparLimpezaModalNegociacao() {
     return pedidoId;
 }
 
-// Nova função para garantir a restauração dos botões
+// Função melhorada para garantir a restauração dos botões
 function garantirRestauracaoBotoes(orderId) {
     if (!orderId) return;
     
     console.log(`🔄 Garantindo restauração dos botões para pedido ${orderId}`);
     
     // Tenta múltiplas vezes para garantir
-    const tentativas = [300, 800, 1500]; // Tempos em ms
+    const tentativas = [300, 800, 1500, 3000]; // Tempos em ms
     
     tentativas.forEach(tempo => {
         setTimeout(() => {
-            const card = document.querySelector(`.order-card[data-order-id="${orderId}"]`);
-            if (!card) return;
-            
-            // Verifica se já tem botões de ação (exceto o resumo)
-            const acoesExistentes = Array.from(card.querySelectorAll('.action-button'))
-                .filter(btn => !btn.classList.contains('ver-resumo-negociacao'));
+            try {
+                const card = document.querySelector(`.order-card[data-order-id="${orderId}"]`);
+                if (!card) {
+                    console.log(`❌ Card não encontrado para tempo ${tempo}ms`);
+                    return;
+                }
                 
-            if (acoesExistentes.length === 0) {
-                console.log(`⚠️ Restaurando botões em ${tempo}ms para o pedido ${orderId}`);
-                restoreOrderButtons(orderId);
+                // Verifica se já tem botões de ação (exceto o resumo)
+                const acoesExistentes = Array.from(card.querySelectorAll('.action-button'))
+                    .filter(btn => !btn.classList.contains('ver-resumo-negociacao'));
+                    
+                if (acoesExistentes.length === 0) {
+                    console.log(`⚠️ Restaurando botões em ${tempo}ms para o pedido ${orderId}`);
+                    
+                    // Obtém o status original do atributo data-
+                    const originalStatus = card.getAttribute('data-original-status');
+                    console.log(`🔍 Status original do pedido: ${originalStatus}`);
+                    
+                    // Converte texto do status para código se necessário
+                    let statusCode = 'CONFIRMED'; // Default fallback
+                    
+                    if (originalStatus) {
+                        const statusMap = {
+                            'Novo': 'PLACED',
+                            'Confirmado': 'CONFIRMED',
+                            'Em Preparação': 'IN_PREPARATION',
+                            'Pronto para Retirada': 'READY_TO_PICKUP',
+                            'A Caminho': 'DISPATCHED',
+                            'Concluído': 'CONCLUDED',
+                            'Cancelado': 'CANCELLED',
+                            'Cancelamento Solicitado': 'CANCELLATION_REQUESTED'
+                        };
+                        
+                        statusCode = statusMap[originalStatus] || statusCode;
+                    } else if (ordersCache[orderId] && ordersCache[orderId].status) {
+                        // Tenta obter do cache
+                        statusCode = ordersCache[orderId].status;
+                    }
+                    
+                    console.log(`⚙️ Usando status ${statusCode} para restaurar botões`);
+                    
+                    // Busca o container de ações
+                    const actionsContainer = card.querySelector('.order-actions');
+                    if (actionsContainer) {
+                        // Limpa o container (preservando o botão de resumo se existir)
+                        const resumoBtn = actionsContainer.querySelector('.ver-resumo-negociacao');
+                        actionsContainer.innerHTML = '';
+                        
+                        // Adiciona os botões corretos
+                        addActionButtons(actionsContainer, { id: orderId, status: statusCode });
+                        
+                        // Re-adiciona o botão de resumo, se existia
+                        if (resumoBtn) {
+                            actionsContainer.appendChild(resumoBtn);
+                        }
+                        
+                        console.log(`✅ Botões de ação restaurados em ${tempo}ms`);
+                    } else {
+                        console.log(`❌ Container de ações não encontrado em ${tempo}ms`);
+                    }
+                } else {
+                    console.log(`✅ ${acoesExistentes.length} botões de ação já existem em ${tempo}ms`);
+                }
+            } catch (err) {
+                console.error(`❌ Erro na restauração em ${tempo}ms:`, err);
             }
         }, tempo);
     });
