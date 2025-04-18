@@ -1120,3 +1120,11 @@ main {
 .cancellation-options-section {
     display: none !important;
 }
+
+.payment-change-for {
+    font-weight: bold;
+    color: #28a745;
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px dashed #eee;
+}
