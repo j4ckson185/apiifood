@@ -2033,86 +2033,133 @@ window.addEventListener('load', () => {
     }
 });
 
-// Módulo para integração do webhook
+// Módulo para integração do webhook (adicionado ao final do script.js)
 const webhookIntegration = (() => {
-    // Intervalo em ms para verificar eventos do webhook (a cada 5 segundos)
-    const POLLING_INTERVAL = 5000;
-    let isPolling = false;
+  // Intervalo em ms para verificar eventos do webhook (a cada 5 segundos)
+  const POLLING_INTERVAL = 5000;
+  let isPolling = false;
+  let lastPollTimestamp = null;
+  let eventosTotaisRecebidos = 0;
+  
+  // Função para buscar eventos do webhook
+  async function pollWebhookEvents() {
+    if (!isPolling || !state.accessToken) return;
     
-    // Função para buscar eventos do webhook
-    async function pollWebhookEvents() {
-        if (!isPolling || !state.accessToken) return;
+    try {
+      const now = new Date();
+      lastPollTimestamp = now.toISOString();
+      console.log(`[WEBHOOK-CLIENT][${lastPollTimestamp}] Buscando eventos recebidos via webhook...`);
+      
+      const response = await fetch('/.netlify/functions/ifood-webhook-events', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Erro ao buscar eventos: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      
+      if (data.eventos && data.eventos.length > 0) {
+        console.log(`[WEBHOOK-CLIENT] Recebidos ${data.eventos.length} eventos via webhook`);
+        eventosTotaisRecebidos += data.eventos.length;
         
-        try {
-            console.log('Buscando eventos recebidos via webhook...');
-            
-            const response = await fetch('/.netlify/functions/ifood-webhook-events', {
-                method: 'GET',
-                headers: {
-                    'Content-Type': 'application/json',
-                    // Adicione autorização se necessário
-                }
-            });
-            
-            if (!response.ok) {
-                throw new Error(`Erro ao buscar eventos: ${response.status}`);
-            }
-            
-            const data = await response.json();
-            
-            if (data.eventos && data.eventos.length > 0) {
-                console.log(`Recebidos ${data.eventos.length} eventos via webhook`);
-                
-                // Processa cada evento usando o handler existente
-                for (const evento of data.eventos) {
-                    console.log(`Processando evento webhook: ${evento.code} para pedido ${evento.orderId}`);
-                    await handleEvent(evento);
-                }
-            }
-        } catch (error) {
-            console.error('Erro ao buscar eventos do webhook:', error);
-        } finally {
-            // Agenda próxima verificação
-            if (isPolling) {
-                setTimeout(pollWebhookEvents, POLLING_INTERVAL);
-            }
+        // Log de resumo dos eventos recebidos
+        data.eventos.forEach((evento, index) => {
+          console.log(`[WEBHOOK-CLIENT] Evento ${index+1}/${data.eventos.length}: ID=${evento.id}, Code=${evento.code}, OrderId=${evento.orderId}`);
+        });
+        
+        // Processa cada evento usando o handler existente
+        for (const evento of data.eventos) {
+          console.log(`[WEBHOOK-CLIENT] Processando evento: ${evento.code} para pedido ${evento.orderId}`);
+          try {
+            await handleEvent(evento);
+            console.log(`[WEBHOOK-CLIENT] Evento ${evento.id} processado com sucesso`);
+          } catch (handlerError) {
+            console.error(`[WEBHOOK-CLIENT] Erro ao processar evento ${evento.id}:`, handlerError);
+          }
         }
+        
+        // Exibe uma notificação
+        showToast(`${data.eventos.length} eventos recebidos via webhook`, 'info');
+      } else {
+        console.log('[WEBHOOK-CLIENT] Nenhum evento recebido nesta verificação');
+      }
+    } catch (error) {
+      console.error('[WEBHOOK-CLIENT] Erro ao buscar eventos do webhook:', error);
+    } finally {
+      // Agenda próxima verificação
+      if (isPolling) {
+        setTimeout(pollWebhookEvents, POLLING_INTERVAL);
+      }
     }
-    
-    // Inicia o polling de eventos do webhook
-    function startWebhookPolling() {
-        if (!isPolling) {
-            isPolling = true;
-            console.log('Iniciando polling de eventos do webhook...');
-            pollWebhookEvents();
-        }
+  }
+  
+  // Inicia o polling de eventos do webhook
+  function startWebhookPolling() {
+    if (!isPolling) {
+      isPolling = true;
+      eventosTotaisRecebidos = 0;
+      console.log('[WEBHOOK-CLIENT] Iniciando polling de eventos do webhook...');
+      pollWebhookEvents();
     }
-    
-    // Para o polling de eventos do webhook
-    function stopWebhookPolling() {
-        isPolling = false;
-        console.log('Polling de eventos do webhook parado');
-    }
-    
-    return {
-        startPolling: startWebhookPolling,
-        stopPolling: stopWebhookPolling
-    };
+  }
+  
+  // Para o polling de eventos do webhook
+  function stopWebhookPolling() {
+    isPolling = false;
+    console.log(`[WEBHOOK-CLIENT] Polling de eventos do webhook parado. Total de eventos recebidos: ${eventosTotaisRecebidos}`);
+  }
+  
+  // Exibe status do webhook
+  function logStatus() {
+    const statusAtivo = isPolling ? 'ATIVO' : 'INATIVO';
+    const ultimaVerificacao = lastPollTimestamp ? lastPollTimestamp : 'Nunca';
+    console.log(`
+    =============================================
+    [WEBHOOK-CLIENT] STATUS DO WEBHOOK
+    =============================================
+    Status: ${statusAtivo}
+    Última verificação: ${ultimaVerificacao}
+    Total de eventos recebidos: ${eventosTotaisRecebidos}
+    Intervalo de polling: ${POLLING_INTERVAL}ms
+    =============================================
+    `);
+  }
+  
+  // Expõe função de status no escopo global para debug
+  window.webhookStatus = logStatus;
+  
+  return {
+    startPolling: startWebhookPolling,
+    stopPolling: stopWebhookPolling,
+    status: logStatus
+  };
 })();
 
 // Modifica a função de inicialização para incluir webhook
 const originalInitialize = initialize;
 window.initialize = async function() {
-    try {
-        // Chama a inicialização original
-        await originalInitialize();
-        
-        // Inicia polling de eventos do webhook
-        webhookIntegration.startPolling();
-        
-        console.log('Webhook integrado com sucesso!');
-    } catch (error) {
-        console.error('Erro na inicialização com webhook:', error);
-        showToast('Erro ao inicializar aplicação com webhook', 'error');
-    }
+  try {
+    console.log('[WEBHOOK-CLIENT] Inicializando aplicação com suporte a webhook...');
+    
+    // Chama a inicialização original
+    await originalInitialize();
+    
+    // Inicia polling de eventos do webhook
+    webhookIntegration.startPolling();
+    
+    console.log('[WEBHOOK-CLIENT] Webhook integrado com sucesso!');
+    
+    // Exibe status após 2 segundos (dá tempo para primeira verificação)
+    setTimeout(() => {
+      webhookIntegration.status();
+    }, 2000);
+  } catch (error) {
+    console.error('[WEBHOOK-CLIENT] Erro na inicialização com webhook:', error);
+    showToast('Erro ao inicializar aplicação com webhook', 'error');
+  }
 };
