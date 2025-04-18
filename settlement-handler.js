@@ -115,7 +115,6 @@ function stopDisputePolling() {
 }
 
 // Função principal para tratar eventos HANDSHAKE_SETTLEMENT
-// Modifique a função handleSettlementEvent, adicionando a chamada para restoreOrderButtons
 async function handleSettlementEvent(event) {
     try {
         console.log('🔍 Processando evento HANDSHAKE_SETTLEMENT:', event);
@@ -125,6 +124,8 @@ async function handleSettlementEvent(event) {
             console.error('❌ Evento HANDSHAKE_SETTLEMENT inválido:', event);
             return;
         }
+        
+        console.log('ℹ️ Informações do evento SETTLEMENT - orderId:', event.orderId, 'disputeId:', disputeId);
         
         // Traduz o status do settlement
         const statusMap = {
@@ -141,13 +142,15 @@ async function handleSettlementEvent(event) {
         // Cria registro da disputa resolvida
         const resolvedDispute = {
             orderId: event.orderId,
-            disputeId: event.disputeId,
+            disputeId: disputeId,
             statusFinal: statusMap[event.metadata?.status] || event.metadata?.status || 'DESCONHECIDO',
             tipoDeResposta: originalDispute?.responseType || 'NÃO ESPECIFICADO',
             dataConclusao: new Date().toISOString(),
             detalhesResposta: originalDispute?.responseDetails || {},
             isDelayRelated: isDelayDispute(originalDispute)
         };
+        
+        console.log('✅ Detalhes da resolução da disputa:', JSON.stringify(resolvedDispute));
         
         // Remove qualquer registro anterior da mesma disputa
         resolvedDisputes = resolvedDisputes.filter(d => d.disputeId !== disputeId);
@@ -164,25 +167,104 @@ async function handleSettlementEvent(event) {
         // Fecha o modal de negociação se estiver aberto
         fecharModalNegociacao();
         
-// Atualiza a interface se necessário
-const orderCard = document.querySelector(`.order-card[data-order-id="${event.orderId}"]`);
-if (orderCard) {
-    addNegotiationSummaryButton(orderCard, resolvedDispute);
-
-    // 🔄 Garante que status está correto antes de restaurar os botões
-    try {
-        const orderDetails = await makeAuthorizedRequest(`/order/v1.0/orders/${event.orderId}`, 'GET');
-        if (orderDetails) {
-            ordersCache[event.orderId] = orderDetails;
-            updateOrderStatus(event.orderId, orderDetails.status);
+        // Atualiza a interface se necessário
+        const orderCard = document.querySelector(`.order-card[data-order-id="${event.orderId}"]`);
+        if (orderCard) {
+            // Adiciona o botão de resumo da negociação
+            addNegotiationSummaryButton(orderCard, resolvedDispute);
+            
+            // IMPORTANTE: Aqui está o problema. Precisamos obter o status atual correto do pedido
+            // antes de restaurar os botões de ação.
+            
+            console.log('🔍 Buscando status atual do pedido para restaurar botões...');
+            
+            try {
+                // Aguarda um pequeno intervalo para garantir que a API esteja atualizada
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                
+                // Tenta obter o status do cache primeiro
+                let orderStatus = ordersCache[event.orderId]?.status;
+                console.log('ℹ️ Status do pedido em cache:', orderStatus);
+                
+                // Se não tiver no cache ou for incerto, busca da API
+                if (!orderStatus || orderStatus === 'PLACED') {
+                    console.log('🔄 Status em cache ausente ou PLACED, buscando da API...');
+                    
+                    // Realiza várias tentativas para obter o status correto
+                    for (let attempt = 1; attempt <= 3; attempt++) {
+                        console.log(`📡 Tentativa ${attempt} de buscar status do pedido ${event.orderId}`);
+                        
+                        try {
+                            const orderDetails = await makeAuthorizedRequest(`/order/v1.0/orders/${event.orderId}`, 'GET');
+                            
+                            if (orderDetails && orderDetails.status) {
+                                orderStatus = orderDetails.status;
+                                console.log(`✅ Status obtido na tentativa ${attempt}:`, orderStatus);
+                                
+                                // Atualiza o cache
+                                ordersCache[event.orderId] = orderDetails;
+                                break;
+                            } else {
+                                console.log(`⚠️ Tentativa ${attempt}: Status não encontrado na resposta`);
+                                await new Promise(resolve => setTimeout(resolve, 1000)); // Espera 1s antes da próxima tentativa
+                            }
+                        } catch (apiError) {
+                            console.error(`❌ Erro na tentativa ${attempt}:`, apiError);
+                            await new Promise(resolve => setTimeout(resolve, 1000)); // Espera 1s antes da próxima tentativa
+                        }
+                    }
+                }
+                
+                // Verifica se conseguimos um status válido
+                if (orderStatus && orderStatus !== 'PLACED') {
+                    console.log('🎯 Status válido encontrado para restaurar botões:', orderStatus);
+                    
+                    // Atualiza o status na interface (isso também vai atualizar os botões)
+                    updateOrderStatus(event.orderId, orderStatus);
+                    
+                    // Força a atualização dos botões baseados no status atual
+                    const actionsContainer = orderCard.querySelector('.order-actions');
+                    if (actionsContainer) {
+                        console.log('🔄 Forçando recriação dos botões de ação com status:', orderStatus);
+                        
+                        // Cria um objeto de pedido simples com o status correto
+                        const orderWithStatus = { 
+                            id: event.orderId, 
+                            status: orderStatus
+                        };
+                        
+                        // Adiciona os botões de ação corretos baseados no status
+                        addActionButtons(actionsContainer, orderWithStatus);
+                        
+                        // Adiciona novamente o botão de resumo de negociação (pode ter sido removido)
+                        setTimeout(() => {
+                            addNegotiationSummaryButton(orderCard, resolvedDispute);
+                        }, 100);
+                    }
+                } else {
+                    console.warn('⚠️ Não foi possível obter um status válido para o pedido:', orderStatus);
+                    
+                    // Como fallback, podemos tentar usar o status anterior do cache antes da negociação
+                    const cachedStatus = ordersCache[event.orderId]?.status;
+                    if (cachedStatus && cachedStatus !== 'PLACED') {
+                        console.log('🔄 Usando status do cache como fallback:', cachedStatus);
+                        const actionsContainer = orderCard.querySelector('.order-actions');
+                        if (actionsContainer) {
+                            addActionButtons(actionsContainer, { id: event.orderId, status: cachedStatus });
+                            
+                            // Readiciona o botão de resumo
+                            setTimeout(() => {
+                                addNegotiationSummaryButton(orderCard, resolvedDispute);
+                            }, 100);
+                        }
+                    } else {
+                        console.error('❌ Fallback também falhou. Status desconhecido ou PLACED:', cachedStatus);
+                    }
+                }
+            } catch (error) {
+                console.error('❌ Erro ao restaurar botões após negociação:', error);
+            }
         }
-    } catch (err) {
-        console.warn('⚠️ Falha ao atualizar status antes de restaurar botões:', err);
-    }
-
-    // 🔧 Agora sim, restaura os botões corretos
-    await restoreOrderButtons(event.orderId);
-}
         
         // Atualiza o status do pedido somente se for cancelamento aceito de fato
         const settlementStatus = event.metadata?.status || 'UNKNOWN';
@@ -197,7 +279,7 @@ if (orderCard) {
         // Exibe notificação
         showToast(`Negociação ${resolvedDispute.statusFinal.toLowerCase()}`, 'info');
         
-        console.log('✅ Evento HANDSHAKE_SETTLEMENT processado:', resolvedDispute);
+        console.log('✅ Evento HANDSHAKE_SETTLEMENT processado com sucesso');
     } catch (error) {
         console.error('❌ Erro ao processar HANDSHAKE_SETTLEMENT:', error);
     }
@@ -333,7 +415,7 @@ function closeNegotiationSummaryModal() {
     }
 }
 
-// Função para restaurar os botões de ação normais do pedido após uma negociação
+// Adicione ou substitua esta função melhorada para restaurar botões
 async function restoreOrderButtons(orderId) {
     try {
         console.log('🔄 Restaurando botões de ação para o pedido:', orderId);
@@ -353,35 +435,75 @@ async function restoreOrderButtons(orderId) {
             return;
         }
         
-        // Busca o status atual do pedido via API
-        // Por essa com retry:
-let orderDetails = null;
-for (let i = 0; i < 3; i++) {
-    orderDetails = await makeAuthorizedRequest(`/order/v1.0/orders/${orderId}`, 'GET');
-    if (orderDetails?.status) break;
-    console.log(`⏳ Retry ${i+1}: aguardando status do pedido...`);
-    await new Promise(res => setTimeout(res, 1000)); // espera 1 segundo
-}
+        // Busca o status atual no cache primeiro
+        let orderStatus = ordersCache[orderId]?.status;
         
-        if (!orderDetails) {
-            console.log('❌ Erro ao obter detalhes do pedido para restauração de botões');
-            return;
+        // Se não tiver status no cache ou for PLACED, busca da API
+        if (!orderStatus || orderStatus === 'PLACED') {
+            console.log('🔍 Status em cache ausente ou PLACED, buscando da API...');
+            
+            // Por essa com retry:
+            let orderDetails = null;
+            let success = false;
+            
+            for (let i = 0; i < 3; i++) {
+                try {
+                    orderDetails = await makeAuthorizedRequest(`/order/v1.0/orders/${orderId}`, 'GET');
+                    if (orderDetails?.status) {
+                        console.log(`✅ Tentativa ${i+1}: Status obtido:`, orderDetails.status);
+                        success = true;
+                        break;
+                    }
+                    
+                    console.log(`⏳ Tentativa ${i+1}: aguardando status do pedido...`);
+                    await new Promise(res => setTimeout(res, 1000)); // espera 1 segundo
+                } catch (err) {
+                    console.error(`❌ Erro na tentativa ${i+1}:`, err);
+                    await new Promise(res => setTimeout(res, 1000)); // espera 1 segundo
+                }
+            }
+            
+            if (success && orderDetails) {
+                orderStatus = orderDetails.status;
+                // Atualiza o cache
+                ordersCache[orderId] = orderDetails;
+            }
         }
         
-        console.log('✅ Detalhes do pedido obtidos para restauração de botões:', orderDetails);
+        // Se ainda não tivermos um status válido, verificamos as classes do card
+        if (!orderStatus || orderStatus === 'PLACED') {
+            console.log('🔍 Tentando deduzir status pelas classes do card...');
+            
+            // Verifica se o card tem alguma classe de status
+            const statusClasses = Array.from(orderCard.classList)
+                .filter(className => className.startsWith('status-'));
+                
+            if (statusClasses.length > 0) {
+                // Extrai o status da classe (remove 'status-' do início)
+                const cardStatus = statusClasses[0].replace('status-', '').toUpperCase();
+                if (cardStatus && cardStatus !== 'PLACED') {
+                    console.log('✅ Status deduzido das classes do card:', cardStatus);
+                    orderStatus = cardStatus;
+                }
+            }
+        }
         
-// Se não tiver status, evita criar botões errados
-if (!orderDetails.status) {
-    console.warn(`⚠️ Pedido ${orderId} sem status definido após negociação. Evitando adicionar botões incorretos.`);
-    return;
-}
-
-// Recria os botões de ação baseados no status atual do pedido
-addActionButtons(actionsContainer, orderDetails);
+        // Se ainda não tivermos status, usamos CONFIRMED como fallback seguro
+        if (!orderStatus || orderStatus === 'PLACED') {
+            console.warn('⚠️ Usando CONFIRMED como fallback de segurança');
+            orderStatus = 'CONFIRMED';
+        }
         
-        console.log('✅ Botões de ação restaurados para o pedido:', orderId);
+        console.log('✅ Status final para restauração de botões:', orderStatus);
+        
+        // Recria os botões de ação baseados no status atual do pedido
+        addActionButtons(actionsContainer, { id: orderId, status: orderStatus });
+        
+        // Retornamos o status para possível uso no callback
+        return orderStatus;
     } catch (error) {
         console.error('❌ Erro ao restaurar botões de ação:', error);
+        return null;
     }
 }
 
