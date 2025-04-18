@@ -1759,14 +1759,32 @@ function showEditModal() {
 
 // Função para adicionar o campo "Troco Para" às informações do cliente
 function addChangeForField(orderElement, order) {
-    // Check if the order has changeFor information
-    if (order.payments && order.payments.changeFor) {
-        const customerInfo = orderElement.querySelector('.customer-info');
-        if (customerInfo) {
-            const changeForParagraph = document.createElement('p');
-            changeForParagraph.className = 'customer-change-for';
-            changeForParagraph.textContent = `Troco para: R$ ${order.payments.changeFor.toFixed(2)}`;
-            customerInfo.appendChild(changeForParagraph);
+    // Verifica se o pedido tem informações de pagamento
+    if (order.payments && order.payments.methods && Array.isArray(order.payments.methods)) {
+        // Procura por métodos de pagamento em dinheiro que tenham changeFor
+        let trocoEncontrado = false;
+        let valorTroco = 0;
+        
+        // Percorre todos os métodos de pagamento
+        for (const method of order.payments.methods) {
+            // Verifica se é um pagamento em dinheiro com troco
+            if (method.method && method.method.trim().toLowerCase().includes('cash') && 
+                method.cash && method.cash.changeFor) {
+                trocoEncontrado = true;
+                valorTroco = method.cash.changeFor;
+                break;
+            }
+        }
+        
+        // Se encontrou informação de troco, adiciona ao elemento do cliente
+        if (trocoEncontrado) {
+            const customerInfo = orderElement.querySelector('.customer-info');
+            if (customerInfo) {
+                const changeForParagraph = document.createElement('p');
+                changeForParagraph.className = 'customer-change-for';
+                changeForParagraph.textContent = `Troco para: R$ ${valorTroco.toFixed(2)}`;
+                customerInfo.appendChild(changeForParagraph);
+            }
         }
     }
 }
