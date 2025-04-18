@@ -1,8 +1,11 @@
 // netlify/functions/ifood-webhook-events.js
+// Array para armazenar eventos temporariamente
 const eventosRecebidos = [];
-const MAX_EVENTOS = 100; // Limita a quantidade de eventos armazenados
+const MAX_EVENTOS = 100; 
 
 exports.handler = async (event) => {
+  console.log('Função de eventos de webhook acionada:', event.httpMethod);
+  
   const headers = {
     'Content-Type': 'application/json',
     'Access-Control-Allow-Origin': '*',
@@ -22,6 +25,7 @@ exports.handler = async (event) => {
   if (event.httpMethod === 'POST') {
     try {
       const payload = JSON.parse(event.body);
+      console.log('Evento a ser armazenado:', payload);
       
       if (payload && payload.evento) {
         // Adiciona o evento à lista
@@ -32,6 +36,7 @@ exports.handler = async (event) => {
           eventosRecebidos.length = MAX_EVENTOS;
         }
         
+        console.log(`Total de eventos armazenados: ${eventosRecebidos.length}`);
         return {
           statusCode: 200,
           headers,
@@ -56,7 +61,7 @@ exports.handler = async (event) => {
 
   // Endpoint para o frontend buscar eventos pendentes
   if (event.httpMethod === 'GET') {
-    // Opcionalmente, adicionar autenticação aqui
+    console.log(`Retornando ${eventosRecebidos.length} eventos armazenados`);
     
     // Retorna os eventos e limpa a lista
     const eventos = [...eventosRecebidos];
