@@ -66,8 +66,8 @@ exports.handler = async (event) => {
     // Configurações
     const clientSecret = '137o75y57ug8fm55ubfoxlwjpl0xm25jxj18ne5mser23mbprj5nfncvfnr82utnzx73ij4h449o298370rjwpycppazsfyh2s0l';
     
-    // Obtém a assinatura do cabeçalho
-    const assinatura = event.headers['x-signature'] || event.headers['X-Signature'];
+    // Obtém a assinatura do cabeçalho (tenta múltiplos formatos possíveis)
+    const assinatura = event.headers['x-signature'] || event.headers['X-Signature'] || event.headers['x-ifood-signature'] || event.headers['X-Ifood-Signature'];
     console.log('Headers recebidos:', JSON.stringify(event.headers));
     
     // Para teste inicial, vamos aceitar qualquer requisição
