@@ -2032,3 +2032,87 @@ window.addEventListener('load', () => {
         console.log("Modal escondido no evento de carregamento da janela");
     }
 });
+
+// Módulo para integração do webhook
+const webhookIntegration = (() => {
+    // Intervalo em ms para verificar eventos do webhook (a cada 5 segundos)
+    const POLLING_INTERVAL = 5000;
+    let isPolling = false;
+    
+    // Função para buscar eventos do webhook
+    async function pollWebhookEvents() {
+        if (!isPolling || !state.accessToken) return;
+        
+        try {
+            console.log('Buscando eventos recebidos via webhook...');
+            
+            const response = await fetch('/.netlify/functions/ifood-webhook-events', {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    // Adicione autorização se necessário
+                }
+            });
+            
+            if (!response.ok) {
+                throw new Error(`Erro ao buscar eventos: ${response.status}`);
+            }
+            
+            const data = await response.json();
+            
+            if (data.eventos && data.eventos.length > 0) {
+                console.log(`Recebidos ${data.eventos.length} eventos via webhook`);
+                
+                // Processa cada evento usando o handler existente
+                for (const evento of data.eventos) {
+                    console.log(`Processando evento webhook: ${evento.code} para pedido ${evento.orderId}`);
+                    await handleEvent(evento);
+                }
+            }
+        } catch (error) {
+            console.error('Erro ao buscar eventos do webhook:', error);
+        } finally {
+            // Agenda próxima verificação
+            if (isPolling) {
+                setTimeout(pollWebhookEvents, POLLING_INTERVAL);
+            }
+        }
+    }
+    
+    // Inicia o polling de eventos do webhook
+    function startWebhookPolling() {
+        if (!isPolling) {
+            isPolling = true;
+            console.log('Iniciando polling de eventos do webhook...');
+            pollWebhookEvents();
+        }
+    }
+    
+    // Para o polling de eventos do webhook
+    function stopWebhookPolling() {
+        isPolling = false;
+        console.log('Polling de eventos do webhook parado');
+    }
+    
+    return {
+        startPolling: startWebhookPolling,
+        stopPolling: stopWebhookPolling
+    };
+})();
+
+// Modifica a função de inicialização para incluir webhook
+const originalInitialize = initialize;
+window.initialize = async function() {
+    try {
+        // Chama a inicialização original
+        await originalInitialize();
+        
+        // Inicia polling de eventos do webhook
+        webhookIntegration.startPolling();
+        
+        console.log('Webhook integrado com sucesso!');
+    } catch (error) {
+        console.error('Erro na inicialização com webhook:', error);
+        showToast('Erro ao inicializar aplicação com webhook', 'error');
+    }
+};
