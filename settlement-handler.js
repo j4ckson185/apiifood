@@ -354,7 +354,14 @@ async function restoreOrderButtons(orderId) {
         }
         
         // Busca o status atual do pedido via API
-        const orderDetails = await makeAuthorizedRequest(`/order/v1.0/orders/${orderId}`, 'GET');
+        // Por essa com retry:
+let orderDetails = null;
+for (let i = 0; i < 3; i++) {
+    orderDetails = await makeAuthorizedRequest(`/order/v1.0/orders/${orderId}`, 'GET');
+    if (orderDetails?.status) break;
+    console.log(`⏳ Retry ${i+1}: aguardando status do pedido...`);
+    await new Promise(res => setTimeout(res, 1000)); // espera 1 segundo
+}
         
         if (!orderDetails) {
             console.log('❌ Erro ao obter detalhes do pedido para restauração de botões');
@@ -363,8 +370,14 @@ async function restoreOrderButtons(orderId) {
         
         console.log('✅ Detalhes do pedido obtidos para restauração de botões:', orderDetails);
         
-        // Recria os botões de ação baseados no status atual do pedido
-        addActionButtons(actionsContainer, orderDetails);
+// Se não tiver status, evita criar botões errados
+if (!orderDetails.status) {
+    console.warn(`⚠️ Pedido ${orderId} sem status definido após negociação. Evitando adicionar botões incorretos.`);
+    return;
+}
+
+// Recria os botões de ação baseados no status atual do pedido
+addActionButtons(actionsContainer, orderDetails);
         
         console.log('✅ Botões de ação restaurados para o pedido:', orderId);
     } catch (error) {
