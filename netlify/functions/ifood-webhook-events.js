@@ -2,9 +2,11 @@
 // Array para armazenar eventos temporariamente
 const eventosRecebidos = [];
 const MAX_EVENTOS = 100; 
+const eventosProcessados = new Set(); // Para evitar duplicidade
 
 exports.handler = async (event) => {
-  console.log('Função de eventos de webhook acionada:', event.httpMethod);
+  const timestamp = new Date().toISOString();
+  console.log(`[WEBHOOK-EVENTS][${timestamp}] Função acionada: ${event.httpMethod}`);
   
   const headers = {
     'Content-Type': 'application/json',
@@ -14,6 +16,7 @@ exports.handler = async (event) => {
   };
 
   if (event.httpMethod === 'OPTIONS') {
+    console.log('[WEBHOOK-EVENTS] Requisição OPTIONS processada');
     return {
       statusCode: 200,
       headers,
@@ -24,44 +27,87 @@ exports.handler = async (event) => {
   // Endpoint para adicionar eventos recebidos do webhook principal
   if (event.httpMethod === 'POST') {
     try {
+      console.log('[WEBHOOK-EVENTS] Processando requisição POST');
       const payload = JSON.parse(event.body);
-      console.log('Evento a ser armazenado:', payload);
       
       if (payload && payload.evento) {
-        // Adiciona o evento à lista
-        eventosRecebidos.unshift(payload.evento);
+        console.log('[WEBHOOK-EVENTS] Evento recebido para armazenamento:', JSON.stringify(payload.evento));
+        
+        // Verifica se o evento já foi processado (idempotência)
+        if (eventosProcessados.has(payload.evento.id)) {
+          console.log(`[WEBHOOK-EVENTS] Evento ${payload.evento.id} já foi processado anteriormente, ignorando`);
+          return {
+            statusCode: 200,
+            headers,
+            body: JSON.stringify({ 
+              success: true, 
+              duplicate: true,
+              message: 'Evento já processado' 
+            })
+          };
+        }
+        
+        // Adiciona à lista de eventos processados
+        eventosProcessados.add(payload.evento.id);
+        
+        // Adiciona o evento à lista com timestamp
+        eventosRecebidos.unshift({
+          ...payload.evento,
+          recebidoEm: timestamp,
+          origem: 'webhook'
+        });
         
         // Limita o tamanho da lista
         if (eventosRecebidos.length > MAX_EVENTOS) {
           eventosRecebidos.length = MAX_EVENTOS;
         }
         
-        console.log(`Total de eventos armazenados: ${eventosRecebidos.length}`);
+        console.log(`[WEBHOOK-EVENTS] Evento ${payload.evento.id} armazenado com sucesso. Total de eventos: ${eventosRecebidos.length}`);
+        console.log(`[WEBHOOK-EVENTS] Detalhes: Code=${payload.evento.code}, OrderId=${payload.evento.orderId}`);
+        
         return {
           statusCode: 200,
           headers,
-          body: JSON.stringify({ success: true })
+          body: JSON.stringify({ 
+            success: true,
+            message: 'Evento armazenado com sucesso',
+            timestamp: timestamp
+          })
         };
       }
       
+      console.log('[WEBHOOK-EVENTS] Payload inválido recebido:', JSON.stringify(payload));
       return {
         statusCode: 400,
         headers,
-        body: JSON.stringify({ success: false, error: 'Payload inválido' })
+        body: JSON.stringify({ 
+          success: false, 
+          error: 'Payload inválido',
+          timestamp: timestamp
+        })
       };
     } catch (error) {
-      console.error('Erro ao adicionar evento:', error);
+      console.error('[WEBHOOK-EVENTS] Erro ao adicionar evento:', error);
       return {
         statusCode: 500,
         headers,
-        body: JSON.stringify({ success: false, error: 'Erro interno' })
+        body: JSON.stringify({ 
+          success: false, 
+          error: 'Erro interno',
+          timestamp: timestamp
+        })
       };
     }
   }
 
   // Endpoint para o frontend buscar eventos pendentes
   if (event.httpMethod === 'GET') {
-    console.log(`Retornando ${eventosRecebidos.length} eventos armazenados`);
+    console.log(`[WEBHOOK-EVENTS] GET - Retornando ${eventosRecebidos.length} eventos armazenados`);
+    
+    if (eventosRecebidos.length > 0) {
+      console.log('[WEBHOOK-EVENTS] IDs dos eventos sendo retornados:', 
+        eventosRecebidos.map(e => e.id).join(', '));
+    }
     
     // Retorna os eventos e limpa a lista
     const eventos = [...eventosRecebidos];
@@ -70,13 +116,22 @@ exports.handler = async (event) => {
     return {
       statusCode: 200,
       headers,
-      body: JSON.stringify({ eventos })
+      body: JSON.stringify({ 
+        eventos,
+        count: eventos.length,
+        timestamp: timestamp
+      })
     };
   }
 
+  console.log(`[WEBHOOK-EVENTS] Método não permitido: ${event.httpMethod}`);
   return {
     statusCode: 405,
     headers,
-    body: JSON.stringify({ success: false, error: 'Método não permitido' })
+    body: JSON.stringify({ 
+      success: false, 
+      error: 'Método não permitido',
+      timestamp: timestamp
+    })
   };
 };
