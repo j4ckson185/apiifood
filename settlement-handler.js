@@ -164,14 +164,25 @@ async function handleSettlementEvent(event) {
         // Fecha o modal de negociação se estiver aberto
         fecharModalNegociacao();
         
-        // Atualiza a interface se necessário
-        const orderCard = document.querySelector(`.order-card[data-order-id="${event.orderId}"]`);
-        if (orderCard) {
-            addNegotiationSummaryButton(orderCard, resolvedDispute);
-            
-            // AQUI: Adicione a chamada para restaurar os botões de ação
-            await restoreOrderButtons(event.orderId);
+// Atualiza a interface se necessário
+const orderCard = document.querySelector(`.order-card[data-order-id="${event.orderId}"]`);
+if (orderCard) {
+    addNegotiationSummaryButton(orderCard, resolvedDispute);
+
+    // 🔄 Garante que status está correto antes de restaurar os botões
+    try {
+        const orderDetails = await makeAuthorizedRequest(`/order/v1.0/orders/${event.orderId}`, 'GET');
+        if (orderDetails) {
+            ordersCache[event.orderId] = orderDetails;
+            updateOrderStatus(event.orderId, orderDetails.status);
         }
+    } catch (err) {
+        console.warn('⚠️ Falha ao atualizar status antes de restaurar botões:', err);
+    }
+
+    // 🔧 Agora sim, restaura os botões corretos
+    await restoreOrderButtons(event.orderId);
+}
         
         // Atualiza o status do pedido somente se for cancelamento aceito de fato
         const settlementStatus = event.metadata?.status || 'UNKNOWN';
