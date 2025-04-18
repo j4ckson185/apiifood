@@ -2191,3 +2191,21 @@ function verificarEventosDiretamente() {
 
 // Exponha a função para uso no console
 window.verificarWebhookEventos = verificarEventosDiretamente;
+
+// Função para testar se o endpoint do webhook está respondendo
+window.testarWebhook = function() {
+  console.log('Testando endpoint do webhook...');
+  
+  fetch('/.netlify/functions/ifood-webhook', {
+    method: 'GET'
+  })
+  .then(response => response.json())
+  .then(data => {
+    console.log('Resposta do endpoint do webhook:', data);
+    showToast('Endpoint do webhook está funcionando', 'success');
+  })
+  .catch(error => {
+    console.error('Erro ao acessar endpoint do webhook:', error);
+    showToast('Erro ao acessar endpoint do webhook', 'error');
+  });
+}
