@@ -287,6 +287,18 @@ const eventToStatusMap = {
 if (event.code in eventToStatusMap) {
     const mappedStatus = eventToStatusMap[event.code];
 
+// ✅ Proteção contra regressão de status
+const currentStatus = ordersCache[event.orderId]?.status;
+const statusPriority = ['PLACED', 'CONFIRMED', 'READY_TO_PICKUP', 'DISPATCHED', 'CONCLUDED', 'CANCELLED'];
+
+const currentIndex = statusPriority.indexOf(currentStatus);
+const incomingIndex = statusPriority.indexOf(mappedStatus);
+
+if (currentIndex > -1 && incomingIndex > -1 && incomingIndex < currentIndex) {
+    console.log(`⛔ Ignorando regressão de status: ${mappedStatus} < ${currentStatus}`);
+    return;
+}
+
     console.log(`=== PROCESSANDO MUDANÇA DE STATUS ===`);
     console.log(`Timestamp: ${new Date().toLocaleString()}`);
     console.log(`Tipo de evento: ${event.code}`);
