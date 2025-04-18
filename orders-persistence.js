@@ -263,76 +263,192 @@ window.handleEvent = async function(event) {
                 console.error(`Erro ao buscar detalhes do pedido ${event.orderId}:`, orderError);
             }
         } 
+        // MODIFICAÇÃO: Tratamento específico para eventos de conclusão
+        else if (event.code === 'CON' || event.code === 'CONC' || event.code === 'CONCLUDED') {
+            console.log(`🏁 Recebido evento de conclusão (${event.code}) para pedido ${event.orderId}`);
+            
+            try {
+                // Busca o pedido na DOM
+                const existingOrder = document.querySelector(`.order-card[data-order-id="${event.orderId}"]`);
+                
+                if (existingOrder) {
+                    console.log('Pedido encontrado na interface, atualizando status para CONCLUDED');
+                    
+                    // Forçar a atualização do status para CONCLUDED
+                    updateOrderStatus(event.orderId, 'CONCLUDED');
+                    
+                    // Salva no cache
+                    if (ordersCache[event.orderId]) {
+                        ordersCache[event.orderId].status = 'CONCLUDED';
+                    }
+                    
+                    showToast(`Pedido #${event.orderId.substring(0, 6)} foi concluído!`, 'success');
+                    
+                    // Garantir que o pedido seja movido para a tab correta
+                    const tab = document.getElementById('completed-tab');
+                    const container = document.getElementById('completed-orders');
+                    
+                    if (tab && container && existingOrder) {
+                        // Move o card para o container correto
+                        container.appendChild(existingOrder);
+                        
+                        // Verifica se há pedidos em cada tab
+                        checkForEmptyTab('preparation');
+                        checkForEmptyTab('dispatched');
+                        checkForEmptyTab('completed');
+                        checkForEmptyTab('cancelled');
+                    }
+                } else {
+                    console.log('Pedido não está na interface, buscando detalhes para exibir');
+                    // Busca detalhes completos apenas para exibição
+                    try {
+                        const orderDetails = await makeAuthorizedRequest(`/order/v1.0/orders/${event.orderId}`, 'GET');
+                        
+                        // Força o status como concluído antes de exibir
+                        orderDetails.status = 'CONCLUDED';
+                        
+                        // Exibe o pedido na interface já com status concluído
+                        displayOrder(orderDetails);
+                        showToast(`Pedido #${event.orderId.substring(0, 6)} foi concluído!`, 'success');
+                        
+                        processedOrderIds.add(event.orderId);
+                        saveProcessedIds();
+                    } catch (detailsError) {
+                        console.error(`Erro ao buscar detalhes do pedido concluído ${event.orderId}:`, detailsError);
+                    }
+                }
+            } catch (error) {
+                console.error(`Erro ao processar evento de conclusão para pedido ${event.orderId}:`, error);
+            }
+        }
         else {
             console.log('Processando evento de atualização de status');
             console.log(`=== EVENTO DE STATUS RECEBIDO ===`);
             console.log(`Timestamp: ${new Date().toLocaleString()}`);
             console.log(`Tipo de evento: ${event.code}`);
             
-const eventToStatusMap = {
-    'CONFIRMED': 'CONFIRMED',
-    'CFM': 'CONFIRMED',
-    'READY_TO_PICKUP': 'READY_TO_PICKUP',
-    'RTP': 'READY_TO_PICKUP',
-    'DISPATCHED': 'DISPATCHED',
-    'DDCR': 'DISPATCHED',
-    'DSP': 'DISPATCHED',
-    'CONCLUDED': 'CONCLUDED',
-    'CONC': 'CONCLUDED',
-    'CON': 'CONCLUDED',          // ADICIONADO: Mapeamento para CON
-    'CAR': 'CANCELLATION_REQUESTED',  // Código real do iFood para "cancelamento solicitado"
-    'CAN': 'CANCELLED'                // Código real do iFood para "cancelado"
-};
+            const eventToStatusMap = {
+                'CONFIRMED': 'CONFIRMED',
+                'CFM': 'CONFIRMED',
+                'READY_TO_PICKUP': 'READY_TO_PICKUP',
+                'RTP': 'READY_TO_PICKUP',
+                'DISPATCHED': 'DISPATCHED',
+                'DDCR': 'DISPATCHED',
+                'DSP': 'DISPATCHED',
+                'CONCLUDED': 'CONCLUDED',
+                'CONC': 'CONCLUDED',
+                'CON': 'CONCLUDED',          // ADICIONADO: Mapeamento para CON
+                'CAR': 'CANCELLATION_REQUESTED',  // Código real do iFood para "cancelamento solicitado"
+                'CAN': 'CANCELLED',                // Código real do iFood para "cancelado"
+                'CANC': 'CANCELLED'
+            };
             
-if (event.code in eventToStatusMap) {
-    const mappedStatus = eventToStatusMap[event.code];
+            if (event.code in eventToStatusMap) {
+                const mappedStatus = eventToStatusMap[event.code];
 
-// ✅ Proteção contra regressão de status
-const currentStatus = ordersCache[event.orderId]?.status;
-const statusPriority = ['PLACED', 'CONFIRMED', 'READY_TO_PICKUP', 'DISPATCHED', 'CONCLUDED', 'CANCELLED'];
+                // ✅ Proteção contra regressão de status
+                const currentStatus = ordersCache[event.orderId]?.status;
+                const statusPriority = ['PLACED', 'CONFIRMED', 'READY_TO_PICKUP', 'DISPATCHED', 'CONCLUDED', 'CANCELLED'];
 
-const currentIndex = statusPriority.indexOf(currentStatus);
-const incomingIndex = statusPriority.indexOf(mappedStatus);
+                const currentIndex = statusPriority.indexOf(currentStatus);
+                const incomingIndex = statusPriority.indexOf(mappedStatus);
 
-if (currentIndex > -1 && incomingIndex > -1 && incomingIndex < currentIndex) {
-    console.log(`⛔ Ignorando regressão de status: ${mappedStatus} < ${currentStatus}`);
-    return;
-}
+                if (currentIndex > -1 && incomingIndex > -1 && incomingIndex < currentIndex) {
+                    console.log(`⛔ Ignorando regressão de status: ${mappedStatus} < ${currentStatus}`);
+                    return;
+                }
 
-    console.log(`=== PROCESSANDO MUDANÇA DE STATUS ===`);
-    console.log(`Timestamp: ${new Date().toLocaleString()}`);
-    console.log(`Tipo de evento: ${event.code}`);
-    console.log(`FullCode do evento: ${event.fullCode || event.code}`);
-    console.log(`Novo status mapeado: ${mappedStatus}`);
-    console.log(`ID do pedido: ${event.orderId}`);
+                console.log(`=== PROCESSANDO MUDANÇA DE STATUS ===`);
+                console.log(`Timestamp: ${new Date().toLocaleString()}`);
+                console.log(`Tipo de evento: ${event.code}`);
+                console.log(`FullCode do evento: ${event.fullCode || event.code}`);
+                console.log(`Novo status mapeado: ${mappedStatus}`);
+                console.log(`ID do pedido: ${event.orderId}`);
 
-    const existingOrder = document.querySelector(`.order-card[data-order-id="${event.orderId}"]`);
-    const statusNaInterface = existingOrder?.querySelector('.order-status')?.textContent;
+                const existingOrder = document.querySelector(`.order-card[data-order-id="${event.orderId}"]`);
+                const statusNaInterface = existingOrder?.querySelector('.order-status')?.textContent;
 
-    // Evita que DDCR/DSP atualizem automaticamente a interface
-    const isSensitiveStatus = ['DISPATCHED'].includes(mappedStatus);
+                // Evita que DDCR/DSP atualizem automaticamente a interface
+                const isSensitiveStatus = ['DISPATCHED'].includes(mappedStatus);
 
-    if (isSensitiveStatus) {
-        console.log(`⚠️ Evento ${event.code} mapeado como ${mappedStatus}, mas não será aplicado automaticamente.`);
-    } else if (!existingOrder) {
-        console.log('Pedido ainda não está na interface. Será exibido agora.');
-        // Busca detalhes completos apenas para exibição
-        const orderDetails = await makeAuthorizedRequest(`/order/v1.0/orders/${event.orderId}`, 'GET');
-        displayOrder(orderDetails);
-        processedOrderIds.add(event.orderId);
-        saveProcessedIds();
-    } else if (statusNaInterface !== getStatusText(mappedStatus)) {
-        console.log(`Atualizando status na interface para: ${mappedStatus}`);
-        updateOrderStatus(event.orderId, mappedStatus);
-    } else {
-        console.log('Status já está atualizado na interface.');
-    }
+                if (isSensitiveStatus) {
+                    console.log(`⚠️ Evento ${event.code} mapeado como ${mappedStatus}, mas não será aplicado automaticamente.`);
+                } else if (!existingOrder) {
+                    console.log('Pedido ainda não está na interface. Será exibido agora.');
+                    // Busca detalhes completos apenas para exibição
+                    const orderDetails = await makeAuthorizedRequest(`/order/v1.0/orders/${event.orderId}`, 'GET');
+                    displayOrder(orderDetails);
+                    processedOrderIds.add(event.orderId);
+                    saveProcessedIds();
+                } else if (statusNaInterface !== getStatusText(mappedStatus)) {
+                    console.log(`Atualizando status na interface para: ${mappedStatus}`);
+                    updateOrderStatus(event.orderId, mappedStatus);
+                } else {
+                    console.log('Status já está atualizado na interface.');
+                }
 
-    console.log('=== FIM DO PROCESSAMENTO ===\n');
-}
-
+                console.log('=== FIM DO PROCESSAMENTO ===\n');
+            }
         }
     } catch (error) {
         console.error('Erro ao processar evento:', error);
     }
 };
+
+// Adicione esta função para verificar especificamente pedidos com status de conclusão
+async function checkForCompletedOrders() {
+    try {
+        console.log('🔍 Verificando pedidos concluídos...');
+        
+        // Busca todos os pedidos visíveis
+        const orderCards = document.querySelectorAll('.order-card');
+        
+        for (const card of orderCards) {
+            const orderId = card.getAttribute('data-order-id');
+            if (!orderId) continue;
+            
+            // Verifica se o pedido já está marcado como concluído
+            const statusElement = card.querySelector('.order-status');
+            if (statusElement && statusElement.textContent === getStatusText('CONCLUDED')) {
+                continue; // Já está concluído, não precisa verificar
+            }
+            
+            try {
+                // Busca o status atual do pedido
+                const orderDetails = await makeAuthorizedRequest(`/order/v1.0/orders/${orderId}`, 'GET');
+                
+                // Verifica se o status voltou como concluído
+                if (orderDetails.status === 'CONCLUDED' || 
+                    orderDetails.status === 'CONC' || 
+                    orderDetails.status === 'CON') {
+                    
+                    console.log(`🏁 Pedido ${orderId} está concluído no iFood, atualizando interface...`);
+                    
+                    // Atualiza o status no cache
+                    if (ordersCache[orderId]) {
+                        ordersCache[orderId].status = 'CONCLUDED';
+                    }
+                    
+                    // Atualiza a interface
+                    updateOrderStatus(orderId, 'CONCLUDED');
+                    
+                    // Mostra notificação
+                    showToast(`Pedido #${orderId.substring(0, 6)} foi concluído!`, 'success');
+                }
+            } catch (error) {
+                console.error(`Erro ao verificar status do pedido ${orderId}:`, error);
+            }
+        }
+    } catch (error) {
+        console.error('Erro ao verificar pedidos concluídos:', error);
+    }
+}
+
+// Configurar verificação periódica de pedidos concluídos
+function setupCompletedOrdersCheck() {
+    // Verificar a cada 2 minutos
+    setInterval(checkForCompletedOrders, 120000);
+    
+    // Também verifica na inicialização
+    setTimeout(checkForCompletedOrders, 5000);
+}
