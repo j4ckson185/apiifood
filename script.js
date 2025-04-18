@@ -1776,14 +1776,19 @@ function addChangeForField(orderElement, order) {
             }
         }
         
-        // Se encontrou informação de troco, adiciona ao elemento do cliente
+        // Se encontrou informação de troco, adiciona após as informações de pagamento
         if (trocoEncontrado) {
-            const customerInfo = orderElement.querySelector('.customer-info');
-            if (customerInfo) {
+            // Busca o elemento de informações de pagamento
+            const paymentInfo = orderElement.querySelector('.payment-info');
+            
+            if (paymentInfo) {
+                // Cria um parágrafo para o troco
                 const changeForParagraph = document.createElement('p');
-                changeForParagraph.className = 'customer-change-for';
+                changeForParagraph.className = 'payment-change-for';
                 changeForParagraph.textContent = `Troco para: R$ ${valorTroco.toFixed(2)}`;
-                customerInfo.appendChild(changeForParagraph);
+                
+                // Adiciona o parágrafo após a última informação de pagamento
+                paymentInfo.appendChild(changeForParagraph);
             }
         }
     }
