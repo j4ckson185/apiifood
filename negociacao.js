@@ -64,7 +64,9 @@ async function processarEventoDisputa(event) {
     try {
         // Extract disputeId from event
         let disputeId = null;
+        let orderId = null;
         
+        // Obtém o disputeId do evento
         if (event.code === 'HANDSHAKE_DISPUTE' || event.fullCode === 'HANDSHAKE_DISPUTE') {
             // Check for disputeId in different possible locations
             if (event.disputeId) {
@@ -92,6 +94,14 @@ async function processarEventoDisputa(event) {
                     return;
                 }
             }
+            
+            // Obtém o orderId
+            orderId = event.orderId;
+            
+            // IMPORTANTE: Preserva o status original do pedido antes de abrir o modal
+            if (orderId) {
+                preservarStatusOriginal(orderId);
+            }
         } else {
             console.error('❌ Tipo de evento não reconhecido:', event.code);
             return;
@@ -102,7 +112,7 @@ async function processarEventoDisputa(event) {
         // Prepare dispute data
         const disputeData = {
             disputeId: disputeId,
-            orderId: event.orderId,
+            orderId: orderId,
             customerName: await getCustomerNameFromOrder(event.orderId) || 'Cliente',
             type: event.metadata?.handshakeType || 'UNKNOWN',
             reason: event.metadata?.message || 'Motivo não especificado',
