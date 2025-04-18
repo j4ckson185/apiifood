@@ -528,13 +528,13 @@ function criarContainerModalNegociacao() {
     console.log('✅ Container do modal de negociação criado');
 }
 
-// Função para preservar o status original do pedido antes de iniciar negociação
-// Esta função deve ser chamada antes de exibir o modal de negociação
-function preservarStatusOriginal(orderId) {
+// Arquivo: negociacao.js - Nova função para armazenar o status original de forma mais robusta
+function preservarStatusOriginalRobusto(orderId) {
     if (!orderId) return;
     
-    console.log(`🔍 Preservando status original do pedido ${orderId}`);
+    console.log(`🔍 Preservando status original do pedido ${orderId} de forma robusta`);
     
+    // Busca o card do pedido
     const orderCard = document.querySelector(`.order-card[data-order-id="${orderId}"]`);
     if (!orderCard) {
         console.log(`❌ Card não encontrado para pedido ${orderId}`);
@@ -546,9 +546,40 @@ function preservarStatusOriginal(orderId) {
     if (statusElement) {
         const statusText = statusElement.textContent;
         
-        // Armazena no atributo data-
-        orderCard.setAttribute('data-original-status', statusText);
+        // Armazena no atributo data- com um prefixo especial para indicar que é o status PRÉ-negociação
+        orderCard.setAttribute('data-pre-negotiation-status', statusText);
+        
+        // Também armazena no localStorage para maior garantia
+        try {
+            const savedPreNegotiationStatuses = JSON.parse(localStorage.getItem('preNegotiationStatuses') || '{}');
+            savedPreNegotiationStatuses[orderId] = statusText;
+            localStorage.setItem('preNegotiationStatuses', JSON.stringify(savedPreNegotiationStatuses));
+        } catch (err) {
+            console.error('❌ Erro ao salvar status no localStorage:', err);
+        }
+        
         console.log(`✅ Status original "${statusText}" preservado para pedido ${orderId}`);
+        
+        // Mapeamento para código
+        const statusMap = {
+            'Novo': 'PLACED',
+            'Confirmado': 'CONFIRMED',
+            'Em Preparação': 'IN_PREPARATION', 
+            'Pronto para Retirada': 'READY_TO_PICKUP',
+            'A Caminho': 'DISPATCHED',
+            'Concluído': 'CONCLUDED',
+            'Cancelado': 'CANCELLED',
+            'Cancelamento Solicitado': 'CANCELLATION_REQUESTED'
+        };
+        
+        const statusCode = statusMap[statusText] || 'CONFIRMED'; // Fallback para CONFIRMED
+        console.log(`🔍 Status mapeado para código: ${statusCode}`);
+        
+        // CRÍTICO: Adiciona no window para garantir acesso global
+        if (!window.preNegotiationStatuses) {
+            window.preNegotiationStatuses = {};
+        }
+        window.preNegotiationStatuses[orderId] = statusCode;
     } else {
         console.log(`⚠️ Elemento de status não encontrado para pedido ${orderId}`);
     }
@@ -1049,65 +1080,22 @@ async function confirmarCancelamentoLoja() {
     }
 }
 
-// Modificação da função fecharModalNegociacao() para garantir a restauração correta dos botões
+// Modificação da função fecharModalNegociacao para FORÇAR o uso do status original
 function fecharModalNegociacao() {
     console.log('🔄 Iniciando processo de fechamento do modal de negociação');
     
-    // Antes de fechar, obtém o ID do pedido e o status original associado à disputa atual
+    // Antes de fechar, obtém o ID do pedido
     let orderId = null;
-    let originalStatus = null;
     
     if (currentDisputeId) {
         const disputa = activeDisputes.find(d => d.disputeId === currentDisputeId);
         if (disputa) {
             orderId = disputa.orderId;
             console.log(`🔍 Obtido orderId ${orderId} para restauração de botões`);
-            
-            // Tenta obter o status original do pedido antes da negociação
-            const orderCard = document.querySelector(`.order-card[data-order-id="${orderId}"]`);
-            if (orderCard) {
-                // Tenta obter o status do atributo personalizado (se foi armazenado)
-                const storedStatus = orderCard.getAttribute('data-original-status');
-                if (storedStatus) {
-                    console.log(`📋 Status original obtido do atributo data: ${storedStatus}`);
-                    
-                    // Converte texto do status para código
-                    const statusMap = {
-                        'Novo': 'PLACED',
-                        'Confirmado': 'CONFIRMED',
-                        'Em Preparação': 'IN_PREPARATION',
-                        'Pronto para Retirada': 'READY_TO_PICKUP',
-                        'A Caminho': 'DISPATCHED',
-                        'Concluído': 'CONCLUDED',
-                        'Cancelado': 'CANCELLED',
-                        'Cancelamento Solicitado': 'CANCELLATION_REQUESTED'
-                    };
-                    
-                    originalStatus = statusMap[storedStatus];
-                    console.log(`📋 Status convertido para código: ${originalStatus}`);
-                }
-                
-                // Se não conseguiu do atributo, tenta pelas classes de status
-                if (!originalStatus) {
-                    const statusClasses = Array.from(orderCard.classList)
-                        .filter(className => className.startsWith('status-'));
-                        
-                    if (statusClasses.length > 0) {
-                        originalStatus = statusClasses[0].replace('status-', '').toUpperCase();
-                        console.log(`📋 Status obtido das classes do card: ${originalStatus}`);
-                    }
-                }
-                
-                // Tenta obter do cache se ainda não tem
-                if (!originalStatus && ordersCache[orderId]) {
-                    originalStatus = ordersCache[orderId].status;
-                    console.log(`📋 Status obtido do cache: ${originalStatus}`);
-                }
-            }
         }
     }
     
-    // Obtém o container do modal
+    // Obtém o container do modal e o fecha
     const modalContainer = document.getElementById('modal-negociacao-container');
     if (modalContainer) {
         modalContainer.style.display = 'none';
@@ -1124,102 +1112,142 @@ function fecharModalNegociacao() {
     
     // IMPORTANTE: Agora restaura os botões se tiver o ID do pedido
     if (orderId) {
-        console.log(`⚙️ Iniciando restauração de botões para pedido ${orderId} com status original ${originalStatus || 'desconhecido'}`);
+        console.log(`⚙️ Iniciando restauração de botões para pedido ${orderId}`);
         
-        // Múltiplas tentativas para garantir a restauração dos botões
-        const attemptRestoration = (delay, attempt = 1) => {
-            setTimeout(() => {
-                try {
-                    console.log(`🔄 Tentativa ${attempt} de restauração de botões após ${delay}ms`);
-                    
-                    const card = document.querySelector(`.order-card[data-order-id="${orderId}"]`);
-                    if (!card) {
-                        console.log(`❌ Card do pedido ${orderId} não encontrado`);
-                        return;
-                    }
-                    
-                    const actionsContainer = card.querySelector('.order-actions');
-                    if (!actionsContainer) {
-                        console.log(`❌ Container de ações não encontrado para pedido ${orderId}`);
-                        return;
-                    }
-                    
-                    // Conta quantos botões de ação existem (excluindo o botão de resumo)
-                    const actionButtons = Array.from(actionsContainer.querySelectorAll('.action-button'))
-                        .filter(btn => !btn.classList.contains('ver-resumo-negociacao'));
-                    
-                    console.log(`📊 Encontrados ${actionButtons.length} botões de ação existentes`);
-                    
-                    // Se ainda não tiver botões, recria com base no status
-                    if (actionButtons.length === 0) {
-                        console.log(`⚙️ Recriando botões de ação para status ${originalStatus || 'CONFIRMED'}`);
-                        
-                        // Se temos o status original, usamos ele; caso contrário, usamos CONFIRMED como fallback
-                        const status = originalStatus || 'CONFIRMED';
-                        
-                        // Limpa o container de ações (exceto o botão de resumo, se existir)
-                        const resumoBtn = actionsContainer.querySelector('.ver-resumo-negociacao');
-                        actionsContainer.innerHTML = '';
-                        
-                        // Adiciona os botões de ação corretos
-                        addActionButtons(actionsContainer, { id: orderId, status: status });
-                        
-                        // Re-adiciona o botão de resumo, se existia
-                        if (resumoBtn) {
-                            actionsContainer.appendChild(resumoBtn);
-                        }
-                        
-                        console.log(`✅ Botões de ação recriados com sucesso para status ${status}`);
-                    } else {
-                        console.log(`✅ Os botões de ação já existem, não é necessário recriar`);
-                    }
-                    
-                    // Verifica se tem um botão de resumo de negociação
-                    const hasResumoBtn = actionsContainer.querySelector('.ver-resumo-negociacao');
-                    
-                    // Se não tiver o botão de resumo e houver disputa resolvida, adiciona
-                    if (!hasResumoBtn) {
-                        // Busca a disputa resolvida para este pedido (a mais recente)
-                        const resolvedDispute = resolvedDisputes
-                            .filter(d => d.orderId === orderId)
-                            .sort((a, b) => new Date(b.dataConclusao) - new Date(a.dataConclusao))[0];
-                        
-                        if (resolvedDispute) {
-                            console.log(`🔄 Adicionando botão de resumo de negociação para disputa resolvida`);
-                            
-                            try {
-                                // Usa a função de addNegotiationSummaryButton se existir
-                                if (typeof window.addNegotiationSummaryButton === 'function') {
-                                    window.addNegotiationSummaryButton(card, resolvedDispute);
-                                }
-                            } catch (err) {
-                                console.error(`❌ Erro ao adicionar botão de resumo: ${err.message}`);
-                            }
-                        }
-                    }
-                    
-                } catch (error) {
-                    console.error(`❌ Erro na tentativa ${attempt} de restauração de botões:`, error);
-                    
-                    // Se falhou e tem mais tentativas, continua
-                    if (attempt < 3) {
-                        attemptRestoration(delay * 2, attempt + 1);
-                    }
-                }
-            }, delay);
-        };
+        // MODIFICAÇÃO CRÍTICA: Força a restauração imediata com o status PRÉ-negociação
+        forcarRestauracaoBotoes(orderId);
         
-        // Inicia a primeira tentativa após 100ms
-        attemptRestoration(100);
-        
-        // Faz uma segunda tentativa após 500ms
-        attemptRestoration(500, 2);
-        
-        // Faz uma terceira tentativa após 1.5s
-        attemptRestoration(1500, 3);
+        // Também agenda tentativas adicionais para garantir
+        setTimeout(() => forcarRestauracaoBotoes(orderId), 500);
+        setTimeout(() => forcarRestauracaoBotoes(orderId), 1500);
     }
     
     console.log('✅ Modal de negociação fechado');
+}
+
+// Nova função para forçar a restauração dos botões usando APENAS o status pré-negociação
+function forcarRestauracaoBotoes(orderId) {
+    try {
+        console.log(`⚙️ Forçando restauração de botões para ${orderId}`);
+        
+        // Busca o card do pedido
+        const orderCard = document.querySelector(`.order-card[data-order-id="${orderId}"]`);
+        if (!orderCard) {
+            console.log(`❌ Card não encontrado para pedido ${orderId}`);
+            return;
+        }
+        
+        // Busca o container de ações
+        const actionsContainer = orderCard.querySelector('.order-actions');
+        if (!actionsContainer) {
+            console.log(`❌ Container de ações não encontrado para pedido ${orderId}`);
+            return;
+        }
+        
+        // CRÍTICO: Obtém o status pré-negociação, com várias tentativas em ordem de prioridade
+        let statusCode = null;
+        
+        // 1. Tenta obter do objeto global window
+        if (window.preNegotiationStatuses && window.preNegotiationStatuses[orderId]) {
+            statusCode = window.preNegotiationStatuses[orderId];
+            console.log(`🔍 Status obtido do objeto global: ${statusCode}`);
+        }
+        
+        // 2. Tenta obter do atributo data-
+        if (!statusCode) {
+            const preNegotiationStatus = orderCard.getAttribute('data-pre-negotiation-status');
+            if (preNegotiationStatus) {
+                // Converte para código
+                const statusMap = {
+                    'Novo': 'PLACED',
+                    'Confirmado': 'CONFIRMED',
+                    'Em Preparação': 'IN_PREPARATION', 
+                    'Pronto para Retirada': 'READY_TO_PICKUP',
+                    'A Caminho': 'DISPATCHED',
+                    'Concluído': 'CONCLUDED',
+                    'Cancelado': 'CANCELLED',
+                    'Cancelamento Solicitado': 'CANCELLATION_REQUESTED'
+                };
+                
+                statusCode = statusMap[preNegotiationStatus] || 'CONFIRMED';
+                console.log(`🔍 Status obtido do atributo data: ${statusCode}`);
+            }
+        }
+        
+        // 3. Tenta obter do localStorage
+        if (!statusCode) {
+            try {
+                const savedStatuses = JSON.parse(localStorage.getItem('preNegotiationStatuses') || '{}');
+                if (savedStatuses[orderId]) {
+                    // Converte para código
+                    const statusMap = {
+                        'Novo': 'PLACED',
+                        'Confirmado': 'CONFIRMED',
+                        'Em Preparação': 'IN_PREPARATION', 
+                        'Pronto para Retirada': 'READY_TO_PICKUP',
+                        'A Caminho': 'DISPATCHED',
+                        'Concluído': 'CONCLUDED',
+                        'Cancelado': 'CANCELLED',
+                        'Cancelamento Solicitado': 'CANCELLATION_REQUESTED'
+                    };
+                    
+                    statusCode = statusMap[savedStatuses[orderId]] || 'CONFIRMED';
+                    console.log(`🔍 Status obtido do localStorage: ${statusCode}`);
+                }
+            } catch (err) {
+                console.error('❌ Erro ao obter status do localStorage:', err);
+            }
+        }
+        
+        // 4. Fallback para CONFIRMED se nada encontrado
+        if (!statusCode) {
+            statusCode = 'CONFIRMED';
+            console.log(`⚠️ Nenhum status pré-negociação encontrado, usando fallback: ${statusCode}`);
+        }
+        
+        // IGNORAR COMPLETAMENTE O CACHE aqui - usar apenas o status original
+        console.log(`🔧 Forçando status original: ${statusCode}, IGNORANDO cache`);
+        
+        // Salva o botão de resumo se existir
+        const resumoBtn = actionsContainer.querySelector('.ver-resumo-negociacao');
+        
+        // Limpa o container
+        actionsContainer.innerHTML = '';
+        
+        // Adiciona os botões para o status PRÉ-negociação
+        addActionButtons(actionsContainer, { id: orderId, status: statusCode });
+        console.log(`✅ Botões de ação recriados para status ORIGINAL: ${statusCode}`);
+        
+        // Readiciona o botão de resumo se existia
+        if (resumoBtn) {
+            actionsContainer.appendChild(resumoBtn);
+            console.log('✅ Botão de resumo readicionado');
+        }
+        
+        // CRÍTICO: Também adiciona um novo botão de resumo se não existir
+        if (!actionsContainer.querySelector('.ver-resumo-negociacao')) {
+            // Busca a disputa resolvida para este pedido
+            const resolvedDispute = resolvedDisputes
+                .filter(d => d.orderId === orderId)
+                .sort((a, b) => new Date(b.dataConclusao) - new Date(a.dataConclusao))[0];
+            
+            if (resolvedDispute) {
+                try {
+                    if (typeof window.addNegotiationSummaryButton === 'function') {
+                        window.addNegotiationSummaryButton(orderCard, resolvedDispute);
+                        console.log('✅ Novo botão de resumo adicionado');
+                    }
+                } catch (err) {
+                    console.error('❌ Erro ao adicionar botão de resumo:', err);
+                }
+            }
+        }
+        
+        return statusCode; // Retorna o status usado para restauração
+    } catch (error) {
+        console.error('❌ Erro ao forçar restauração de botões:', error);
+        return null;
+    }
 }
 
 // Função para iniciar o contador de tempo
