@@ -1116,3 +1116,7 @@ main {
         grid-template-columns: 1fr;
     }
 }
+
+.cancellation-options-section {
+    display: none !important;
+}
