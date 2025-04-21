@@ -55,7 +55,7 @@ async function fetchReviewDetails(reviewId) {
         
         // Usando exatamente o endpoint especificado
         const response = await makeAuthorizedRequest(
-            `/review/v2.0/merchants/${reviewsState.merchantId}/reviews/${reviewId}`,
+            `/review/v1.0/merchants/${reviewsState.merchantId}/reviews/${reviewId}`,
             'GET'
         );
         
@@ -89,7 +89,7 @@ async function submitReviewAnswer(reviewId, text) {
         
         // Usando exatamente o endpoint especificado
         const response = await makeAuthorizedRequest(
-            `/review/v2.0/merchants/${reviewsState.merchantId}/reviews/${reviewId}/answers`,
+            `/review/v1.0/merchants/${reviewsState.merchantId}/reviews/${reviewId}/answers`,
             'POST',
             { text: text }
         );
