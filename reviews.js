@@ -19,7 +19,7 @@ async function fetchReviews(page = 1, size = 10) {
         updateReviewsLoading(true);
 
         // Usa a versão correta da API (v1.0)
-        const path = `/review/v1.0/merchants/${reviewsState.merchantId}/reviews?page=${page - 1}&size=${size}`;
+        const path = `/review/v1.0/merchants/${reviewsState.merchantId}/reviews?page=${page}&size=${size}`;
 
         const response = await makeAuthorizedRequest(path, 'GET');
 
