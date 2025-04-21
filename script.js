@@ -57,6 +57,11 @@ function switchMainTab(tabId) {
     });
     
     document.querySelector(`.sidebar-item[data-target="${tabId}"]`).classList.add('active');
+    
+    // Carrega avaliações automaticamente quando a tab de avaliações for selecionada
+    if (tabId === 'evaluations' && typeof fetchReviews === 'function') {
+        fetchReviews(1);
+    }
 }
 
 // Função para alternar entre tabs de pedidos
