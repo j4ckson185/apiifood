@@ -212,11 +212,18 @@ function displayReviews(reviews) {
             </div>
             
 <div class="review-actions">
-    <button class="action-button ${!review.replies || review.replies.length === 0 ? 'respond' : 'view'}"
-            onclick="loadReviewModal('${review.id}')">
-        <i class="fas ${!review.replies || review.replies.length === 0 ? 'fa-reply' : 'fa-eye'}"></i>
-        ${!review.replies || review.replies.length === 0 ? 'Responder' : 'Ver Detalhes'}
-    </button>
+    ${review.comment && !review.discarded && !review.published && 
+      (new Date() - new Date(review.createdAt)) / (1000 * 60 * 60 * 24) <= 7 ? `
+        <button class="action-button respond" onclick="loadReviewModal('${review.id}')">
+            <i class="fas fa-reply"></i>
+            Responder
+        </button>
+    ` : `
+        <button class="action-button view" onclick="loadReviewModal('${review.id}')">
+            <i class="fas fa-eye"></i>
+            Ver Detalhes
+        </button>
+    `}
 </div>
         `;
         
@@ -347,16 +354,21 @@ function showReviewModal(review) {
         new Date(review.order.createdAt).toLocaleDateString('pt-BR') : 'N/A';
 
     // Bloco de perguntas e respostas
-    const perguntasRespostasHTML = review.questions?.map(question => `
+const perguntasRespostasHTML = Array.isArray(review.questions) ? review.questions.map(question => {
+    const titulo = question.title || 'Pergunta';
+    const respostas = Array.isArray(question.answers) ? question.answers : [];
+
+    return `
       <div class="question-block">
-        <h4><i class="fas fa-question-circle"></i> ${question.title}</h4>
+        <h4><i class="fas fa-question-circle"></i> ${titulo}</h4>
         <ul class="answer-list">
-          ${question.answers.map(answer => `
+          ${respostas.map(answer => `
             <li><i class="fas fa-check-circle"></i> ${answer.title}</li>
           `).join('')}
         </ul>
       </div>
-    `).join('') || '';
+    `;
+}).join('') : '';
 
     // Preparar a seção de resposta
     let responseSection = '';
