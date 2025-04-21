@@ -141,27 +141,29 @@ window.displayOrder = function(order) {
 const originalUpdateOrderStatus = updateOrderStatus;
 window.updateOrderStatus = function(orderId, status) {
     const currentStatus = ordersCache[orderId]?.status;
-
-    // Protege contra rebaixamento de status
+    
+    // Protege contra rebaixamento de status, mas permite cancelamento
     const estadosFinais = ['DISPATCHED', 'CONCLUDED', 'CANCELLED'];
-    if (estadosFinais.includes(currentStatus) && currentStatus !== status) {
+    if (estadosFinais.includes(currentStatus) && currentStatus !== status && status !== 'CANCELLED') {
         console.log(`⚠️ Ignorando update para ${orderId} de ${currentStatus} para ${status}`);
         return;
     }
-
+    
     if (ordersCache[orderId]) {
         ordersCache[orderId].status = status;
     }
-
+    
     originalUpdateOrderStatus(orderId, status);
+    
     // Reinsere botão de resumo da negociação, se houver disputa resolvida
-if (resolvedDisputes?.[orderId]) {
-    const orderCard = document.querySelector(`.order-card[data-order-id="${orderId}"]`);
-    if (orderCard) {
-        addNegotiationSummaryButton(orderCard, resolvedDisputes[orderId]);
-        console.log('🔁 Botão de resumo de negociação reinserido após update de status');
+    if (resolvedDisputes?.[orderId]) {
+        const orderCard = document.querySelector(`.order-card[data-order-id="${orderId}"]`);
+        if (orderCard) {
+            addNegotiationSummaryButton(orderCard, resolvedDisputes[orderId]);
+            console.log('🔁 Botão de resumo de negociação reinserido após update de status');
+        }
     }
-}
+    
     saveOrdersToLocalStorage();
 };
 
