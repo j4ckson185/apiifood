@@ -3,7 +3,7 @@
 
 // Estado das avaliações
 let reviewsState = {
-    merchantId: CONFIG.merchantId, // Usa o mesmo merchantId configurado no sistema
+    merchantId: CONFIG.merchantUUID, // Usa o UUID especificamente para avaliações
     currentPage: 1,
     pageSize: 10,
     totalReviews: 0,
@@ -12,13 +12,13 @@ let reviewsState = {
     isLoading: false
 };
 
+// No reviews.js, função fetchReviews
 async function fetchReviews(page = 1, size = 10) {
     try {
         console.log('🔍 Buscando avaliações da página:', page);
         reviewsState.isLoading = true;
         updateReviewsLoading(true);
 
-        // Calcula intervalo válido de até 90 dias
         const dateFrom = new Date();
         dateFrom.setDate(dateFrom.getDate() - 89);
         const dateTo = new Date();
@@ -35,8 +35,10 @@ async function fetchReviews(page = 1, size = 10) {
             sortBy: 'CREATED_AT'
         }).toString();
 
-        // 🔁 Mantendo o caminho esperado com "/review/v2.0/" pois seu proxy requer isso!
-        const path = `/review/v2.0/merchants/${reviewsState.merchantId}/reviews?${queryParams}`;
+        // Usa explicitamente o UUID para o endpoint de reviews
+        const path = `/review/v2.0/merchants/${CONFIG.merchantUUID}/reviews?${queryParams}`;
+        
+        console.log('🔍 Caminho da requisição:', path); // Log para debug
 
         const response = await makeAuthorizedRequest(path, 'GET');
 
@@ -68,18 +70,10 @@ async function fetchReviewDetails(reviewId) {
         console.log(`🔍 Buscando detalhes da avaliação ${reviewId}`);
         showLoading();
 
-        const path = `/review/v2.0/merchants/${reviewsState.merchantId}/reviews/${reviewId}`;
+        const path = `/review/v2.0/merchants/${CONFIG.merchantUUID}/reviews/${reviewId}`;
         const response = await makeAuthorizedRequest(path, 'GET');
 
-        console.log('✅ Detalhes da avaliação recebidos:', response);
-
-        if (response) {
-            reviewsState.selectedReview = response;
-            showReviewModal(response);
-        } else {
-            console.error('❌ Avaliação não encontrada');
-            showToast('Avaliação não encontrada', 'error');
-        }
+        // ... resto do código ...
     } catch (error) {
         console.error(`❌ Erro ao buscar detalhes da avaliação ${reviewId}:`, error);
         showToast('Erro ao carregar detalhes da avaliação', 'error');
@@ -90,36 +84,16 @@ async function fetchReviewDetails(reviewId) {
 
 async function submitReviewAnswer(reviewId, text) {
     try {
-        if (!text || text.trim() === '') {
-            showToast('A resposta não pode estar vazia', 'warning');
-            return false;
-        }
+        // ... validações iniciais ...
 
-        console.log(`📝 Enviando resposta para avaliação ${reviewId}`);
-        showLoading();
-
-        const path = `/review/v2.0/merchants/${reviewsState.merchantId}/reviews/${reviewId}/answers`;
+        const path = `/review/v2.0/merchants/${CONFIG.merchantUUID}/reviews/${reviewId}/answers`;
         const response = await makeAuthorizedRequest(path, 'POST', { text: text });
 
-        console.log('✅ Resposta enviada com sucesso:', response);
-        showToast('Resposta enviada com sucesso!', 'success');
-
-        // Atualiza a avaliação na interface
-        if (reviewsState.selectedReview) {
-            reviewsState.selectedReview.answer = { text: text };
-            showReviewModal(reviewsState.selectedReview);
-        }
-
-        // Atualiza a lista de avaliações
-        fetchReviews(reviewsState.currentPage, reviewsState.pageSize);
-
-        return true;
+        // ... resto do código ...
     } catch (error) {
         console.error(`❌ Erro ao enviar resposta para avaliação ${reviewId}:`, error);
         showToast('Erro ao enviar resposta: ' + (error.message || 'Tente novamente'), 'error');
         return false;
-    } finally {
-        hideLoading();
     }
 }
 
