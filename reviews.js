@@ -12,6 +12,94 @@ let reviewsState = {
     isLoading: false
 };
 
+// Função para alternar exibição dos filtros
+function toggleFilters() {
+    const filtersContainer = document.getElementById('reviews-filters');
+    if (filtersContainer) {
+        filtersContainer.classList.toggle('show');
+        
+        const button = document.querySelector('.filter-toggle-button');
+        if (button) {
+            if (filtersContainer.classList.contains('show')) {
+                button.innerHTML = `
+                    <i class="fas fa-times"></i>
+                    Fechar Filtros
+                `;
+            } else {
+                button.innerHTML = `
+                    <i class="fas fa-filter"></i>
+                    Filtrar Avaliações
+                `;
+            }
+        }
+    }
+}
+
+// Função para aplicar filtros
+function applyReviewFilters() {
+    const period = document.getElementById('period-filter')?.value;
+    const status = document.getElementById('status-filter')?.value;
+    const score = document.getElementById('score-filter')?.value;
+    const search = document.getElementById('review-search')?.value.toLowerCase();
+
+    const reviewCards = document.querySelectorAll('.review-card');
+    reviewCards.forEach(card => {
+        let show = true;
+
+        // Filtro por busca
+        if (search) {
+            const cardText = card.textContent.toLowerCase();
+            show = cardText.includes(search);
+        }
+
+        // Filtro por nota
+        if (show && score !== 'all') {
+            const scoreValue = card.querySelector('.score-number')?.textContent;
+            show = scoreValue === score;
+        }
+
+        // Filtro por status
+        if (show && status !== 'all') {
+            const hasReply = card.querySelector('.review-reply') !== null;
+            const isPending = card.querySelector('.status-badge.pending') !== null;
+            
+            switch(status) {
+                case 'pending':
+                    show = isPending;
+                    break;
+                case 'answered':
+                    show = hasReply;
+                    break;
+                case 'published':
+                    show = card.querySelector('.status-badge.published') !== null;
+                    break;
+            }
+        }
+
+        card.style.display = show ? 'block' : 'none';
+    });
+
+    // Verifica se há avaliações visíveis
+    const visibleCards = document.querySelectorAll('.review-card[style="display: block"]');
+    const noReviewsMessage = document.querySelector('.no-reviews');
+    
+    if (visibleCards.length === 0) {
+        if (!noReviewsMessage) {
+            const reviewsGrid = document.querySelector('.reviews-grid');
+            if (reviewsGrid) {
+                reviewsGrid.innerHTML = `
+                    <div class="no-reviews">
+                        <i class="fas fa-filter-slash"></i>
+                        <p>Nenhuma avaliação encontrada com os filtros selecionados</p>
+                    </div>
+                `;
+            }
+        }
+    } else if (noReviewsMessage) {
+        noReviewsMessage.remove();
+    }
+}
+
 // Função para gerar estrelas baseado na nota
 function generateStars(score) {
     const fullStars = Math.floor(score);
@@ -368,10 +456,48 @@ function displayReviews(reviews) {
     filterButton.onclick = toggleFilters;
     
     // Container para filtros (inicialmente oculto)
-    const filtersContainer = document.createElement('div');
-    filtersContainer.className = 'reviews-filters hidden';
-    filtersContainer.id = 'reviews-filters';
-    // ... resto do código dos filtros ...
+const filtersContainer = document.createElement('div');
+filtersContainer.className = 'reviews-filters hidden';
+filtersContainer.id = 'reviews-filters';
+filtersContainer.innerHTML = `
+    <div class="filters-row">
+        <div class="filter-group">
+            <label>Período:</label>
+            <select id="period-filter" onchange="applyReviewFilters()">
+                <option value="7">Últimos 7 dias</option>
+                <option value="30">Últimos 30 dias</option>
+                <option value="90" selected>Últimos 90 dias</option>
+            </select>
+        </div>
+        <div class="filter-group">
+            <label>Status:</label>
+            <select id="status-filter" onchange="applyReviewFilters()">
+                <option value="all">Todos</option>
+                <option value="pending">Aguardando Resposta</option>
+                <option value="answered">Respondidos</option>
+                <option value="published">Publicados</option>
+            </select>
+        </div>
+        <div class="filter-group">
+            <label>Nota:</label>
+            <select id="score-filter" onchange="applyReviewFilters()">
+                <option value="all">Todas</option>
+                <option value="5">5 estrelas</option>
+                <option value="4">4 estrelas</option>
+                <option value="3">3 estrelas</option>
+                <option value="2">2 estrelas</option>
+                <option value="1">1 estrela</option>
+            </select>
+        </div>
+        <div class="search-filter">
+            <input type="text" 
+                   id="review-search" 
+                   placeholder="Buscar por comentário ou número do pedido"
+                   oninput="applyReviewFilters()">
+            <i class="fas fa-search"></i>
+        </div>
+    </div>
+`;
 
     const reviewsGrid = document.createElement('div');
     reviewsGrid.className = 'reviews-grid';
