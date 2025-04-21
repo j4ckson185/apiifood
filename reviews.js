@@ -18,8 +18,25 @@ async function fetchReviews(page = 1, size = 10) {
         reviewsState.isLoading = true;
         updateReviewsLoading(true);
 
-        // Usa a versão correta da API (v1.0)
-        const path = `/review/v1.0/merchants/${reviewsState.merchantId}/reviews?page=${page}&size=${size}`;
+        // Usa a versão correta da API (v2.0)
+        // Calcula intervalo válido de até 90 dias
+const dateFrom = new Date();
+dateFrom.setDate(dateFrom.getDate() - 89);
+const dateTo = new Date();
+
+const formatDate = (date) => date.toISOString().split('.')[0] + 'Z';
+
+const queryParams = new URLSearchParams({
+    page: page.toString(),
+    pageSize: size.toString(),
+    addCount: 'false',
+    dateFrom: formatDate(dateFrom),
+    dateTo: formatDate(dateTo),
+    sort: 'DESC',
+    sortBy: 'CREATED_AT'
+}).toString();
+
+const path = `/review/v2.0/merchants/${reviewsState.merchantId}/reviews?${queryParams}`;
 
         const response = await makeAuthorizedRequest(path, 'GET');
 
@@ -55,7 +72,7 @@ async function fetchReviewDetails(reviewId) {
         
         // Usando exatamente o endpoint especificado
         const response = await makeAuthorizedRequest(
-            `/review/v1.0/merchants/${reviewsState.merchantId}/reviews/${reviewId}`,
+            `/review/v2.0/merchants/${reviewsState.merchantId}/reviews/${reviewId}`,
             'GET'
         );
         
@@ -89,7 +106,7 @@ async function submitReviewAnswer(reviewId, text) {
         
         // Usando exatamente o endpoint especificado
         const response = await makeAuthorizedRequest(
-            `/review/v1.0/merchants/${reviewsState.merchantId}/reviews/${reviewId}/answers`,
+            `/review/v2.0/merchants/${reviewsState.merchantId}/reviews/${reviewId}/answers`,
             'POST',
             { text: text }
         );
