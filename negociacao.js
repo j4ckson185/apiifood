@@ -578,6 +578,7 @@ async function proporAlternativa(disputeId, alternativeId) {
     }
 }
 
+// Modificação da função exibirModalNegociacao para tratar PREPARATION_TIME
 function exibirModalNegociacao(dispute) {
     // Preserva o status original do pedido
     if (dispute && dispute.orderId) {
@@ -608,6 +609,9 @@ function exibirModalNegociacao(dispute) {
     const disputeType = dispute.type || dispute.metadata?.handshakeType || 'UNKNOWN';
     console.log("Tipo de disputa:", disputeType);
     
+    // NOVO: Identifica se é uma disputa de preparo
+    const isPreparationTime = disputeType === 'PREPARATION_TIME';
+    
     // Identifica se é uma disputa relacionada a atraso
     const isDelayRelated = 
         disputeType === 'PREPARATION_TIME' || 
@@ -616,6 +620,7 @@ function exibirModalNegociacao(dispute) {
         disputeType === 'CANCELLATION_WITH_DELAY_PROPOSAL';
     
     console.log("É disputa relacionada a atraso?", isDelayRelated);
+    console.log("É disputa de tempo de preparo?", isPreparationTime);
     
     // Formata o tempo restante
     let timeRemaining = '';
@@ -636,7 +641,13 @@ function exibirModalNegociacao(dispute) {
             disputeIcon = 'money-bill-wave';
             break;
         case 'CANCELLATION_WITH_DELAY_PROPOSAL':
-        case 'PREPARATION_TIME': 
+            disputeTitle = 'Cancelamento por Atraso';
+            disputeIcon = 'clock';
+            break;
+        case 'PREPARATION_TIME':
+            disputeTitle = 'Cancelamento Durante Preparo';
+            disputeIcon = 'utensils';
+            break;
         case 'ORDER_LATE':
         case 'DELAY':
             disputeTitle = 'Cancelamento por Atraso';
@@ -669,8 +680,8 @@ function exibirModalNegociacao(dispute) {
     // Inicia HTML vazio
     let alternativesHtml = '';
     
-    // Se for disputa relacionada a atraso, monta a seção de opções de tempo
-    if (isDelayRelated) {
+    // MODIFICADO: Mostra opções de tempo apenas se for disputa de atraso (DELAY) e não PREPARATION_TIME
+    if (isDelayRelated && !isPreparationTime) {
         alternativesHtml = `
             <div class="negotiation-alternatives">
                 <h3>Opções de Resposta</h3>
@@ -797,6 +808,16 @@ function exibirModalNegociacao(dispute) {
         `;
     }
     
+    // NOVA MENSAGEM: Texto específico para casos de PREPARATION_TIME
+    let messageText = '';
+    if (isPreparationTime) {
+        messageText = 'O cliente solicitou o cancelamento durante o preparo do pedido. Você pode aceitar ou rejeitar esta solicitação.';
+    } else if (isDelayRelated) {
+        messageText = 'Selecione uma das opções acima ou aceite/rejeite a solicitação de cancelamento.';
+    } else {
+        messageText = 'Você pode aceitar o cancelamento, rejeitá-lo ou oferecer uma alternativa.';
+    }
+    
     // Cria o conteúdo do modal
     modalContainer.innerHTML = `
         <div class="modal-negociacao-content">
@@ -853,11 +874,7 @@ function exibirModalNegociacao(dispute) {
                 <div class="dispute-message">
                     <p class="message-text">
                         <i class="fas fa-info-circle"></i>
-                        ${isDelayRelated ? 
-                            'Selecione uma das opções acima ou aceite/rejeite a solicitação de cancelamento.' : 
-                            (alternatives.length > 0 ? 
-                                'Você pode aceitar o cancelamento, rejeitá-lo ou oferecer uma alternativa.' : 
-                                'Você pode aceitar ou rejeitar esta solicitação de cancelamento.')}
+                        ${messageText}
                     </p>
                 </div>
             </div>
@@ -881,18 +898,19 @@ function exibirModalNegociacao(dispute) {
         iniciarContadorTempo(expiresAt);
     }
     
-console.log('✅ Modal de negociação exibido para a disputa:', dispute);
+    console.log('✅ Modal de negociação exibido para a disputa:', dispute);
 
-// Oculta o botão "Rejeitar" se for disputa de atraso
-if (isDelayRelated) {
-    setTimeout(() => {
-        const rejectBtn = document.querySelector('.modal-negociacao-footer .dispute-button.reject');
-        if (rejectBtn) {
-            rejectBtn.remove(); // remove o botão de rejeição
-            console.log('⛔ Botão de rejeitar removido por ser disputa de atraso');
-        }
-    }, 100);
-}
+    // Oculta o botão "Rejeitar" se for disputa de atraso do tipo DELAY
+    // Note que agora estamos verificando especificamente o tipo DELAY, não mais isDelayRelated
+    if (disputeType === 'DELAY') {
+        setTimeout(() => {
+            const rejectBtn = document.querySelector('.modal-negociacao-footer .dispute-button.reject');
+            if (rejectBtn) {
+                rejectBtn.remove(); // remove o botão de rejeição
+                console.log('⛔ Botão de rejeitar removido por ser disputa de atraso tipo DELAY');
+            }
+        }, 100);
+    }
 }
 
 async function proporTempoAdicional(disputeId, minutos, motivo, alternativeId = '') {
