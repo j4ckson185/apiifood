@@ -1431,3 +1431,56 @@ main {
 .answer-item i {
     color: #28a745;
 }
+
+.filter-toggle-button {
+    background-color: white;
+    border: 2px solid #ea1d2c;
+    color: #ea1d2c;
+    padding: 10px 20px;
+    border-radius: 20px;
+    cursor: pointer;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 20px;
+    transition: all 0.3s ease;
+}
+
+.filter-toggle-button:hover {
+    background-color: #ea1d2c;
+    color: white;
+}
+
+.reviews-filters {
+    margin-bottom: 20px;
+    transform: translateY(-20px);
+    opacity: 0;
+    transition: all 0.3s ease;
+    display: none;
+}
+
+.reviews-filters.show {
+    transform: translateY(0);
+    opacity: 1;
+    display: block;
+}
+
+.no-reviews {
+    text-align: center;
+    padding: 40px;
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.no-reviews i {
+    font-size: 48px;
+    color: #ea1d2c;
+    margin-bottom: 16px;
+}
+
+.no-reviews p {
+    color: #666;
+    font-size: 16px;
+}
