@@ -20,6 +20,7 @@ async function fetchReviews(page = 1, size = 10) {
         
         updateReviewsLoading(true);
         
+        // Usando exatamente o endpoint especificado
         const response = await makeAuthorizedRequest(
             `/review/v2.0/merchants/${reviewsState.merchantId}/reviews?page=${page-1}&size=${size}`, 
             'GET'
@@ -54,6 +55,7 @@ async function fetchReviewDetails(reviewId) {
         console.log(`🔍 Buscando detalhes da avaliação ${reviewId}`);
         showLoading();
         
+        // Usando exatamente o endpoint especificado
         const response = await makeAuthorizedRequest(
             `/review/v2.0/merchants/${reviewsState.merchantId}/reviews/${reviewId}`,
             'GET'
@@ -87,6 +89,7 @@ async function submitReviewAnswer(reviewId, text) {
         console.log(`📝 Enviando resposta para avaliação ${reviewId}`);
         showLoading();
         
+        // Usando exatamente o endpoint especificado
         const response = await makeAuthorizedRequest(
             `/review/v2.0/merchants/${reviewsState.merchantId}/reviews/${reviewId}/answers`,
             'POST',
