@@ -58,10 +58,20 @@ function switchMainTab(tabId) {
     
     document.querySelector(`.sidebar-item[data-target="${tabId}"]`).classList.add('active');
     
-    // Carrega avaliações automaticamente quando a tab de avaliações for selecionada
-    if (tabId === 'evaluations' && typeof fetchReviews === 'function') {
+// Carrega avaliações automaticamente quando a tab de avaliações for selecionada
+if (tabId === 'evaluations' && typeof fetchReviews === 'function') {
+    if (state.accessToken) {
         fetchReviews(1);
+    } else {
+        authenticate().then(() => {
+            if (state.accessToken) {
+                fetchReviews(1);
+            } else {
+                showToast('Erro ao autenticar antes de carregar avaliações', 'error');
+            }
+        });
     }
+}
 }
 
 // Função para alternar entre tabs de pedidos
