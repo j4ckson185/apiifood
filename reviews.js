@@ -97,7 +97,6 @@ async function submitReviewAnswer(reviewId, text) {
     }
 }
 
-// Função para exibir as avaliações na interface
 function displayReviews(reviews) {
     const reviewsContainer = document.getElementById('reviews-list');
     if (!reviewsContainer) {
@@ -105,7 +104,6 @@ function displayReviews(reviews) {
         return;
     }
     
-    // Limpa o container
     reviewsContainer.innerHTML = '';
     
     if (!reviews || reviews.length === 0) {
@@ -119,60 +117,112 @@ function displayReviews(reviews) {
         return;
     }
     
-    // Adiciona cada avaliação
     reviews.forEach(review => {
+        // Formata as datas
+        const reviewDate = new Date(review.createdAt);
+        const orderDate = new Date(review.order.createdAt);
+        
+        // Formata a nota com estrelas
+        const starsHtml = Array(5).fill(0).map((_, index) => {
+            return index < review.score ? 
+                '<i class="fas fa-star"></i>' : 
+                '<i class="far fa-star"></i>';
+        }).join('');
+        
         const reviewCard = document.createElement('div');
         reviewCard.className = 'review-card';
-        reviewCard.setAttribute('data-review-id', review.id);
-        
-        // Formata a data
-        const reviewDate = new Date(review.createdAt);
-        const formattedDate = reviewDate.toLocaleDateString('pt-BR');
-        
-        // Verifica se tem comentário
-        const hasComment = review.comment && review.comment.trim() !== '';
-        
-        // Verifica se já respondeu
-        const hasAnswer = review.answer && review.answer.text;
-        
-        // Gera as estrelas
-        const starsHtml = generateStarsHtml(review.rating);
-        
         reviewCard.innerHTML = `
             <div class="review-header">
-                <div class="review-rating">
-                    ${starsHtml}
+                <div class="review-meta">
+                    <span class="review-date">
+                        <i class="far fa-calendar"></i>
+                        ${reviewDate.toLocaleDateString('pt-BR', {
+                            day: '2-digit',
+                            month: '2-digit',
+                            year: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                        })}
+                    </span>
+                    <span class="review-id">
+                        <i class="fas fa-hashtag"></i>
+                        Pedido ${review.order.shortId}
+                    </span>
                 </div>
-                <div class="review-date">${formattedDate}</div>
+                <div class="review-score">
+                    ${starsHtml}
+                    <span class="score-value">${review.score.toFixed(1)}</span>
+                </div>
             </div>
             
             <div class="review-content">
-                <div class="review-customer">
-                    ${review.orderInfo?.customer?.name || 'Cliente'}
-                </div>
-                
-                ${hasComment ? `
-                <div class="review-comment">
-                    <i class="fas fa-quote-left"></i>
-                    <p>${review.comment}</p>
-                </div>
-                ` : ''}
-                
-                ${hasAnswer ? `
-                <div class="review-answer">
-                    <div class="answer-header">
-                        <i class="fas fa-reply"></i>
-                        <span>Sua resposta:</span>
+                ${review.comment ? `
+                    <div class="review-comment">
+                        <i class="fas fa-quote-left"></i>
+                        <p>${review.comment}</p>
+                        <i class="fas fa-quote-right"></i>
                     </div>
-                    <p>${review.answer.text}</p>
-                </div>
                 ` : ''}
+                
+                ${review.replies && review.replies.length > 0 ? `
+                    <div class="review-replies">
+                        ${review.replies.map(reply => `
+                            <div class="review-reply">
+                                <div class="reply-header">
+                                    <i class="fas fa-reply"></i>
+                                    <span class="reply-from">Resposta da Loja</span>
+                                    <span class="reply-date">
+                                        ${new Date(reply.createdAt).toLocaleDateString('pt-BR', {
+                                            day: '2-digit',
+                                            month: '2-digit',
+                                            year: 'numeric',
+                                            hour: '2-digit',
+                                            minute: '2-digit'
+                                        })}
+                                    </span>
+                                </div>
+                                <div class="reply-content">
+                                    <p>${reply.text}</p>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                ` : ''}
+                
+                <div class="review-details">
+                    <div class="detail-item">
+                        <span class="detail-label">Status:</span>
+                        <span class="detail-value ${review.status.toLowerCase()}">
+                            ${review.status === 'PUBLISHED' ? 'Publicado' : review.status}
+                        </span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">Data do Pedido:</span>
+                        <span class="detail-value">
+                            ${orderDate.toLocaleDateString('pt-BR', {
+                                day: '2-digit',
+                                month: '2-digit',
+                                year: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit'
+                            })}
+                        </span>
+                    </div>
+                </div>
             </div>
             
-            <div class="review-footer">
-                <button class="review-action-button" onclick="fetchReviewDetails('${review.id}')">
-                    ${hasAnswer ? '<i class="fas fa-eye"></i> Ver Detalhes' : '<i class="fas fa-reply"></i> Responder'}
-                </button>
+            <div class="review-actions">
+                ${!review.replies || review.replies.length === 0 ? `
+                    <button class="action-button respond" onclick="showReviewModal('${review.id}')">
+                        <i class="fas fa-reply"></i>
+                        Responder
+                    </button>
+                ` : `
+                    <button class="action-button view" onclick="showReviewModal('${review.id}')">
+                        <i class="fas fa-eye"></i>
+                        Ver Detalhes
+                    </button>
+                `}
             </div>
         `;
         
