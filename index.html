@@ -59,6 +59,7 @@
                     <div class="tab-item active" data-tab="preparation">Em Preparo</div>
                     <div class="tab-item" data-tab="dispatched">A Caminho</div>
                     <div class="tab-item" data-tab="completed">Concluídos</div>
+                    <div class="tab-item" data-tab="scheduled">Agendados</div>
                     <div class="tab-item" data-tab="cancelled">Cancelados</div>
                 </div>
 
@@ -114,6 +115,17 @@
                         <p>Pedidos cancelados aparecerão aqui</p>
                     </div>
                 </div>
+
+                <div id="scheduled-tab" class="tab-content">
+    <div class="orders-grid" id="scheduled-orders">
+        <!-- Pedidos agendados serão adicionados aqui -->
+    </div>
+    <div class="no-orders scheduled-empty hidden">
+        <i class="fas fa-calendar-alt"></i>
+        <h3>Sem pedidos agendados</h3>
+        <p>Pedidos agendados aparecerão aqui</p>
+    </div>
+</div>
             </section>
 
             <!-- Evaluations section -->
