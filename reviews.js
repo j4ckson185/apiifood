@@ -211,19 +211,13 @@ function displayReviews(reviews) {
                 </div>
             </div>
             
-            <div class="review-actions">
-                ${!review.replies || review.replies.length === 0 ? `
-                    <button class="action-button respond" onclick="loadReviewModal('${review.id}')">
-                        <i class="fas fa-reply"></i>
-                        Responder
-                    </button>
-                ` : `
-                    <button class="action-button view" onclick="showReviewModal('${review.id}')">
-                        <i class="fas fa-eye"></i>
-                        Ver Detalhes
-                    </button>
-                `}
-            </div>
+<div class="review-actions">
+    <button class="action-button ${!review.replies || review.replies.length === 0 ? 'respond' : 'view'}"
+            onclick="loadReviewModal('${review.id}')">
+        <i class="fas ${!review.replies || review.replies.length === 0 ? 'fa-reply' : 'fa-eye'}"></i>
+        ${!review.replies || review.replies.length === 0 ? 'Responder' : 'Ver Detalhes'}
+    </button>
+</div>
         `;
         
         reviewsContainer.appendChild(reviewCard);
