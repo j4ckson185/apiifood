@@ -39,7 +39,7 @@ async function fetchInterruptions(merchantId) {
     }
 }
 
-// Função modificada para criar uma interrupção
+// Função corrigida para criar uma interrupção
 async function createInterruption(merchantId, interruptionData) {
     try {
         console.log('🔍 Criando interrupção para o merchant ID:', merchantId);
@@ -51,7 +51,7 @@ async function createInterruption(merchantId, interruptionData) {
             return null;
         }
         
-        // Formatação das datas em ISO 8601 sem manipulações adicionais
+        // Payload estritamente conforme a API espera - apenas os campos obrigatórios
         const payload = {
             description: interruptionData.description,
             start: interruptionData.start.toISOString(),
@@ -68,15 +68,27 @@ async function createInterruption(merchantId, interruptionData) {
             payload
         );
         
-        console.log('✅ Interrupção criada:', response);
+        console.log('✅ Resposta completa da API ao criar interrupção:', response);
         
         // Adiciona a nova interrupção à lista atual
-        if (response && response.id) {
+        if (response) {
             if (!Array.isArray(currentInterruptions)) {
                 currentInterruptions = [];
             }
             currentInterruptions.push(response);
             displayInterruptions(currentInterruptions);
+            
+            // Verifica o status atual da loja
+            try {
+                console.log('🔍 Verificando status da loja após criar interrupção...');
+                const storeStatus = await makeAuthorizedRequest(
+                    `/merchant/v1.0/merchants/${merchantId}/status`, 
+                    'GET'
+                );
+                console.log('ℹ️ Status atual da loja após interrupção:', storeStatus);
+            } catch (statusError) {
+                console.error('❌ Erro ao verificar status da loja:', statusError);
+            }
         }
         
         showToast('Interrupção criada com sucesso!', 'success');
@@ -87,6 +99,7 @@ async function createInterruption(merchantId, interruptionData) {
         return response;
     } catch (error) {
         console.error('❌ Erro ao criar interrupção:', error);
+        console.error('Detalhes do erro:', error.response || error.message || error);
         showToast(`Erro ao criar interrupção: ${error.message}`, 'error');
         return null;
     } finally {
@@ -278,6 +291,7 @@ function closeInterruptionModal() {
 }
 
 // Função modificada para enviar o formulário de interrupção
+// Função corrigida para enviar o formulário de interrupção
 function submitInterruptionForm() {
     // Obtém os dados do formulário
     const description = document.getElementById('interruption-description').value;
@@ -292,8 +306,7 @@ function submitInterruptionForm() {
         return;
     }
     
-    // Combina data e hora
-    // Importante: Não faça ajustes de fuso horário aqui
+    // Combina data e hora sem ajustes de fuso horário
     const start = new Date(`${startDate}T${startTime}:00`);
     const end = new Date(`${endDate}T${endTime}:00`);
     
@@ -308,14 +321,15 @@ function submitInterruptionForm() {
         return;
     }
     
-    // Cria o objeto de interrupção
+    // Cria o objeto de interrupção - apenas com os campos obrigatórios
     const interruptionData = {
         description,
         start,
         end
     };
     
-    console.log('📋 Enviando dados da interrupção:', interruptionData);
+    // Log para verificar os dados antes de enviar
+    console.log('📋 Dados da interrupção a ser criada:', interruptionData);
     console.log('Data de início (ISO):', start.toISOString());
     console.log('Data de fim (ISO):', end.toISOString());
     
@@ -513,7 +527,7 @@ function addInterruptionStyles() {
     document.head.appendChild(styleElement);
 }
 
-// Função para inicializar o monitoramento de interrupções
+// Estrutura correta para inicialização do módulo
 function initInterruptionsMonitoring() {
     // Verifica interrupções ativas a cada 5 minutos
     setInterval(() => {
@@ -532,7 +546,7 @@ function initInterruptions() {
     initInterruptionsMonitoring();
 }
 
-// Registrar eventos quando o DOM estiver pronto
+// Configuração correta dos event listeners
 document.addEventListener('DOMContentLoaded', () => {
     // Eventos para o modal de criação de interrupção
     document.getElementById('create-interruption')?.addEventListener('click', openCreateInterruptionModal);
@@ -550,5 +564,5 @@ document.addEventListener('DOMContentLoaded', () => {
     document.querySelector('#interruption-modal .close-modal')?.addEventListener('click', closeInterruptionModal);
 });
 
-// Inicializa o módulo
-initInterruptions();
+// A linha abaixo deve estar FORA de qualquer função
+// initInterruptions();
