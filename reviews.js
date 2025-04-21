@@ -355,7 +355,7 @@ function showReviewModal(review) {
 
     // Bloco de perguntas e respostas
 const perguntasRespostasHTML = Array.isArray(review.questions) ? review.questions.map(question => {
-    const titulo = question.title || 'Pergunta';
+    const titulo = question.title || 'Do que você gostou?';
     const respostas = Array.isArray(question.answers) ? question.answers : [];
 
     return `
