@@ -329,15 +329,18 @@ function showReviewModal(review) {
         document.body.appendChild(modalContainer);
     }
     
-    // Formata a data
-    const reviewDate = new Date(review.createdAt);
-    const formattedDate = reviewDate.toLocaleDateString('pt-BR', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit'
-    });
+// Formata a data
+const reviewDate = new Date(review.createdAt);
+const formattedDate = reviewDate.toLocaleDateString('pt-BR', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+});
+
+// 🔒 Verifica se a avaliação pode ser respondida
+const podeResponder = review.comment && !review.published;
     
     // Gera as estrelas
     const starsHtml = generateStarsHtml(review.rating);
@@ -349,45 +352,61 @@ function showReviewModal(review) {
     const orderNumber = review.orderInfo?.orderId || 'N/A';
     const orderDate = review.orderInfo?.createdAt ? 
         new Date(review.orderInfo.createdAt).toLocaleDateString('pt-BR') : 'N/A';
+
+// 🔄 Bloco de perguntas e respostas do cliente
+const perguntasRespostasHTML = review.questions?.map(question => `
+  <div class="question-block">
+    <h4><i class="fas fa-question-circle"></i> ${question.title}</h4>
+    <ul class="answer-list">
+      ${question.answers.map(answer => `
+        <li><i class="fas fa-check-circle"></i> ${answer.title}</li>
+      `).join('')}
+    </ul>
+  </div>
+`).join('') || '';
+
     
     // Preparar a seção de resposta
     let responseSection = '';
     
-    if (hasAnswer) {
-        // Se já tem resposta, exibe
-        responseSection = `
-            <div class="response-section">
-                <h3><i class="fas fa-reply"></i> Sua resposta</h3>
-                <div class="review-answer-full">
-                    <p>${review.answer.text}</p>
-                    ${review.answer.createdAt ? `
-                    <div class="answer-date">
-                        Respondido em: ${new Date(review.answer.createdAt).toLocaleDateString('pt-BR')}
-                    </div>
-                    ` : ''}
+if (hasAnswer) {
+    // Exibe resposta existente
+    responseSection = `
+        <div class="response-section">
+            <h3><i class="fas fa-reply"></i> Sua resposta</h3>
+            <div class="review-answer-full">
+                <p>${review.answer.text}</p>
+                ${review.answer.createdAt ? `
+                <div class="answer-date">
+                    Respondido em: ${new Date(review.answer.createdAt).toLocaleDateString('pt-BR')}
                 </div>
+                ` : ''}
             </div>
-        `;
-    } else {
-        // Se não tem resposta, exibe formulário
-        responseSection = `
-            <div class="response-section">
-                <h3><i class="fas fa-reply"></i> Responder avaliação</h3>
-                <div class="response-form">
-                    <textarea id="review-response-text" 
-                              placeholder="Digite sua resposta ao cliente..."
-                              rows="4"></textarea>
-                    <div class="form-help">
-                        <i class="fas fa-info-circle"></i>
-                        Lembre-se de seguir as diretrizes da <a href="#" onclick="showReviewPolicy(); return false;">Política de Avaliações</a>
-                    </div>
-                    <button id="submit-review-response" class="primary-button">
-                        <i class="fas fa-paper-plane"></i> Enviar Resposta
-                    </button>
+        </div>
+    `;
+} else if (podeResponder) {
+    // Permite responder
+    responseSection = `
+        <div class="response-section">
+            <h3><i class="fas fa-reply"></i> Responder avaliação</h3>
+            <div class="response-form">
+                <textarea id="review-response-text" 
+                          placeholder="Digite sua resposta ao cliente..."
+                          rows="4"></textarea>
+                <div class="form-help">
+                    <i class="fas fa-info-circle"></i>
+                    Lembre-se de seguir as diretrizes da <a href="#" onclick="showReviewPolicy(); return false;">Política de Avaliações</a>
                 </div>
+                <button id="submit-review-response" class="primary-button">
+                    <i class="fas fa-paper-plane"></i> Enviar Resposta
+                </button>
             </div>
-        `;
-    }
+        </div>
+    `;
+} else {
+    // Não pode responder
+    responseSection = '';
+}
     
     // Define o conteúdo do modal
     modalContainer.innerHTML = `
@@ -434,6 +453,12 @@ function showReviewModal(review) {
             </div>
         </div>
     `;
+
+<div class="review-survey-block">
+    <h3><i class="fas fa-poll"></i> Respostas do Cliente</h3>
+    ${perguntasRespostasHTML}
+</div>
+
     
     // Exibe o modal
     modalContainer.style.display = 'flex';
