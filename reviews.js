@@ -46,25 +46,30 @@ function isWithinResponsePeriod(createdAt) {
     return diffDays <= 7;
 }
 
-// Função para gerar badge de status
 function getStatusBadge(review) {
-    if (review.discarded) {
-        return `<span class="status-badge discarded">
-                    <i class="fas fa-ban"></i> Descartada
-                </span>`;
-    }
-    if (review.published) {
+    // Verifica o status vindo da API
+    if (review.status === 'PUBLISHED') {
         return `<span class="status-badge published">
                     <i class="fas fa-check-circle"></i> Publicada
                 </span>`;
     }
-    if (!review.replies?.length && review.comment && isWithinResponsePeriod(review.createdAt)) {
+    
+    // Se tem resposta da loja
+    if (review.replies && review.replies.length > 0) {
+        return `<span class="status-badge replied">
+                    <i class="fas fa-reply"></i> Respondida
+                </span>`;
+    }
+    
+    // Se tem comentário e está dentro do período de resposta
+    if (review.comment && isWithinResponsePeriod(review.createdAt)) {
         return `<span class="status-badge pending">
                     <i class="fas fa-clock"></i> Aguardando Resposta
                 </span>`;
     }
+
     return `<span class="status-badge">
-                <i class="fas fa-info-circle"></i> Em Análise
+                <i class="fas fa-info-circle"></i> Nova Avaliação
             </span>`;
 }
 
@@ -307,17 +312,25 @@ async function fetchReviews(page = 1, size = 10) {
     }
 }
 
+// Função para buscar detalhes da avaliação
 async function fetchReviewDetails(reviewId) {
+    if (!reviewId) {
+        console.error('ID da avaliação não fornecido');
+        return;
+    }
+
     try {
-        console.log(`🔍 Buscando detalhes da avaliação ${reviewId}`);
         showLoading();
-
         const path = `/review/v2.0/merchants/${CONFIG.merchantUUID}/reviews/${reviewId}`;
-        const response = await makeAuthorizedRequest(path, 'GET');
-
-        // ... resto do código ...
+        const review = await makeAuthorizedRequest(path, 'GET');
+        
+        if (review) {
+            showReviewDetails(review);
+        } else {
+            showToast('Erro ao carregar detalhes da avaliação', 'error');
+        }
     } catch (error) {
-        console.error(`❌ Erro ao buscar detalhes da avaliação ${reviewId}:`, error);
+        console.error('Erro ao buscar detalhes da avaliação:', error);
         showToast('Erro ao carregar detalhes da avaliação', 'error');
     } finally {
         hideLoading();
@@ -343,127 +356,103 @@ function displayReviews(reviews) {
     const reviewsContainer = document.getElementById('reviews-list');
     if (!reviewsContainer) return;
     
-    // Adiciona seção de filtros
-    const filtersSection = document.createElement('div');
-    filtersSection.className = 'reviews-filters';
-    filtersSection.innerHTML = `
-        <div class="filters-row">
-            <div class="filter-group">
-                <label>Período:</label>
-                <select id="period-filter">
-                    <option value="7">Últimos 7 dias</option>
-                    <option value="30">Últimos 30 dias</option>
-                    <option value="90" selected>Últimos 90 dias</option>
-                </select>
-            </div>
-            <div class="filter-group">
-                <label>Status:</label>
-                <select id="status-filter">
-                    <option value="all">Todos</option>
-                    <option value="pending">Pendentes de resposta</option>
-                    <option value="answered">Respondidos</option>
-                    <option value="published">Publicados</option>
-                </select>
-            </div>
-            <div class="filter-group">
-                <label>Nota:</label>
-                <select id="score-filter">
-                    <option value="all">Todas</option>
-                    <option value="5">5 estrelas</option>
-                    <option value="4">4 estrelas</option>
-                    <option value="3">3 estrelas</option>
-                    <option value="2">2 estrelas</option>
-                    <option value="1">1 estrela</option>
-                </select>
-            </div>
-            <div class="search-filter">
-                <input type="text" placeholder="Buscar por comentário ou número do pedido" id="review-search">
-                <i class="fas fa-search"></i>
-            </div>
-        </div>
+    reviewsContainer.innerHTML = '';
+
+    // Botão de filtro no topo
+    const filterButton = document.createElement('button');
+    filterButton.className = 'filter-toggle-button';
+    filterButton.innerHTML = `
+        <i class="fas fa-filter"></i>
+        Filtrar Avaliações
     `;
-    reviewsContainer.appendChild(filtersSection);
+    filterButton.onclick = toggleFilters;
+    
+    // Container para filtros (inicialmente oculto)
+    const filtersContainer = document.createElement('div');
+    filtersContainer.className = 'reviews-filters hidden';
+    filtersContainer.id = 'reviews-filters';
+    // ... resto do código dos filtros ...
 
     const reviewsGrid = document.createElement('div');
     reviewsGrid.className = 'reviews-grid';
 
-    reviews.forEach(review => {
-        const canRespond = review.comment && 
-                          !review.discarded && 
-                          !review.published &&
-                          !review.replies?.length &&
-                          isWithinResponsePeriod(review.createdAt);
-
-        const reviewCard = document.createElement('div');
-        reviewCard.className = `review-card ${review.published ? 'published' : ''} ${review.discarded ? 'discarded' : ''}`;
-        reviewCard.innerHTML = `
-            <div class="review-header">
-                <div class="review-score">
-                    <span class="score-number">${review.score.toFixed(1)}</span>
-                    <div class="stars-container">
-                        ${generateStars(review.score)}
-                    </div>
-                </div>
-                <div class="review-status">
-                    ${getStatusBadge(review)}
-                </div>
-            </div>
-
-            <div class="review-body">
-                <div class="order-info">
-                    <i class="fas fa-receipt"></i>
-                    <span>Pedido #${review.order.shortId}</span>
-                    <span class="order-date">
-                        ${formatDate(review.order.createdAt)}
-                    </span>
-                </div>
-
-                ${review.customerName ? `
-                    <div class="customer-info">
-                        <i class="fas fa-user"></i>
-                        <span>${review.customerName}</span>
-                    </div>
-                ` : ''}
-
-                ${review.comment ? `
-                    <div class="review-comment">
-                        <i class="fas fa-comment-dots"></i>
-                        <p>${review.comment}</p>
-                    </div>
-                ` : ''}
-
-                ${review.replies && review.replies.length > 0 ? `
-                    <div class="review-reply">
-                        <i class="fas fa-reply"></i>
-                        <div class="reply-content">
-                            <p>${review.replies[0].text}</p>
-                            <span class="reply-date">${formatDate(review.replies[0].createdAt)}</span>
-                        </div>
-                    </div>
-                ` : ''}
-            </div>
-
-            <div class="review-actions">
-                <button 
-                    onclick="showReviewDetails('${review.id}')"
-                    class="action-button details">
-                    <i class="fas fa-eye"></i>
-                    Ver Detalhes
-                </button>
-                ${canRespond ? `
-                    <button 
-                        onclick="showReplyModal('${review.id}')"
-                        class="action-button reply">
-                        <i class="fas fa-reply"></i>
-                        Responder
-                    </button>
-                ` : ''}
+    if (!reviews || reviews.length === 0) {
+        reviewsGrid.innerHTML = `
+            <div class="no-reviews">
+                <i class="fas fa-star-half-alt"></i>
+                <p>Nenhuma avaliação encontrada</p>
             </div>
         `;
+    } else {
+        reviews.forEach(review => {
+            const reviewCard = document.createElement('div');
+            reviewCard.className = 'review-card';
+            reviewCard.innerHTML = `
+                <div class="review-header">
+                    <div class="review-score">
+                        <span class="score-number">${review.score.toFixed(1)}</span>
+                        <div class="stars-container">
+                            ${generateStars(review.score)}
+                        </div>
+                    </div>
+                    <div class="review-status">
+                        ${getStatusBadge(review)}
+                    </div>
+                </div>
 
-        reviewsGrid.appendChild(reviewCard);
-    });
+                <div class="review-body">
+                    <div class="order-info">
+                        <i class="fas fa-receipt"></i>
+                        <span>Pedido #${review.order.shortId}</span>
+                        <span class="order-date">
+                            ${formatDate(review.createdAt)}
+                        </span>
+                    </div>
 
+                    ${review.comment ? `
+                        <div class="review-comment">
+                            <i class="fas fa-comment-dots"></i>
+                            <p>${review.comment}</p>
+                        </div>
+                    ` : ''}
+
+                    ${review.replies && review.replies.length > 0 ? `
+                        <div class="review-reply">
+                            <i class="fas fa-reply"></i>
+                            <div class="reply-content">
+                                <p>${review.replies[0].text}</p>
+                                <span class="reply-date">
+                                    ${formatDate(review.replies[0].createdAt)}
+                                </span>
+                            </div>
+                        </div>
+                    ` : ''}
+                </div>
+
+                <div class="review-actions">
+                    <button 
+                        onclick="fetchReviewDetails('${review.id}')"
+                        class="action-button details">
+                        <i class="fas fa-eye"></i>
+                        Ver Detalhes
+                    </button>
+                    ${review.status !== 'PUBLISHED' && review.comment && !review.replies?.length ? `
+                        <button 
+                            onclick="showReplyModal('${review.id}')"
+                            class="action-button reply">
+                            <i class="fas fa-reply"></i>
+                            Responder
+                        </button>
+                    ` : ''}
+                </div>
+            `;
+
+            reviewsGrid.appendChild(reviewCard);
+        });
+    }
+
+    reviewsContainer.appendChild(filterButton);
+    reviewsContainer.appendChild(filtersContainer);
     reviewsContainer.appendChild(reviewsGrid);
 }
 
