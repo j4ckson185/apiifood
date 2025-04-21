@@ -18,31 +18,28 @@ async function fetchReviews(page = 1, size = 10) {
         reviewsState.isLoading = true;
         updateReviewsLoading(true);
 
-        // Usa a versão correta da API (v2.0)
         // Calcula intervalo válido de até 90 dias
-const dateFrom = new Date();
-dateFrom.setDate(dateFrom.getDate() - 89);
-const dateTo = new Date();
+        const dateFrom = new Date();
+        dateFrom.setDate(dateFrom.getDate() - 89);
+        const dateTo = new Date();
 
-const formatDate = (date) => date.toISOString().split('.')[0] + 'Z';
+        const formatDate = (date) => date.toISOString().split('.')[0] + 'Z';
 
-const queryParams = new URLSearchParams({
-    page: page.toString(),
-    pageSize: size.toString(),
-    addCount: 'false',
-    dateFrom: formatDate(dateFrom),
-    dateTo: formatDate(dateTo),
-    sort: 'DESC',
-    sortBy: 'CREATED_AT'
-}).toString();
+        const queryParams = new URLSearchParams({
+            page: page.toString(),
+            pageSize: size.toString(),
+            addCount: 'false',
+            dateFrom: formatDate(dateFrom),
+            dateTo: formatDate(dateTo),
+            sort: 'DESC',
+            sortBy: 'CREATED_AT'
+        }).toString();
 
-const path = `/review/v2.0/merchants/${reviewsState.merchantId}/reviews?${queryParams}`;
-
+        const path = `/v2/merchants/${reviewsState.merchantId}/reviews?${queryParams}`;
         const response = await makeAuthorizedRequest(path, 'GET');
 
         console.log('✅ Avaliações recebidas:', response);
 
-        // Aqui a resposta vem como: { reviews: [], page, total, etc... }
         if (response && Array.isArray(response.reviews)) {
             reviewsState.reviews = response.reviews;
             reviewsState.totalReviews = response.total || response.reviews.length;
@@ -70,11 +67,11 @@ async function fetchReviewDetails(reviewId) {
         console.log(`🔍 Buscando detalhes da avaliação ${reviewId}`);
         showLoading();
         
-        // Usando exatamente o endpoint especificado
-        const response = await makeAuthorizedRequest(
-            `/review/v2.0/merchants/${reviewsState.merchantId}/reviews/${reviewId}`,
-            'GET'
-        );
+// Dentro de fetchReviewDetails
+const response = await makeAuthorizedRequest(
+    `/v2/merchants/${reviewsState.merchantId}/reviews/${reviewId}`,
+    'GET'
+);
         
         console.log('✅ Detalhes da avaliação recebidos:', response);
         
@@ -104,12 +101,12 @@ async function submitReviewAnswer(reviewId, text) {
         console.log(`📝 Enviando resposta para avaliação ${reviewId}`);
         showLoading();
         
-        // Usando exatamente o endpoint especificado
-        const response = await makeAuthorizedRequest(
-            `/review/v2.0/merchants/${reviewsState.merchantId}/reviews/${reviewId}/answers`,
-            'POST',
-            { text: text }
-        );
+// Dentro de submitReviewAnswer
+const response = await makeAuthorizedRequest(
+    `/v2/merchants/${reviewsState.merchantId}/reviews/${reviewId}/answers`,
+    'POST',
+    { text: text }
+);
         
         console.log('✅ Resposta enviada com sucesso:', response);
         showToast('Resposta enviada com sucesso!', 'success');
