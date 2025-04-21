@@ -39,7 +39,7 @@ async function fetchInterruptions(merchantId) {
     }
 }
 
-// Função corrigida para criar uma interrupção
+// Função para criar e verificar uma interrupção
 async function createInterruption(merchantId, interruptionData) {
     try {
         console.log('🔍 Criando interrupção para o merchant ID:', merchantId);
@@ -51,7 +51,7 @@ async function createInterruption(merchantId, interruptionData) {
             return null;
         }
         
-        // Payload estritamente conforme a API espera - apenas os campos obrigatórios
+        // Payload simplificado com apenas os campos necessários
         const payload = {
             description: interruptionData.description,
             start: interruptionData.start.toISOString(),
@@ -62,13 +62,64 @@ async function createInterruption(merchantId, interruptionData) {
         
         showLoading();
         
+        // Criar a interrupção
         const response = await makeAuthorizedRequest(
             `/merchant/v1.0/merchants/${merchantId}/interruptions`, 
             'POST',
             payload
         );
         
-        console.log('✅ Resposta completa da API ao criar interrupção:', response);
+        console.log('✅ Interrupção criada com sucesso:', response);
+        
+        // Verificar status imediatamente (isso pode retornar que ainda está aberta devido à propagação)
+        let storeStatus = await makeAuthorizedRequest(
+            `/merchant/v1.0/merchants/${merchantId}/status`, 
+            'GET'
+        );
+        
+        console.log('ℹ️ Status imediato após criação da interrupção:', storeStatus);
+        
+        // Aguardar alguns segundos e verificar novamente (para dar tempo à API de processar)
+        await new Promise(resolve => setTimeout(resolve, 5000)); // Espera 5 segundos
+        
+        storeStatus = await makeAuthorizedRequest(
+            `/merchant/v1.0/merchants/${merchantId}/status`, 
+            'GET'
+        );
+        
+        console.log('ℹ️ Status após 5 segundos:', storeStatus);
+        
+        // Verificar se a loja está fechada
+        const isStoreClosed = !storeStatus || !storeStatus[0]?.available;
+        console.log('ℹ️ A loja está fechada após criar interrupção?', isStoreClosed);
+        
+        if (!isStoreClosed) {
+            console.warn('⚠️ Interrupção criada mas a loja continua aberta!');
+            console.log('⚠️ Tentando forçar o fechamento da loja...');
+            
+            // Podemos tentar verificar se a interrupção está na lista de interrupções ativas
+            const interruptions = await fetchInterruptions(merchantId);
+            console.log('📋 Interrupções atuais:', interruptions);
+            
+            // Aguardar mais 10 segundos e verificar novamente
+            await new Promise(resolve => setTimeout(resolve, 10000)); // Espera 10 segundos
+            
+            storeStatus = await makeAuthorizedRequest(
+                `/merchant/v1.0/merchants/${merchantId}/status`, 
+                'GET'
+            );
+            
+            console.log('ℹ️ Status após 15 segundos:', storeStatus);
+            
+            // Se ainda estiver aberta, informar o usuário
+            if (storeStatus && storeStatus[0]?.available) {
+                showToast('A interrupção foi criada, mas a loja continua aberta na plataforma. Pode levar alguns minutos para o status ser atualizado.', 'warning');
+            } else {
+                showToast('Interrupção aplicada com sucesso! A loja está fechada.', 'success');
+            }
+        } else {
+            showToast('Interrupção aplicada com sucesso! A loja está fechada.', 'success');
+        }
         
         // Adiciona a nova interrupção à lista atual
         if (response) {
@@ -77,21 +128,7 @@ async function createInterruption(merchantId, interruptionData) {
             }
             currentInterruptions.push(response);
             displayInterruptions(currentInterruptions);
-            
-            // Verifica o status atual da loja
-            try {
-                console.log('🔍 Verificando status da loja após criar interrupção...');
-                const storeStatus = await makeAuthorizedRequest(
-                    `/merchant/v1.0/merchants/${merchantId}/status`, 
-                    'GET'
-                );
-                console.log('ℹ️ Status atual da loja após interrupção:', storeStatus);
-            } catch (statusError) {
-                console.error('❌ Erro ao verificar status da loja:', statusError);
-            }
         }
-        
-        showToast('Interrupção criada com sucesso!', 'success');
         
         // Fecha o modal
         closeInterruptionModal();
