@@ -213,7 +213,7 @@ function displayReviews(reviews) {
             
             <div class="review-actions">
                 ${!review.replies || review.replies.length === 0 ? `
-                    <button class="action-button respond" onclick="showReviewModal('${review.id}')">
+                    <button class="action-button respond" onclick="loadReviewModal('${review.id}')">
                         <i class="fas fa-reply"></i>
                         Responder
                     </button>
@@ -1108,6 +1108,24 @@ function initReviewsModule() {
     
     console.log('✅ Módulo de avaliações inicializado com sucesso');
 }
+
+async function loadReviewModal(reviewId) {
+    try {
+        const path = `/review/v2.0/merchants/${CONFIG.merchantUUID}/reviews/${reviewId}`;
+        const response = await makeAuthorizedRequest(path, 'GET');
+
+        if (!response) {
+            showToast('Erro ao carregar detalhes da avaliação.', 'error');
+            return;
+        }
+
+        showReviewModal(response); // Agora sim, passa o review completo
+    } catch (error) {
+        console.error('❌ Erro ao carregar detalhes da avaliação:', error);
+        showToast('Erro ao carregar detalhes da avaliação.', 'error');
+    }
+}
+
 
 // Atualiza o HTML da seção de avaliações
 function updateReviewsSection() {
