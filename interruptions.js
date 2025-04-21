@@ -51,14 +51,11 @@ async function createInterruption(merchantId, interruptionData) {
             return null;
         }
         
-        // Formatação correta das datas em UTC ISO 8601 (sem ajuste de fuso horário)
+        // Formatação das datas em ISO 8601 sem manipulações adicionais
         const payload = {
-            ...interruptionData,
-            // Certifique-se de enviar no formato correto para a API do iFood
+            description: interruptionData.description,
             start: interruptionData.start.toISOString(),
-            end: interruptionData.end.toISOString(),
-            // Adicione um campo reason se necessário (verifique a documentação)
-            reason: interruptionData.description || "STORE_ISSUE"
+            end: interruptionData.end.toISOString()
         };
         
         console.log('📦 Payload formatado:', payload);
@@ -71,28 +68,10 @@ async function createInterruption(merchantId, interruptionData) {
             payload
         );
         
-        console.log('✅ Resposta completa da API ao criar interrupção:', response);
-        
-        // Se a resposta não contiver um ID ou status, pode ter ocorrido um erro
-        if (!response || (!response.id && !response.interruptionId)) {
-            console.warn('⚠️ Resposta da API não contém ID da interrupção:', response);
-            showToast('Interrupção pode não ter sido aplicada corretamente', 'warning');
-        }
-        
-        // Verifique o status da loja após criar a interrupção
-        try {
-            console.log('🔍 Verificando status da loja após criar interrupção...');
-            const storeStatus = await makeAuthorizedRequest(
-                `/merchant/v1.0/merchants/${merchantId}/status`, 
-                'GET'
-            );
-            console.log('ℹ️ Status atual da loja após interrupção:', storeStatus);
-        } catch (statusError) {
-            console.error('❌ Erro ao verificar status da loja:', statusError);
-        }
+        console.log('✅ Interrupção criada:', response);
         
         // Adiciona a nova interrupção à lista atual
-        if (response) {
+        if (response && response.id) {
             if (!Array.isArray(currentInterruptions)) {
                 currentInterruptions = [];
             }
@@ -108,7 +87,6 @@ async function createInterruption(merchantId, interruptionData) {
         return response;
     } catch (error) {
         console.error('❌ Erro ao criar interrupção:', error);
-        console.error('Detalhes do erro:', error.response || error.message || error);
         showToast(`Erro ao criar interrupção: ${error.message}`, 'error');
         return null;
     } finally {
@@ -188,22 +166,19 @@ function displayInterruptions(interruptions) {
         const interruptionCard = document.createElement('div');
         interruptionCard.className = 'interruption-card';
         
-// Formata as datas ajustando para o fuso horário correto
-const startDate = new Date(interruption.start);
-const endDate = new Date(interruption.end);
-
-// Ajusta para o horário local se necessário
-const fixedStartDate = new Date(startDate.getTime());
-const fixedEndDate = new Date(endDate.getTime());
-
-const formattedStart = fixedStartDate.toLocaleString('pt-BR');
-const formattedEnd = fixedEndDate.toLocaleString('pt-BR');
-
-// Para o status, use as datas ajustadas
-const now = new Date();
-const isActive = now >= fixedStartDate && now <= fixedEndDate;
-const isScheduled = now < fixedStartDate;
-const isPast = now > fixedEndDate;
+        // Formata as datas considerando o fuso horário
+        const startDate = new Date(interruption.start);
+        const endDate = new Date(interruption.end);
+        
+        // Usa toLocaleString para formatar no fuso horário local
+        const formattedStart = startDate.toLocaleString('pt-BR');
+        const formattedEnd = endDate.toLocaleString('pt-BR');
+        
+        // Para o status, use as datas
+        const now = new Date();
+        const isActive = now >= startDate && now <= endDate;
+        const isScheduled = now < startDate;
+        const isPast = now > endDate;
         
         let statusClass = '';
         let statusText = '';
@@ -302,7 +277,7 @@ function closeInterruptionModal() {
     }
 }
 
-// Função modificada para enviar o formulário
+// Função modificada para enviar o formulário de interrupção
 function submitInterruptionForm() {
     // Obtém os dados do formulário
     const description = document.getElementById('interruption-description').value;
@@ -317,7 +292,8 @@ function submitInterruptionForm() {
         return;
     }
     
-    // Combina data e hora no formato correto para criar objeto Date
+    // Combina data e hora
+    // Importante: Não faça ajustes de fuso horário aqui
     const start = new Date(`${startDate}T${startTime}:00`);
     const end = new Date(`${endDate}T${endTime}:00`);
     
@@ -336,15 +312,12 @@ function submitInterruptionForm() {
     const interruptionData = {
         description,
         start,
-        end,
-        // Adicione o tipo de interrupção se necessário
-        type: "STORE_ISSUE"  // Use o tipo correto conforme documentação da API
+        end
     };
     
-    // Log para verificar os dados antes de enviar
-    console.log('📋 Dados da interrupção a ser criada:', interruptionData);
-    console.log('Data de início:', start.toISOString());
-    console.log('Data de fim:', end.toISOString());
+    console.log('📋 Enviando dados da interrupção:', interruptionData);
+    console.log('Data de início (ISO):', start.toISOString());
+    console.log('Data de fim (ISO):', end.toISOString());
     
     // Envia a requisição
     createInterruption(currentMerchantIdForInterruption, interruptionData);
