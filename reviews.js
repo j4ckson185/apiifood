@@ -12,341 +12,6 @@ let reviewsState = {
     isLoading: false
 };
 
-// Função para alternar exibição dos filtros
-function toggleFilters() {
-    const filtersContainer = document.getElementById('reviews-filters');
-    if (filtersContainer) {
-        filtersContainer.classList.toggle('show');
-        
-        const button = document.querySelector('.filter-toggle-button');
-        if (button) {
-            if (filtersContainer.classList.contains('show')) {
-                button.innerHTML = `
-                    <i class="fas fa-times"></i>
-                    Fechar Filtros
-                `;
-            } else {
-                button.innerHTML = `
-                    <i class="fas fa-filter"></i>
-                    Filtrar Avaliações
-                `;
-            }
-        }
-    }
-}
-
-// Função para aplicar filtros
-function applyReviewFilters() {
-    const period = document.getElementById('period-filter')?.value;
-    const status = document.getElementById('status-filter')?.value;
-    const score = document.getElementById('score-filter')?.value;
-    const search = document.getElementById('review-search')?.value.toLowerCase();
-
-    const reviewCards = document.querySelectorAll('.review-card');
-    reviewCards.forEach(card => {
-        let show = true;
-
-        // Filtro por busca
-        if (search) {
-            const cardText = card.textContent.toLowerCase();
-            show = cardText.includes(search);
-        }
-
-        // Filtro por nota
-        if (show && score !== 'all') {
-            const scoreValue = card.querySelector('.score-number')?.textContent;
-            show = scoreValue === score;
-        }
-
-        // Filtro por status
-        if (show && status !== 'all') {
-            const hasReply = card.querySelector('.review-reply') !== null;
-            const isPending = card.querySelector('.status-badge.pending') !== null;
-            
-            switch(status) {
-                case 'pending':
-                    show = isPending;
-                    break;
-                case 'answered':
-                    show = hasReply;
-                    break;
-                case 'published':
-                    show = card.querySelector('.status-badge.published') !== null;
-                    break;
-            }
-        }
-
-        card.style.display = show ? 'block' : 'none';
-    });
-
-    // Verifica se há avaliações visíveis
-    const visibleCards = document.querySelectorAll('.review-card[style="display: block"]');
-    const noReviewsMessage = document.querySelector('.no-reviews');
-    
-    if (visibleCards.length === 0) {
-        if (!noReviewsMessage) {
-            const reviewsGrid = document.querySelector('.reviews-grid');
-            if (reviewsGrid) {
-                reviewsGrid.innerHTML = `
-                    <div class="no-reviews">
-                        <i class="fas fa-filter-slash"></i>
-                        <p>Nenhuma avaliação encontrada com os filtros selecionados</p>
-                    </div>
-                `;
-            }
-        }
-    } else if (noReviewsMessage) {
-        noReviewsMessage.remove();
-    }
-}
-
-// Função para gerar estrelas baseado na nota
-function generateStars(score) {
-    const fullStars = Math.floor(score);
-    const hasHalfStar = score % 1 >= 0.5;
-    const emptyStars = 5 - fullStars - (hasHalfStar ? 1 : 0);
-    
-    return `
-        ${Array(fullStars).fill('<i class="fas fa-star"></i>').join('')}
-        ${hasHalfStar ? '<i class="fas fa-star-half-alt"></i>' : ''}
-        ${Array(emptyStars).fill('<i class="far fa-star"></i>').join('')}
-    `;
-}
-
-// Função para formatar data
-function formatDate(dateString) {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('pt-BR', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit'
-    });
-}
-
-// Função para verificar se está dentro do período de resposta (7 dias)
-function isWithinResponsePeriod(createdAt) {
-    const reviewDate = new Date(createdAt);
-    const now = new Date();
-    const diffTime = Math.abs(now - reviewDate);
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    return diffDays <= 7;
-}
-
-function getStatusBadge(review) {
-    // Verifica o status vindo da API
-    if (review.status === 'PUBLISHED') {
-        return `<span class="status-badge published">
-                    <i class="fas fa-check-circle"></i> Publicada
-                </span>`;
-    }
-    
-    // Se tem resposta da loja
-    if (review.replies && review.replies.length > 0) {
-        return `<span class="status-badge replied">
-                    <i class="fas fa-reply"></i> Respondida
-                </span>`;
-    }
-    
-    // Se tem comentário e está dentro do período de resposta
-    if (review.comment && isWithinResponsePeriod(review.createdAt)) {
-        return `<span class="status-badge pending">
-                    <i class="fas fa-clock"></i> Aguardando Resposta
-                </span>`;
-    }
-
-    return `<span class="status-badge">
-                <i class="fas fa-info-circle"></i> Nova Avaliação
-            </span>`;
-}
-
-// Função para exibir modal de detalhes da avaliação
-function showReviewDetails(reviewId) {
-    // Busca os detalhes da avaliação
-    fetchReviewDetails(reviewId).then(review => {
-        const modalContent = `
-            <div class="review-details-modal">
-                <div class="review-details-header">
-                    <h2>
-                        <i class="fas fa-star"></i>
-                        Detalhes da Avaliação
-                    </h2>
-                    <div class="review-meta">
-                        <span>Pedido #${review.order.shortId}</span>
-                        <span>${formatDate(review.createdAt)}</span>
-                    </div>
-                </div>
-                
-                <div class="review-details-body">
-                    <div class="details-section">
-                        <div class="details-section-title">
-                            <i class="fas fa-user-circle"></i>
-                            Informações do Cliente
-                        </div>
-                        <div class="customer-details">
-                            <p><strong>Nome:</strong> ${review.customerName || 'Não informado'}</p>
-                            <p><strong>Avaliação:</strong> ${review.score.toFixed(1)} ${generateStars(review.score)}</p>
-                        </div>
-                    </div>
-
-                    ${review.comment ? `
-                        <div class="details-section">
-                            <div class="details-section-title">
-                                <i class="fas fa-comment-alt"></i>
-                                Comentário
-                            </div>
-                            <div class="comment-block">
-                                "${review.comment}"
-                            </div>
-                        </div>
-                    ` : ''}
-
-                    ${review.questions && review.questions.length > 0 ? `
-                        <div class="details-section">
-                            <div class="details-section-title">
-                                <i class="fas fa-clipboard-list"></i>
-                                Respostas do Questionário
-                            </div>
-                            ${review.questions.map(question => `
-                                <div class="question-block">
-                                    <div class="question-title">
-                                        ${question.title}
-                                    </div>
-                                    <ul class="answer-list">
-                                        ${question.answers.map(answer => `
-                                            <li class="answer-item">
-                                                <i class="fas fa-check-circle"></i>
-                                                ${answer.title}
-                                            </li>
-                                        `).join('')}
-                                    </ul>
-                                </div>
-                            `).join('')}
-                        </div>
-                    ` : ''}
-
-                    ${review.replies && review.replies.length > 0 ? `
-                        <div class="details-section">
-                            <div class="details-section-title">
-                                <i class="fas fa-reply"></i>
-                                Resposta da Loja
-                            </div>
-                            <div class="reply-block">
-                                <p>${review.replies[0].text}</p>
-                                <small>Respondido em ${formatDate(review.replies[0].createdAt)}</small>
-                            </div>
-                        </div>
-                    ` : ''}
-                </div>
-            </div>
-        `;
-
-        // Exibe o modal
-        showModal(modalContent);
-    });
-}
-
-// Função para exibir modal de resposta
-function showReplyModal(reviewId) {
-    const modalContent = `
-        <div class="reply-modal">
-            <div class="reply-modal-header">
-                <h2><i class="fas fa-reply"></i> Responder Avaliação</h2>
-            </div>
-            <div class="reply-modal-body">
-                <div class="reply-form">
-                    <textarea 
-                        id="reply-text" 
-                        placeholder="Digite sua resposta... (mínimo 10 caracteres, máximo 300)"
-                        minlength="10"
-                        maxlength="300"
-                    ></textarea>
-                    <div class="char-counter">
-                        <span id="char-count">0</span>/300 caracteres
-                    </div>
-                </div>
-            </div>
-            <div class="reply-modal-footer">
-                <button class="action-button cancel" onclick="closeModal()">
-                    <i class="fas fa-times"></i> Cancelar
-                </button>
-                <button class="action-button reply" onclick="submitReply('${reviewId}')">
-                    <i class="fas fa-paper-plane"></i> Enviar Resposta
-                </button>
-            </div>
-        </div>
-    `;
-
-    showModal(modalContent);
-
-    // Adiciona contador de caracteres
-    document.getElementById('reply-text')?.addEventListener('input', function(e) {
-        const count = e.target.value.length;
-        document.getElementById('char-count').textContent = count;
-    });
-}
-
-// Função para exibir modal genérico
-function showModal(content) {
-    let modalContainer = document.getElementById('modal-container');
-    if (!modalContainer) {
-        modalContainer = document.createElement('div');
-        modalContainer.id = 'modal-container';
-        modalContainer.className = 'modal-container';
-        document.body.appendChild(modalContainer);
-    }
-
-    modalContainer.innerHTML = `
-        <div class="modal-overlay" onclick="closeModal()"></div>
-        <div class="modal-content">
-            <button class="modal-close" onclick="closeModal()">
-                <i class="fas fa-times"></i>
-            </button>
-            ${content}
-        </div>
-    `;
-
-    modalContainer.classList.add('active');
-}
-
-// Função para fechar modal
-function closeModal() {
-    const modalContainer = document.getElementById('modal-container');
-    if (modalContainer) {
-        modalContainer.classList.remove('active');
-        setTimeout(() => modalContainer.remove(), 300);
-    }
-}
-
-// Função para enviar resposta
-async function submitReply(reviewId) {
-    const replyText = document.getElementById('reply-text')?.value.trim();
-    
-    if (!replyText) {
-        showToast('Por favor, digite uma resposta', 'error');
-        return;
-    }
-
-    if (replyText.length < 10) {
-        showToast('A resposta deve ter no mínimo 10 caracteres', 'error');
-        return;
-    }
-
-    if (replyText.length > 300) {
-        showToast('A resposta deve ter no máximo 300 caracteres', 'error');
-        return;
-    }
-
-    try {
-        await submitReviewAnswer(reviewId, replyText);
-        closeModal();
-        fetchReviews(reviewsState.currentPage, reviewsState.pageSize);
-    } catch (error) {
-        showToast('Erro ao enviar resposta', 'error');
-    }
-}
-
 // No reviews.js, função fetchReviews
 async function fetchReviews(page = 1, size = 10) {
     try {
@@ -400,25 +65,17 @@ async function fetchReviews(page = 1, size = 10) {
     }
 }
 
-// Função para buscar detalhes da avaliação
 async function fetchReviewDetails(reviewId) {
-    if (!reviewId) {
-        console.error('ID da avaliação não fornecido');
-        return;
-    }
-
     try {
+        console.log(`🔍 Buscando detalhes da avaliação ${reviewId}`);
         showLoading();
+
         const path = `/review/v2.0/merchants/${CONFIG.merchantUUID}/reviews/${reviewId}`;
-        const review = await makeAuthorizedRequest(path, 'GET');
-        
-        if (review) {
-            showReviewDetails(review);
-        } else {
-            showToast('Erro ao carregar detalhes da avaliação', 'error');
-        }
+        const response = await makeAuthorizedRequest(path, 'GET');
+
+        // ... resto do código ...
     } catch (error) {
-        console.error('Erro ao buscar detalhes da avaliação:', error);
+        console.error(`❌ Erro ao buscar detalhes da avaliação ${reviewId}:`, error);
         showToast('Erro ao carregar detalhes da avaliação', 'error');
     } finally {
         hideLoading();
@@ -442,144 +99,135 @@ async function submitReviewAnswer(reviewId, text) {
 
 function displayReviews(reviews) {
     const reviewsContainer = document.getElementById('reviews-list');
-    if (!reviewsContainer) return;
+    if (!reviewsContainer) {
+        console.error('Elemento reviews-list não encontrado');
+        return;
+    }
     
     reviewsContainer.innerHTML = '';
-
-    // Botão de filtro no topo
-    const filterButton = document.createElement('button');
-    filterButton.className = 'filter-toggle-button';
-    filterButton.innerHTML = `
-        <i class="fas fa-filter"></i>
-        Filtrar Avaliações
-    `;
-    filterButton.onclick = toggleFilters;
     
-    // Container para filtros (inicialmente oculto)
-const filtersContainer = document.createElement('div');
-filtersContainer.className = 'reviews-filters hidden';
-filtersContainer.id = 'reviews-filters';
-filtersContainer.innerHTML = `
-    <div class="filters-row">
-        <div class="filter-group">
-            <label>Período:</label>
-            <select id="period-filter" onchange="applyReviewFilters()">
-                <option value="7">Últimos 7 dias</option>
-                <option value="30">Últimos 30 dias</option>
-                <option value="90" selected>Últimos 90 dias</option>
-            </select>
-        </div>
-        <div class="filter-group">
-            <label>Status:</label>
-            <select id="status-filter" onchange="applyReviewFilters()">
-                <option value="all">Todos</option>
-                <option value="pending">Aguardando Resposta</option>
-                <option value="answered">Respondidos</option>
-                <option value="published">Publicados</option>
-            </select>
-        </div>
-        <div class="filter-group">
-            <label>Nota:</label>
-            <select id="score-filter" onchange="applyReviewFilters()">
-                <option value="all">Todas</option>
-                <option value="5">5 estrelas</option>
-                <option value="4">4 estrelas</option>
-                <option value="3">3 estrelas</option>
-                <option value="2">2 estrelas</option>
-                <option value="1">1 estrela</option>
-            </select>
-        </div>
-        <div class="search-filter">
-            <input type="text" 
-                   id="review-search" 
-                   placeholder="Buscar por comentário ou número do pedido"
-                   oninput="applyReviewFilters()">
-            <i class="fas fa-search"></i>
-        </div>
-    </div>
-`;
-
-    const reviewsGrid = document.createElement('div');
-    reviewsGrid.className = 'reviews-grid';
-
     if (!reviews || reviews.length === 0) {
-        reviewsGrid.innerHTML = `
-            <div class="no-reviews">
-                <i class="fas fa-star-half-alt"></i>
-                <p>Nenhuma avaliação encontrada</p>
+        reviewsContainer.innerHTML = `
+            <div class="empty-reviews">
+                <i class="fas fa-comment-slash"></i>
+                <h3>Nenhuma avaliação encontrada</h3>
+                <p>Quando os clientes avaliarem sua loja, as avaliações aparecerão aqui</p>
             </div>
         `;
-    } else {
-        reviews.forEach(review => {
-            const reviewCard = document.createElement('div');
-            reviewCard.className = 'review-card';
-            reviewCard.innerHTML = `
-                <div class="review-header">
-                    <div class="review-score">
-                        <span class="score-number">${review.score.toFixed(1)}</span>
-                        <div class="stars-container">
-                            ${generateStars(review.score)}
-                        </div>
-                    </div>
-                    <div class="review-status">
-                        ${getStatusBadge(review)}
-                    </div>
+        return;
+    }
+    
+    reviews.forEach(review => {
+        // Formata as datas
+        const reviewDate = new Date(review.createdAt);
+        const orderDate = new Date(review.order.createdAt);
+        
+        // Formata a nota com estrelas
+        const starsHtml = Array(5).fill(0).map((_, index) => {
+            return index < review.score ? 
+                '<i class="fas fa-star"></i>' : 
+                '<i class="far fa-star"></i>';
+        }).join('');
+        
+        const reviewCard = document.createElement('div');
+        reviewCard.className = 'review-card';
+        reviewCard.innerHTML = `
+            <div class="review-header">
+                <div class="review-meta">
+                    <span class="review-date">
+                        <i class="far fa-calendar"></i>
+                        ${reviewDate.toLocaleDateString('pt-BR', {
+                            day: '2-digit',
+                            month: '2-digit',
+                            year: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                        })}
+                    </span>
+                    <span class="review-id">
+                        <i class="fas fa-hashtag"></i>
+                        Pedido ${review.order.shortId}
+                    </span>
                 </div>
-
-                <div class="review-body">
-                    <div class="order-info">
-                        <i class="fas fa-receipt"></i>
-                        <span>Pedido #${review.order.shortId}</span>
-                        <span class="order-date">
-                            ${formatDate(review.createdAt)}
+                <div class="review-score">
+                    ${starsHtml}
+                    <span class="score-value">${review.score.toFixed(1)}</span>
+                </div>
+            </div>
+            
+            <div class="review-content">
+                ${review.comment ? `
+                    <div class="review-comment">
+                        <i class="fas fa-quote-left"></i>
+                        <p>${review.comment}</p>
+                        <i class="fas fa-quote-right"></i>
+                    </div>
+                ` : ''}
+                
+                ${review.replies && review.replies.length > 0 ? `
+                    <div class="review-replies">
+                        ${review.replies.map(reply => `
+                            <div class="review-reply">
+                                <div class="reply-header">
+                                    <i class="fas fa-reply"></i>
+                                    <span class="reply-from">Resposta da Loja</span>
+                                    <span class="reply-date">
+                                        ${new Date(reply.createdAt).toLocaleDateString('pt-BR', {
+                                            day: '2-digit',
+                                            month: '2-digit',
+                                            year: 'numeric',
+                                            hour: '2-digit',
+                                            minute: '2-digit'
+                                        })}
+                                    </span>
+                                </div>
+                                <div class="reply-content">
+                                    <p>${reply.text}</p>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                ` : ''}
+                
+                <div class="review-details">
+                    <div class="detail-item">
+                        <span class="detail-label">Status:</span>
+                        <span class="detail-value ${review.status.toLowerCase()}">
+                            ${review.status === 'PUBLISHED' ? 'Publicado' : review.status}
                         </span>
                     </div>
-
-                    ${review.comment ? `
-                        <div class="review-comment">
-                            <i class="fas fa-comment-dots"></i>
-                            <p>${review.comment}</p>
-                        </div>
-                    ` : ''}
-
-                    ${review.replies && review.replies.length > 0 ? `
-                        <div class="review-reply">
-                            <i class="fas fa-reply"></i>
-                            <div class="reply-content">
-                                <p>${review.replies[0].text}</p>
-                                <span class="reply-date">
-                                    ${formatDate(review.replies[0].createdAt)}
-                                </span>
-                            </div>
-                        </div>
-                    ` : ''}
+                    <div class="detail-item">
+                        <span class="detail-label">Data do Pedido:</span>
+                        <span class="detail-value">
+                            ${orderDate.toLocaleDateString('pt-BR', {
+                                day: '2-digit',
+                                month: '2-digit',
+                                year: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit'
+                            })}
+                        </span>
+                    </div>
                 </div>
-
-                <div class="review-actions">
-                    <button 
-                        onclick="fetchReviewDetails('${review.id}')"
-                        class="action-button details">
+            </div>
+            
+            <div class="review-actions">
+                ${!review.replies || review.replies.length === 0 ? `
+                    <button class="action-button respond" onclick="showReviewModal('${review.id}')">
+                        <i class="fas fa-reply"></i>
+                        Responder
+                    </button>
+                ` : `
+                    <button class="action-button view" onclick="showReviewModal('${review.id}')">
                         <i class="fas fa-eye"></i>
                         Ver Detalhes
                     </button>
-                    ${review.status !== 'PUBLISHED' && review.comment && !review.replies?.length ? `
-                        <button 
-                            onclick="showReplyModal('${review.id}')"
-                            class="action-button reply">
-                            <i class="fas fa-reply"></i>
-                            Responder
-                        </button>
-                    ` : ''}
-                </div>
-            `;
-
-            reviewsGrid.appendChild(reviewCard);
-        });
-    }
-
-    reviewsContainer.appendChild(filterButton);
-    reviewsContainer.appendChild(filtersContainer);
-    reviewsContainer.appendChild(reviewsGrid);
+                `}
+            </div>
+        `;
+        
+        reviewsContainer.appendChild(reviewCard);
+    });
 }
 
 // Função para gerar HTML das estrelas
