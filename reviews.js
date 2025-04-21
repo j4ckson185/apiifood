@@ -12,6 +12,248 @@ let reviewsState = {
     isLoading: false
 };
 
+// Função para gerar estrelas baseado na nota
+function generateStars(score) {
+    const fullStars = Math.floor(score);
+    const hasHalfStar = score % 1 >= 0.5;
+    const emptyStars = 5 - fullStars - (hasHalfStar ? 1 : 0);
+    
+    return `
+        ${Array(fullStars).fill('<i class="fas fa-star"></i>').join('')}
+        ${hasHalfStar ? '<i class="fas fa-star-half-alt"></i>' : ''}
+        ${Array(emptyStars).fill('<i class="far fa-star"></i>').join('')}
+    `;
+}
+
+// Função para formatar data
+function formatDate(dateString) {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('pt-BR', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+}
+
+// Função para verificar se está dentro do período de resposta (7 dias)
+function isWithinResponsePeriod(createdAt) {
+    const reviewDate = new Date(createdAt);
+    const now = new Date();
+    const diffTime = Math.abs(now - reviewDate);
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return diffDays <= 7;
+}
+
+// Função para gerar badge de status
+function getStatusBadge(review) {
+    if (review.discarded) {
+        return `<span class="status-badge discarded">
+                    <i class="fas fa-ban"></i> Descartada
+                </span>`;
+    }
+    if (review.published) {
+        return `<span class="status-badge published">
+                    <i class="fas fa-check-circle"></i> Publicada
+                </span>`;
+    }
+    if (!review.replies?.length && review.comment && isWithinResponsePeriod(review.createdAt)) {
+        return `<span class="status-badge pending">
+                    <i class="fas fa-clock"></i> Aguardando Resposta
+                </span>`;
+    }
+    return `<span class="status-badge">
+                <i class="fas fa-info-circle"></i> Em Análise
+            </span>`;
+}
+
+// Função para exibir modal de detalhes da avaliação
+function showReviewDetails(reviewId) {
+    // Busca os detalhes da avaliação
+    fetchReviewDetails(reviewId).then(review => {
+        const modalContent = `
+            <div class="review-details-modal">
+                <div class="review-details-header">
+                    <h2>
+                        <i class="fas fa-star"></i>
+                        Detalhes da Avaliação
+                    </h2>
+                    <div class="review-meta">
+                        <span>Pedido #${review.order.shortId}</span>
+                        <span>${formatDate(review.createdAt)}</span>
+                    </div>
+                </div>
+                
+                <div class="review-details-body">
+                    <div class="details-section">
+                        <div class="details-section-title">
+                            <i class="fas fa-user-circle"></i>
+                            Informações do Cliente
+                        </div>
+                        <div class="customer-details">
+                            <p><strong>Nome:</strong> ${review.customerName || 'Não informado'}</p>
+                            <p><strong>Avaliação:</strong> ${review.score.toFixed(1)} ${generateStars(review.score)}</p>
+                        </div>
+                    </div>
+
+                    ${review.comment ? `
+                        <div class="details-section">
+                            <div class="details-section-title">
+                                <i class="fas fa-comment-alt"></i>
+                                Comentário
+                            </div>
+                            <div class="comment-block">
+                                "${review.comment}"
+                            </div>
+                        </div>
+                    ` : ''}
+
+                    ${review.questions && review.questions.length > 0 ? `
+                        <div class="details-section">
+                            <div class="details-section-title">
+                                <i class="fas fa-clipboard-list"></i>
+                                Respostas do Questionário
+                            </div>
+                            ${review.questions.map(question => `
+                                <div class="question-block">
+                                    <div class="question-title">
+                                        ${question.title}
+                                    </div>
+                                    <ul class="answer-list">
+                                        ${question.answers.map(answer => `
+                                            <li class="answer-item">
+                                                <i class="fas fa-check-circle"></i>
+                                                ${answer.title}
+                                            </li>
+                                        `).join('')}
+                                    </ul>
+                                </div>
+                            `).join('')}
+                        </div>
+                    ` : ''}
+
+                    ${review.replies && review.replies.length > 0 ? `
+                        <div class="details-section">
+                            <div class="details-section-title">
+                                <i class="fas fa-reply"></i>
+                                Resposta da Loja
+                            </div>
+                            <div class="reply-block">
+                                <p>${review.replies[0].text}</p>
+                                <small>Respondido em ${formatDate(review.replies[0].createdAt)}</small>
+                            </div>
+                        </div>
+                    ` : ''}
+                </div>
+            </div>
+        `;
+
+        // Exibe o modal
+        showModal(modalContent);
+    });
+}
+
+// Função para exibir modal de resposta
+function showReplyModal(reviewId) {
+    const modalContent = `
+        <div class="reply-modal">
+            <div class="reply-modal-header">
+                <h2><i class="fas fa-reply"></i> Responder Avaliação</h2>
+            </div>
+            <div class="reply-modal-body">
+                <div class="reply-form">
+                    <textarea 
+                        id="reply-text" 
+                        placeholder="Digite sua resposta... (mínimo 10 caracteres, máximo 300)"
+                        minlength="10"
+                        maxlength="300"
+                    ></textarea>
+                    <div class="char-counter">
+                        <span id="char-count">0</span>/300 caracteres
+                    </div>
+                </div>
+            </div>
+            <div class="reply-modal-footer">
+                <button class="action-button cancel" onclick="closeModal()">
+                    <i class="fas fa-times"></i> Cancelar
+                </button>
+                <button class="action-button reply" onclick="submitReply('${reviewId}')">
+                    <i class="fas fa-paper-plane"></i> Enviar Resposta
+                </button>
+            </div>
+        </div>
+    `;
+
+    showModal(modalContent);
+
+    // Adiciona contador de caracteres
+    document.getElementById('reply-text')?.addEventListener('input', function(e) {
+        const count = e.target.value.length;
+        document.getElementById('char-count').textContent = count;
+    });
+}
+
+// Função para exibir modal genérico
+function showModal(content) {
+    let modalContainer = document.getElementById('modal-container');
+    if (!modalContainer) {
+        modalContainer = document.createElement('div');
+        modalContainer.id = 'modal-container';
+        modalContainer.className = 'modal-container';
+        document.body.appendChild(modalContainer);
+    }
+
+    modalContainer.innerHTML = `
+        <div class="modal-overlay" onclick="closeModal()"></div>
+        <div class="modal-content">
+            <button class="modal-close" onclick="closeModal()">
+                <i class="fas fa-times"></i>
+            </button>
+            ${content}
+        </div>
+    `;
+
+    modalContainer.classList.add('active');
+}
+
+// Função para fechar modal
+function closeModal() {
+    const modalContainer = document.getElementById('modal-container');
+    if (modalContainer) {
+        modalContainer.classList.remove('active');
+        setTimeout(() => modalContainer.remove(), 300);
+    }
+}
+
+// Função para enviar resposta
+async function submitReply(reviewId) {
+    const replyText = document.getElementById('reply-text')?.value.trim();
+    
+    if (!replyText) {
+        showToast('Por favor, digite uma resposta', 'error');
+        return;
+    }
+
+    if (replyText.length < 10) {
+        showToast('A resposta deve ter no mínimo 10 caracteres', 'error');
+        return;
+    }
+
+    if (replyText.length > 300) {
+        showToast('A resposta deve ter no máximo 300 caracteres', 'error');
+        return;
+    }
+
+    try {
+        await submitReviewAnswer(reviewId, replyText);
+        closeModal();
+        fetchReviews(reviewsState.currentPage, reviewsState.pageSize);
+    } catch (error) {
+        showToast('Erro ao enviar resposta', 'error');
+    }
+}
+
 // No reviews.js, função fetchReviews
 async function fetchReviews(page = 1, size = 10) {
     try {
