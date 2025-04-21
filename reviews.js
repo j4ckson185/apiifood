@@ -12,29 +12,27 @@ let reviewsState = {
     isLoading: false
 };
 
-// Função para carregar avaliações
 async function fetchReviews(page = 1, size = 10) {
     try {
         console.log('🔍 Buscando avaliações da página:', page);
         reviewsState.isLoading = true;
-        
         updateReviewsLoading(true);
-        
-        // Usando exatamente o endpoint especificado
-        const response = await makeAuthorizedRequest(
-            `/review/v2.0/merchants/${reviewsState.merchantId}/reviews?page=${page-1}&size=${size}`, 
-            'GET'
-        );
-        
+
+        // Usa a versão correta da API (v1.0)
+        const path = `/review/v1.0/merchants/${reviewsState.merchantId}/reviews?page=${page - 1}&size=${size}`;
+
+        const response = await makeAuthorizedRequest(path, 'GET');
+
         console.log('✅ Avaliações recebidas:', response);
-        
-        if (response && response.content && Array.isArray(response.content)) {
-            reviewsState.reviews = response.content;
-            reviewsState.totalReviews = response.totalElements || response.content.length;
+
+        // Aqui a resposta vem como: { reviews: [], page, total, etc... }
+        if (response && Array.isArray(response.reviews)) {
+            reviewsState.reviews = response.reviews;
+            reviewsState.totalReviews = response.total || response.reviews.length;
             reviewsState.currentPage = page;
             reviewsState.pageSize = size;
-            
-            displayReviews(response.content);
+
+            displayReviews(response.reviews);
             updatePagination(page, Math.ceil(reviewsState.totalReviews / size));
         } else {
             console.error('❌ Formato de resposta inválido para avaliações:', response);
