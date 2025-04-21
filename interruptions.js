@@ -39,7 +39,7 @@ async function fetchInterruptions(merchantId) {
     }
 }
 
-// Função para criar e verificar uma interrupção
+// Função para criar uma nova interrupção
 async function createInterruption(merchantId, interruptionData) {
     try {
         console.log('🔍 Criando interrupção para o merchant ID:', merchantId);
@@ -51,9 +51,9 @@ async function createInterruption(merchantId, interruptionData) {
             return null;
         }
         
-        // Payload simplificado com apenas os campos necessários
+        // Formatação das datas em ISO 8601
         const payload = {
-            description: interruptionData.description,
+            ...interruptionData,
             start: interruptionData.start.toISOString(),
             end: interruptionData.end.toISOString()
         };
@@ -62,67 +62,16 @@ async function createInterruption(merchantId, interruptionData) {
         
         showLoading();
         
-        // Criar a interrupção
         const response = await makeAuthorizedRequest(
             `/merchant/v1.0/merchants/${merchantId}/interruptions`, 
             'POST',
             payload
         );
         
-        console.log('✅ Interrupção criada com sucesso:', response);
-        
-        // Verificar status imediatamente (isso pode retornar que ainda está aberta devido à propagação)
-        let storeStatus = await makeAuthorizedRequest(
-            `/merchant/v1.0/merchants/${merchantId}/status`, 
-            'GET'
-        );
-        
-        console.log('ℹ️ Status imediato após criação da interrupção:', storeStatus);
-        
-        // Aguardar alguns segundos e verificar novamente (para dar tempo à API de processar)
-        await new Promise(resolve => setTimeout(resolve, 5000)); // Espera 5 segundos
-        
-        storeStatus = await makeAuthorizedRequest(
-            `/merchant/v1.0/merchants/${merchantId}/status`, 
-            'GET'
-        );
-        
-        console.log('ℹ️ Status após 5 segundos:', storeStatus);
-        
-        // Verificar se a loja está fechada
-        const isStoreClosed = !storeStatus || !storeStatus[0]?.available;
-        console.log('ℹ️ A loja está fechada após criar interrupção?', isStoreClosed);
-        
-        if (!isStoreClosed) {
-            console.warn('⚠️ Interrupção criada mas a loja continua aberta!');
-            console.log('⚠️ Tentando forçar o fechamento da loja...');
-            
-            // Podemos tentar verificar se a interrupção está na lista de interrupções ativas
-            const interruptions = await fetchInterruptions(merchantId);
-            console.log('📋 Interrupções atuais:', interruptions);
-            
-            // Aguardar mais 10 segundos e verificar novamente
-            await new Promise(resolve => setTimeout(resolve, 10000)); // Espera 10 segundos
-            
-            storeStatus = await makeAuthorizedRequest(
-                `/merchant/v1.0/merchants/${merchantId}/status`, 
-                'GET'
-            );
-            
-            console.log('ℹ️ Status após 15 segundos:', storeStatus);
-            
-            // Se ainda estiver aberta, informar o usuário
-            if (storeStatus && storeStatus[0]?.available) {
-                showToast('A interrupção foi criada, mas a loja continua aberta na plataforma. Pode levar alguns minutos para o status ser atualizado.', 'warning');
-            } else {
-                showToast('Interrupção aplicada com sucesso! A loja está fechada.', 'success');
-            }
-        } else {
-            showToast('Interrupção aplicada com sucesso! A loja está fechada.', 'success');
-        }
+        console.log('✅ Interrupção criada:', response);
         
         // Adiciona a nova interrupção à lista atual
-        if (response) {
+        if (response && response.id) {
             if (!Array.isArray(currentInterruptions)) {
                 currentInterruptions = [];
             }
@@ -130,13 +79,14 @@ async function createInterruption(merchantId, interruptionData) {
             displayInterruptions(currentInterruptions);
         }
         
+        showToast('Interrupção criada com sucesso!', 'success');
+        
         // Fecha o modal
         closeInterruptionModal();
         
         return response;
     } catch (error) {
         console.error('❌ Erro ao criar interrupção:', error);
-        console.error('Detalhes do erro:', error.response || error.message || error);
         showToast(`Erro ao criar interrupção: ${error.message}`, 'error');
         return null;
     } finally {
@@ -216,19 +166,22 @@ function displayInterruptions(interruptions) {
         const interruptionCard = document.createElement('div');
         interruptionCard.className = 'interruption-card';
         
-        // Formata as datas considerando o fuso horário
-        const startDate = new Date(interruption.start);
-        const endDate = new Date(interruption.end);
-        
-        // Usa toLocaleString para formatar no fuso horário local
-        const formattedStart = startDate.toLocaleString('pt-BR');
-        const formattedEnd = endDate.toLocaleString('pt-BR');
-        
-        // Para o status, use as datas
-        const now = new Date();
-        const isActive = now >= startDate && now <= endDate;
-        const isScheduled = now < startDate;
-        const isPast = now > endDate;
+// Formata as datas ajustando para o fuso horário correto
+const startDate = new Date(interruption.start);
+const endDate = new Date(interruption.end);
+
+// Ajusta para o horário local se necessário
+const fixedStartDate = new Date(startDate.getTime());
+const fixedEndDate = new Date(endDate.getTime());
+
+const formattedStart = fixedStartDate.toLocaleString('pt-BR');
+const formattedEnd = fixedEndDate.toLocaleString('pt-BR');
+
+// Para o status, use as datas ajustadas
+const now = new Date();
+const isActive = now >= fixedStartDate && now <= fixedEndDate;
+const isScheduled = now < fixedStartDate;
+const isPast = now > fixedEndDate;
         
         let statusClass = '';
         let statusText = '';
@@ -327,8 +280,7 @@ function closeInterruptionModal() {
     }
 }
 
-// Função modificada para enviar o formulário de interrupção
-// Função corrigida para enviar o formulário de interrupção
+// Função para enviar o formulário de interrupção
 function submitInterruptionForm() {
     // Obtém os dados do formulário
     const description = document.getElementById('interruption-description').value;
@@ -343,9 +295,13 @@ function submitInterruptionForm() {
         return;
     }
     
-    // Combina data e hora sem ajustes de fuso horário
-    const start = new Date(`${startDate}T${startTime}:00`);
-    const end = new Date(`${endDate}T${endTime}:00`);
+    // Combina data e hora
+const start = new Date(`${startDate}T${startTime}:00`);
+const end = new Date(`${endDate}T${endTime}:00`);
+
+    // Adiciona offset manual para manter horário local ao converter para ISO
+start.setMinutes(start.getMinutes() - start.getTimezoneOffset());
+end.setMinutes(end.getMinutes() - end.getTimezoneOffset());
     
     // Validação das datas
     if (isNaN(start.getTime()) || isNaN(end.getTime())) {
@@ -358,62 +314,15 @@ function submitInterruptionForm() {
         return;
     }
     
-    // Cria o objeto de interrupção - apenas com os campos obrigatórios
+    // Cria o objeto de interrupção
     const interruptionData = {
         description,
         start,
         end
     };
     
-    // Log para verificar os dados antes de enviar
-    console.log('📋 Dados da interrupção a ser criada:', interruptionData);
-    console.log('Data de início (ISO):', start.toISOString());
-    console.log('Data de fim (ISO):', end.toISOString());
-    
     // Envia a requisição
     createInterruption(currentMerchantIdForInterruption, interruptionData);
-}
-
-// Função para verificar e monitorar interrupções ativas
-async function verifyActiveInterruptions(merchantId) {
-    try {
-        console.log('🔍 Verificando interrupções ativas para merchant ID:', merchantId);
-        
-        const interruptions = await fetchInterruptions(merchantId);
-        
-        // Verificar status atual da loja
-        const storeStatus = await makeAuthorizedRequest(
-            `/merchant/v1.0/merchants/${merchantId}/status`, 
-            'GET'
-        );
-        
-        console.log('ℹ️ Status atual da loja:', storeStatus);
-        console.log('ℹ️ Interrupções ativas:', interruptions);
-        
-        // Verificar se há alguma interrupção ativa no momento
-        const now = new Date();
-        const activeInterruptions = interruptions.filter(interruption => {
-            const startDate = new Date(interruption.start);
-            const endDate = new Date(interruption.end);
-            return now >= startDate && now <= endDate;
-        });
-        
-        console.log('ℹ️ Interrupções ativas no momento:', activeInterruptions.length);
-        if (activeInterruptions.length > 0) {
-            console.log('📋 Detalhes das interrupções ativas:', activeInterruptions);
-            
-            // Se a loja estiver aberta mas há interrupções ativas, algo está errado
-            if (storeStatus && storeStatus.length > 0 && storeStatus[0].available === true) {
-                console.warn('⚠️ ALERTA: Loja está aberta mesmo com interrupções ativas!');
-                showToast('A loja está aberta mesmo com interrupções ativas!', 'warning');
-            }
-        }
-        
-        return { storeStatus, activeInterruptions };
-    } catch (error) {
-        console.error('❌ Erro ao verificar interrupções ativas:', error);
-        return { error };
-    }
 }
 
 // Adiciona mais estilos CSS para as interrupções
@@ -564,42 +473,29 @@ function addInterruptionStyles() {
     document.head.appendChild(styleElement);
 }
 
-// Estrutura correta para inicialização do módulo
-function initInterruptionsMonitoring() {
-    // Verifica interrupções ativas a cada 5 minutos
-    setInterval(() => {
-        if (currentMerchantIdForInterruption) {
-            verifyActiveInterruptions(currentMerchantIdForInterruption);
-        }
-    }, 5 * 60 * 1000); // 5 minutos
-}
-
 // Função para inicializar o módulo de interrupções
 function initInterruptions() {
     console.log('Inicializando módulo de interrupções...');
     addInterruptionStyles();
     
-    // Iniciar monitoramento de interrupções
-    initInterruptionsMonitoring();
+    // Registrar eventos quando o DOM estiver pronto
+    document.addEventListener('DOMContentLoaded', () => {
+        // Eventos para o modal de criação de interrupção
+        document.getElementById('create-interruption')?.addEventListener('click', openCreateInterruptionModal);
+        document.getElementById('cancel-interruption')?.addEventListener('click', closeInterruptionModal);
+        document.getElementById('submit-interruption')?.addEventListener('click', submitInterruptionForm);
+        
+        // Fecha o modal ao clicar fora dele
+        document.getElementById('interruption-modal')?.addEventListener('click', (e) => {
+            if (e.target === document.getElementById('interruption-modal')) {
+                closeInterruptionModal();
+            }
+        });
+        
+        // Fecha o modal ao clicar no X
+        document.querySelector('#interruption-modal .close-modal')?.addEventListener('click', closeInterruptionModal);
+    });
 }
 
-// Configuração correta dos event listeners
-document.addEventListener('DOMContentLoaded', () => {
-    // Eventos para o modal de criação de interrupção
-    document.getElementById('create-interruption')?.addEventListener('click', openCreateInterruptionModal);
-    document.getElementById('cancel-interruption')?.addEventListener('click', closeInterruptionModal);
-    document.getElementById('submit-interruption')?.addEventListener('click', submitInterruptionForm);
-    
-    // Fecha o modal ao clicar fora dele
-    document.getElementById('interruption-modal')?.addEventListener('click', (e) => {
-        if (e.target === document.getElementById('interruption-modal')) {
-            closeInterruptionModal();
-        }
-    });
-    
-    // Fecha o modal ao clicar no X
-    document.querySelector('#interruption-modal .close-modal')?.addEventListener('click', closeInterruptionModal);
-});
-
-// A linha abaixo deve estar FORA de qualquer função
-// initInterruptions();
+// Inicializa o módulo
+initInterruptions();
