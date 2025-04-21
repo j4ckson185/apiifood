@@ -35,7 +35,9 @@ async function fetchReviews(page = 1, size = 10) {
             sortBy: 'CREATED_AT'
         }).toString();
 
-        const path = `/v2/merchants/${reviewsState.merchantId}/reviews?${queryParams}`;
+        // 🔁 Mantendo o caminho esperado com "/review/v2.0/" pois seu proxy requer isso!
+        const path = `/review/v2.0/merchants/${reviewsState.merchantId}/reviews?${queryParams}`;
+
         const response = await makeAuthorizedRequest(path, 'GET');
 
         console.log('✅ Avaliações recebidas:', response);
@@ -61,20 +63,16 @@ async function fetchReviews(page = 1, size = 10) {
     }
 }
 
-// Função para buscar uma avaliação específica
 async function fetchReviewDetails(reviewId) {
     try {
         console.log(`🔍 Buscando detalhes da avaliação ${reviewId}`);
         showLoading();
-        
-// Dentro de fetchReviewDetails
-const response = await makeAuthorizedRequest(
-    `/v2/merchants/${reviewsState.merchantId}/reviews/${reviewId}`,
-    'GET'
-);
-        
+
+        const path = `/review/v2.0/merchants/${reviewsState.merchantId}/reviews/${reviewId}`;
+        const response = await makeAuthorizedRequest(path, 'GET');
+
         console.log('✅ Detalhes da avaliação recebidos:', response);
-        
+
         if (response) {
             reviewsState.selectedReview = response;
             showReviewModal(response);
@@ -90,36 +88,31 @@ const response = await makeAuthorizedRequest(
     }
 }
 
-// Função para enviar resposta a uma avaliação
 async function submitReviewAnswer(reviewId, text) {
     try {
         if (!text || text.trim() === '') {
             showToast('A resposta não pode estar vazia', 'warning');
             return false;
         }
-        
+
         console.log(`📝 Enviando resposta para avaliação ${reviewId}`);
         showLoading();
-        
-// Dentro de submitReviewAnswer
-const response = await makeAuthorizedRequest(
-    `/v2/merchants/${reviewsState.merchantId}/reviews/${reviewId}/answers`,
-    'POST',
-    { text: text }
-);
-        
+
+        const path = `/review/v2.0/merchants/${reviewsState.merchantId}/reviews/${reviewId}/answers`;
+        const response = await makeAuthorizedRequest(path, 'POST', { text: text });
+
         console.log('✅ Resposta enviada com sucesso:', response);
         showToast('Resposta enviada com sucesso!', 'success');
-        
+
         // Atualiza a avaliação na interface
         if (reviewsState.selectedReview) {
             reviewsState.selectedReview.answer = { text: text };
             showReviewModal(reviewsState.selectedReview);
         }
-        
+
         // Atualiza a lista de avaliações
         fetchReviews(reviewsState.currentPage, reviewsState.pageSize);
-        
+
         return true;
     } catch (error) {
         console.error(`❌ Erro ao enviar resposta para avaliação ${reviewId}:`, error);
