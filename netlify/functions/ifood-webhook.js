@@ -164,7 +164,7 @@ if (payload.id) {
 // Encaminha o evento para processamento
 try {
   const eventsUrl = new URL(
-    '/.netlify/functions/ifood-webhook-events',
+    '/webhook-events',
     process.env.URL
   ).href;
   console.log('[WEBHOOK] Encaminhando para URL:', eventsUrl);
