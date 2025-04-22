@@ -2251,6 +2251,12 @@ document.querySelectorAll('.sidebar-item').forEach(item => {
         }
     });
 
+    // Verifica pedidos agendados a cada minuto
+setInterval(checkScheduledOrders, 60000);
+
+// Verifica imediatamente após carregar a página
+setTimeout(checkScheduledOrders, 5000);
+
     // Inicialização
     initialize();
 });
