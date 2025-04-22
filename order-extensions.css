@@ -1,0 +1,116 @@
+/* Estilos para pedidos agendados e para retirar */
+
+/* Aba de agendados */
+.tab-item[data-tab="scheduled"] {
+    color: #9c27b0;
+}
+
+.tab-item[data-tab="scheduled"].active::after {
+    background-color: #9c27b0;
+}
+
+/* Card de pedido agendado */
+.scheduled-order {
+    border-left: 4px solid #9c27b0 !important;
+}
+
+.scheduled-order .order-status.scheduled {
+    background-color: #9c27b0;
+    color: white;
+}
+
+.scheduled-time, .scheduled-prep {
+    background-color: #f3e5f5;
+    padding: 1rem;
+    border-radius: var(--border-radius);
+    margin-bottom: 1rem;
+}
+
+.scheduled-time h3, .scheduled-prep h3 {
+    color: #9c27b0;
+    font-size: 0.9rem;
+    margin-bottom: 0.5rem;
+}
+
+.scheduled-time p, .scheduled-prep p {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin: 0.3rem 0;
+}
+
+.scheduled-time i, .scheduled-prep i {
+    color: #9c27b0;
+}
+
+/* Pedidos para retirar */
+.takeout-order {
+    border-left: 4px solid #00bcd4 !important;
+}
+
+.takeout-info {
+    background-color: #e0f7fa;
+    padding: 1rem;
+    border-radius: var(--border-radius);
+    margin-bottom: 1rem;
+    border-left: 3px solid #00bcd4;
+}
+
+.takeout-info h3 {
+    color: #00bcd4;
+    font-size: 0.9rem;
+    margin-bottom: 0.5rem;
+}
+
+.takeout-info p {
+    margin: 0.3rem 0;
+}
+
+.pickup-code {
+    background-color: #fff3e0;
+    padding: 1rem;
+    border-radius: var(--border-radius);
+    margin-bottom: 1rem;
+    text-align: center;
+}
+
+.pickup-code h3 {
+    color: #ff9800;
+    font-size: 0.9rem;
+    margin-bottom: 0.5rem;
+}
+
+.code-display {
+    font-size: 1.5rem;
+    font-weight: bold;
+    padding: 0.5rem 1rem;
+    background-color: white;
+    border: 2px dashed #ff9800;
+    border-radius: var(--border-radius);
+    display: inline-block;
+    letter-spacing: 2px;
+}
+
+/* Botões específicos para pedidos de retirada */
+.action-button.ready {
+    background-color: #00bcd4;
+    color: white;
+}
+
+.action-button.ready:hover {
+    background-color: #00acc1;
+}
+
+.status-message {
+    text-align: center;
+    padding: 0.7rem;
+    border-radius: var(--border-radius);
+    font-weight: 600;
+    background-color: #e0f7fa;
+    color: #00bcd4;
+}
+
+.status-message.disabled {
+    background-color: #f5f5f5;
+    color: #9e9e9e;
+}
