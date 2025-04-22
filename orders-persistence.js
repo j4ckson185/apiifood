@@ -2,13 +2,15 @@
 const ordersCache = {};
 
 // Função para salvar os pedidos no localStorage
+// Modificação na função saveOrdersToLocalStorage para incluir pedidos agendados
 function saveOrdersToLocalStorage() {
-    // Busca todos os containers de pedidos
+    // Busca todos os containers de pedidos, incluindo pedidos agendados
     const containers = [
         'preparation-orders',
         'dispatched-orders',
         'completed-orders',
-        'cancelled-orders'
+        'cancelled-orders',
+        'scheduled-orders'  // Adicionamos o container de pedidos agendados
     ];
     
     const savedOrders = {};
@@ -34,7 +36,7 @@ function saveOrdersToLocalStorage() {
     console.log('Pedidos salvos no localStorage:', Object.keys(savedOrders).length);
 }
 
-// Função para carregar os pedidos do localStorage
+// Modificação na função loadOrdersFromLocalStorage para carregar pedidos agendados
 function loadOrdersFromLocalStorage() {
     const savedOrders = JSON.parse(localStorage.getItem('savedOrders'));
     
@@ -56,11 +58,22 @@ function loadOrdersFromLocalStorage() {
                 // Verifica se já existe na interface
                 const existingOrder = document.querySelector(`.order-card[data-order-id="${order.id}"]`);
                 if (!existingOrder) {
-                    console.log(`Exibindo pedido salvo: ${order.id}`);
+                    console.log(`Exibindo pedido salvo: ${order.id} (Container: ${containerId})`);
+                    
                     // Adiciona ao cache primeiro
                     ordersCache[order.id] = order;
-                    // Exibe na interface
-                    displayOrder(order);
+                    
+                    // Exibe na interface com base no container
+                    if (containerId === 'scheduled-orders' && 
+                        typeof displayScheduledOrder === 'function' && 
+                        isScheduledOrder(order)) {
+                        // Usa a função específica para pedidos agendados
+                        displayScheduledOrder(order);
+                    } else {
+                        // Usa a função padrão para outros pedidos
+                        displayOrder(order);
+                    }
+                    
                     // Marca como já processado
                     processedOrderIds.add(order.id);
                 }
@@ -73,6 +86,7 @@ function loadOrdersFromLocalStorage() {
     checkForEmptyTab('dispatched');
     checkForEmptyTab('completed');
     checkForEmptyTab('cancelled');
+    checkForEmptyTab('scheduled'); // Adiciona verificação para a tab de agendados
 }
 
 // Função para atualizar todos os pedidos visíveis
@@ -130,12 +144,49 @@ window.displayOrder = function(order) {
     // Adiciona ao cache
     ordersCache[order.id] = order;
     
-    // Chama função original
+    // Verifica se é um pedido agendado que deveria ir para a aba de agendados
+    if (window.isScheduledOrder && typeof window.isScheduledOrder === 'function' && 
+        window.isScheduledOrder(order)) {
+        
+        const prepTime = window.calculatePrepTime ? window.calculatePrepTime(order) : null;
+        const now = new Date();
+        
+        // Se ainda não está na hora de preparar, exibe na aba de agendados
+        if (prepTime && now < prepTime) {
+            if (window.displayScheduledOrder && typeof window.displayScheduledOrder === 'function') {
+                window.displayScheduledOrder(order);
+                console.log(`Pedido agendado ${order.id} exibido na aba de agendados`);
+                
+                // Salva no localStorage
+                saveOrdersToLocalStorage();
+                
+                return true;
+            }
+        }
+    }
+    
+    // Se não for agendado ou já estiver na hora de preparar, usa a função original
     originalDisplayOrder(order);
     
     // Salva no localStorage
     saveOrdersToLocalStorage();
 };
+
+// Adicionamos verificação para tab de agendados
+function checkForEmptyTab(tabId) {
+    const ordersContainer = document.getElementById(`${tabId}-orders`);
+    const emptyMessage = document.querySelector(`.${tabId}-empty`);
+    
+    if (ordersContainer && emptyMessage) {
+        const visibleOrders = ordersContainer.querySelectorAll('.order-card:not([style*="display: none"])');
+        
+        if (visibleOrders.length === 0) {
+            emptyMessage.classList.remove('hidden');
+        } else {
+            emptyMessage.classList.add('hidden');
+        }
+    }
+}
 
 // Sobrescreve a função updateOrderStatus original para incluir cache
 const originalUpdateOrderStatus = updateOrderStatus;
