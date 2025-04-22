@@ -10,12 +10,13 @@
   force   = true
   methods = ["GET","POST","OPTIONS"]
 
-# Regra para seu endpoint interno de eventos
+# Regra para o endpoint interno de eventos
 [[redirects]]
   from    = "/webhook-events"
   to      = "/.netlify/functions/ifood-webhook-events"
   status  = 200
   force   = true
+  methods = ["GET","POST","OPTIONS"]
 
 # Catch‑all para SPA/client‑side routing
 [[redirects]]
