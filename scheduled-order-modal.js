@@ -28,16 +28,13 @@ const scheduledOrdersModule = (() => {
     function calculatePrepTime(order) {
         if (!order.preparationStartDateTime && !order.scheduledDateTimeForDelivery) return null;
         
-        // Usa preparationStartDateTime se disponível
+        // Sempre usa preparationStartDateTime da API se disponível
         if (order.preparationStartDateTime) {
             return new Date(order.preparationStartDateTime);
         }
 
-        // Senão, calcula baseado no scheduledDateTimeForDelivery
-        const deliveryTime = new Date(order.scheduledDateTimeForDelivery);
-        const prepTime = new Date(deliveryTime);
-        prepTime.setMinutes(prepTime.getMinutes() - (order.deliveryTime || 40));
-        return prepTime;
+        // Não calcula manualmente se não tiver o horário de entrega
+        return null;
     }
 
     // Função para estender displayOrder
@@ -191,14 +188,13 @@ const scheduledOrdersModule = (() => {
                             <div class="scheduled-time-row">
                                 <span class="scheduled-label">Entrega Agendada:</span>
                                 <span class="scheduled-value">${order.scheduledDateTimeForDelivery ? 
-                                    new Date(order.scheduledDateTimeForDelivery).toLocaleString('pt-BR') : 
-                                    'Não especificado'}</span>
+                                    new Date(order.scheduledDateTimeForDelivery).toLocaleString('pt-BR') : 'Não definido'}</span>
                             </div>
                             <div class="scheduled-time-row preparation-time">
                                 <span class="scheduled-label">Início do Preparo:</span>
                                 <span class="scheduled-value">${order.preparationStartDateTime ? 
                                     new Date(order.preparationStartDateTime).toLocaleString('pt-BR') : 
-                                    (calculatePrepTime(order)?.toLocaleString('pt-BR') || 'Não especificado')}</span>
+                                    'Não definido'}</span>
                             </div>
                         </div>
                     </div>
@@ -271,8 +267,24 @@ const scheduledOrdersModule = (() => {
                     <div class="payment-info">
                         <h3>Forma de Pagamento</h3>
                         <ul>
-                            ${order.payments.methods.map(payment => `
-                                <li>${payment.method} - R$ ${payment.value?.toFixed(2)}</li>`).join('')}
+                            ${order.payments.methods.map(payment => {
+                                let methodText = payment.method || '';
+                                let trocoInfo = '';
+
+                                // Traduz método de pagamento
+                                if (methodText.toLowerCase().includes('cash')) {
+                                    methodText = 'Dinheiro (Na Entrega)';
+                                    // Adiciona informação de troco se disponível
+                                    if (payment.cash?.changeFor) {
+                                        trocoInfo = `<li class="payment-change-for">Troco para: R$ ${payment.cash.changeFor.toFixed(2)}</li>`;
+                                    }
+                                }
+
+                                return `
+                                    <li>${methodText} - R$ ${payment.value?.toFixed(2)}</li>
+                                    ${trocoInfo}
+                                `;
+                            }).join('')}
                         </ul>
                     </div>` : ''}
                 </div>
