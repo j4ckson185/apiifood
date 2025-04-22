@@ -1333,30 +1333,3 @@ main {
     gap: 10px;
     color: var(--primary-color);
 }
-
-// Adicionar estilos específicos para pedidos agendados e para retirar
-const styleElement = document.createElement('style');
-styleElement.textContent = `
-    /* Estilos para pedidos agendados */
-    .order-card.scheduled-order {
-        border-left: 4px solid #9c27b0 !important;
-    }
-    
-    /* Estilos para pedidos para retirar */
-    .order-card.takeout-order {
-        border-left: 4px solid #00bcd4 !important;
-    }
-    
-    /* Estilo para o texto de status */
-    .status-text {
-        font-weight: 600;
-        color: #666;
-        padding: 8px;
-        background-color: #f8f9fa;
-        border-radius: 4px;
-        text-align: center;
-        margin-bottom: 10px;
-        display: block;
-    }
-`;
-document.head.appendChild(styleElement);
