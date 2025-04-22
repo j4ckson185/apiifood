@@ -1,4 +1,6 @@
-// Módulo unificado para gerenciamento de pedidos agendados
+// Modificações no arquivo scheduled-order-modal.js
+
+// Melhorando o módulo de pedidos agendados para persistência e carregamento correto
 const scheduledOrdersModule = (() => {
     // Cache de pedidos agendados
     let scheduledOrders = {};
@@ -15,6 +17,13 @@ const scheduledOrdersModule = (() => {
         
         // Adiciona estilos customizados
         addCustomStyles();
+        
+        // *** NOVO: Adiciona evento para carregar pedidos agendados ao iniciar a página
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                restoreScheduledOrders();
+            }, 2500); // Aguardamos um pouco mais para garantir que tudo já foi carregado
+        });
         
         console.log('✅ Módulo de pedidos agendados inicializado');
     }
@@ -52,6 +61,14 @@ const scheduledOrdersModule = (() => {
                 
                 // Se ainda não está na hora de preparar, exibe na aba de agendados
                 if (prepTime && now < prepTime) {
+                    // *** MODIFICADO: Garante que o pedido seja salvo no cache global
+                    if (window.ordersCache) {
+                        window.ordersCache[order.id] = order;
+                    }
+                    
+                    // *** MODIFICADO: Adiciona ao cache de pedidos agendados
+                    scheduledOrders[order.id] = order;
+                    
                     displayScheduledOrder(order);
                     return true;
                 }
@@ -103,10 +120,51 @@ const scheduledOrdersModule = (() => {
         };
     }
 
+    // Função para restaurar pedidos agendados
+    function restoreScheduledOrders() {
+        console.log('🔄 Restaurando pedidos agendados do localStorage...');
+        
+        // Obtem os pedidos do cache global
+        const allOrders = window.ordersCache || {};
+        
+        // Filtra apenas os pedidos agendados
+        const scheduled = Object.values(allOrders).filter(order => {
+            if (!order || !isScheduledOrder(order)) return false;
+            
+            const prepTime = calculatePrepTime(order);
+            const now = new Date();
+            
+            // Filtra apenas pedidos agendados que ainda não estão na hora de preparar
+            return prepTime && now < prepTime;
+        });
+        
+        console.log(`📋 Encontrados ${scheduled.length} pedidos agendados para restaurar`);
+        
+        // Exibe cada pedido na aba de agendados
+        scheduled.forEach(order => {
+            // Verifica se o pedido já existe na interface
+            const existingOrder = document.querySelector(`.order-card[data-order-id="${order.id}"]`);
+            if (!existingOrder) {
+                displayScheduledOrder(order);
+                console.log(`✅ Pedido agendado ${order.id} restaurado`);
+            }
+        });
+        
+        // Verifica se a aba de agendados está vazia
+        checkForEmptyTab('scheduled');
+    }
+
     // Função para exibir pedido na aba de agendados
     function displayScheduledOrder(order) {
         const container = document.getElementById('scheduled-orders');
         if (!container) return;
+
+        // *** VERIFICAÇÃO: Evitar duplicação de pedidos
+        const existingOrder = document.querySelector(`.order-card[data-order-id="${order.id}"]`);
+        if (existingOrder) {
+            console.log(`Pedido ${order.id} já existe na interface, ignorando duplicação`);
+            return;
+        }
 
         // Cria o card do pedido
         const card = createScheduledOrderCard(order);
@@ -117,11 +175,21 @@ const scheduledOrdersModule = (() => {
         // Adiciona ao cache
         scheduledOrders[order.id] = order;
         
+        // Garante que o pedido esteja no cache global
+        if (window.ordersCache) {
+            window.ordersCache[order.id] = order;
+        }
+        
         // Verifica se a mensagem de vazio deve ser mostrada
         checkForEmptyTab('scheduled');
         
         // Configura o timer para mover para aba de preparo
         setupScheduledOrderTimer(order);
+        
+        // *** NOVO: Força o salvamento no localStorage
+        if (typeof window.saveOrdersToLocalStorage === 'function') {
+            setTimeout(() => window.saveOrdersToLocalStorage(), 500);
+        }
     }
 
     // Função para criar o card de pedido agendado
@@ -291,7 +359,9 @@ const scheduledOrdersModule = (() => {
             `;
 
             // Abre o modal com o conteúdo detalhado
-            abrirModalPedido(card, order.id, order.displayId || order.id.substring(0, 6), conteudoDetalhado, null);
+            if (typeof abrirModalPedido === 'function') {
+                abrirModalPedido(card, order.id, order.displayId || order.id.substring(0, 6), conteudoDetalhado, null);
+            }
         });
 
         return card;
@@ -331,6 +401,11 @@ const scheduledOrdersModule = (() => {
         
         // Verifica se a aba de agendados ficou vazia
         checkForEmptyTab('scheduled');
+        
+        // Atualiza o localStorage
+        if (typeof window.saveOrdersToLocalStorage === 'function') {
+            window.saveOrdersToLocalStorage();
+        }
     }
 
     // Função para adicionar a aba de pedidos agendados
@@ -446,10 +521,17 @@ const scheduledOrdersModule = (() => {
         document.head.appendChild(style);
     }
 
+    // Exponha as funções que precisam ser acessíveis globalmente
+    window.isScheduledOrder = isScheduledOrder;
+    window.calculatePrepTime = calculatePrepTime;
+    window.displayScheduledOrder = displayScheduledOrder;
+    
     // Retorna API pública
     return {
         initialize,
-        isScheduledOrder
+        isScheduledOrder,
+        scheduledOrders,
+        restoreScheduledOrders  // Expõe a função para restauração manual se necessário
     };
 })();
 
