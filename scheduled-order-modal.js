@@ -158,7 +158,9 @@ const scheduledOrdersModule = (() => {
                 <div class="customer-info">
                     <h3>Cliente</h3>
                     <p class="customer-name">Cliente: ${order.customer?.name || 'N/A'}</p>
-                    <p class="customer-phone">Tel: ${order.customer?.phone || 'N/A'}</p>
+                    <p class="customer-phone">Tel: ${typeof order.customer?.phone === 'string' ? 
+                        order.customer.phone : 
+                        (order.customer?.phone?.number || 'N/A')}</p>
                 </div>
                 <div class="order-total">
                     <h3>Total</h3>
@@ -168,13 +170,116 @@ const scheduledOrdersModule = (() => {
                             (order.total?.orderAmount?.toFixed(2) || '0.00')}
                     </p>
                 </div>
-                <button class="ver-pedido">Ver Detalhes</button>
+                <div class="order-actions">
+                    <button class="action-button cancel" onclick="handleOrderAction('${order.id}', 'requestCancellation')">Cancelar</button>
+                    <button class="ver-pedido">Ver Detalhes</button>
+                </div>
             </div>
         `;
 
         // Adiciona evento para abrir o modal
-        card.addEventListener('click', function() {
-            abrirModalPedido(card, order.id, order.displayId || order.id.substring(0, 6), '', null);
+        card.querySelector('.ver-pedido').addEventListener('click', function(e) {
+            e.stopPropagation();
+            
+            // Cria o conteúdo detalhado do pedido
+            const conteudoDetalhado = `
+                <div class="order-content">
+                    <!-- Seção de Agendamento -->
+                    <div class="scheduled-info-section">
+                        <h3>Informações do Agendamento</h3>
+                        <div class="scheduled-info-content">
+                            <div class="scheduled-time-row">
+                                <span class="scheduled-label">Entrega Agendada:</span>
+                                <span class="scheduled-value">${order.scheduledDateTimeForDelivery ? 
+                                    new Date(order.scheduledDateTimeForDelivery).toLocaleString('pt-BR') : 
+                                    'Não especificado'}</span>
+                            </div>
+                            <div class="scheduled-time-row preparation-time">
+                                <span class="scheduled-label">Início do Preparo:</span>
+                                <span class="scheduled-value">${order.preparationStartDateTime ? 
+                                    new Date(order.preparationStartDateTime).toLocaleString('pt-BR') : 
+                                    (calculatePrepTime(order)?.toLocaleString('pt-BR') || 'Não especificado')}</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Informações do Cliente -->
+                    <div class="customer-info">
+                        <h3>Informações do Cliente</h3>
+                        <p class="customer-name">Cliente: ${order.customer?.name || 'N/A'}</p>
+                        <p class="customer-phone">Tel: ${typeof order.customer?.phone === 'string' ? 
+                            order.customer.phone : 
+                            (order.customer?.phone?.number || 'N/A')}</p>
+                    </div>
+
+                    ${order.delivery?.deliveryAddress ? `
+                    <!-- Endereço de Entrega -->
+                    <div class="customer-address">
+                        <h3>Endereço de Entrega</h3>
+                        <p>${order.delivery.deliveryAddress.streetName || ''}, ${order.delivery.deliveryAddress.streetNumber || ''}</p>
+                        ${order.delivery.deliveryAddress.complement ? 
+                            `<p>Complemento: ${order.delivery.deliveryAddress.complement}</p>` : ''}
+                        ${order.delivery.deliveryAddress.reference ? 
+                            `<p>Referência: ${order.delivery.deliveryAddress.reference}</p>` : ''}
+                        <p>${order.delivery.deliveryAddress.neighborhood || ''}</p>
+                        <p>${order.delivery.deliveryAddress.city || ''} - ${order.delivery.deliveryAddress.state || ''}</p>
+                        ${order.delivery.deliveryAddress.postalCode ? 
+                            `<p>CEP: ${order.delivery.deliveryAddress.postalCode}</p>` : ''}
+                    </div>` : ''}
+
+                    <!-- Tipo de Pedido -->
+                    <div class="order-type">
+                        <h3>Tipo de Pedido</h3>
+                        <p>${order.orderType === 'DELIVERY' ? 'Entrega' : 
+                            order.orderType === 'TAKEOUT' ? 'Para Retirar' : 
+                            'Consumo no Local'}</p>
+                    </div>
+
+                    <!-- Itens do Pedido -->
+                    <div class="order-items">
+                        <h3>Itens do Pedido</h3>
+                        <ul class="items-list">
+                            ${order.items?.map(item => `
+                                <li>
+                                    ${item.quantity}x ${item.name} - R$ ${(typeof item.totalPrice === 'number' ? 
+                                        item.totalPrice : (item.price * item.quantity)).toFixed(2)}
+                                    ${item.observations ? 
+                                        `<span class="item-observations">Obs: ${item.observations}</span>` : ''}
+                                    ${item.options?.length ? `
+                                        <ul class="options-list">
+                                            ${item.options.map(option => `
+                                                <li>${option.quantity}x ${option.name} 
+                                                    (+R$ ${(option.price || option.addition || 0).toFixed(2)})
+                                                </li>`).join('')}
+                                        </ul>` : ''}
+                                </li>`).join('') || '<li>Nenhum item encontrado</li>'}
+                        </ul>
+                    </div>
+
+                    <!-- Total do Pedido -->
+                    <div class="order-total">
+                        <h3>Total do Pedido</h3>
+                        <p class="total-amount">
+                            R$ ${typeof order.total === 'number' ? 
+                                order.total.toFixed(2) : 
+                                (order.total?.orderAmount?.toFixed(2) || '0.00')}
+                        </p>
+                    </div>
+
+                    <!-- Formas de Pagamento -->
+                    ${order.payments?.methods ? `
+                    <div class="payment-info">
+                        <h3>Forma de Pagamento</h3>
+                        <ul>
+                            ${order.payments.methods.map(payment => `
+                                <li>${payment.method} - R$ ${payment.value?.toFixed(2)}</li>`).join('')}
+                        </ul>
+                    </div>` : ''}
+                </div>
+            `;
+
+            // Abre o modal com o conteúdo detalhado
+            abrirModalPedido(card, order.id, order.displayId || order.id.substring(0, 6), conteudoDetalhado, null);
         });
 
         return card;
