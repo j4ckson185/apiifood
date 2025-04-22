@@ -162,11 +162,13 @@ if (!assinaturaValida) {
       
 // Encaminha o evento para processamento
 try {
-  // Monta a URL absoluta usando a variável de ambiente fornecida pelo Netlify
+  // constroi a URL absoluta
   const eventsUrl = new URL(
     '/.netlify/functions/ifood-webhook-events',
     process.env.URL
   ).href;
+
+  console.log('[WEBHOOK] Encaminhando para URL:', eventsUrl);
 
   await fetch(eventsUrl, {
     method: 'POST',
@@ -175,8 +177,8 @@ try {
   });
 
   console.log('[WEBHOOK] Evento encaminhado para processamento');
-} catch (fetchError) {
-  console.error('[WEBHOOK] Erro ao encaminhar evento:', fetchError);
+} catch (error) {
+  console.error('[WEBHOOK] Erro ao encaminhar evento:', error);
 }
     
     // Responde com sucesso
