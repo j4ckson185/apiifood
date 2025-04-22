@@ -189,13 +189,19 @@ function displayReviews(reviews) {
                     </div>
                 ` : ''}
                 
-                <div class="review-details">
-                    <div class="detail-item">
-                        <span class="detail-label">Status:</span>
-                        <span class="detail-value ${review.status.toLowerCase()}">
-                            ${review.status === 'PUBLISHED' ? 'Publicado' : review.status}
-                        </span>
-                    </div>
+<div class="detail-item">
+  <span class="detail-label">Status:</span>
+  <span class="detail-value ${ 
+       review.status === 'PUBLISHED'        ? 'published'    : 
+       (review.replies && review.replies.length > 0) ? 'responded'   : 
+                                                      'not-responded' }">
+    ${ review.status === 'PUBLISHED' 
+         ? 'Publicado' 
+         : (review.replies && review.replies.length > 0) 
+             ? 'Resposta Enviada' 
+             : 'Não Respondido' }
+  </span>
+</div>
                     <div class="detail-item">
                         <span class="detail-label">Data do Pedido:</span>
                         <span class="detail-value">
