@@ -137,47 +137,17 @@ exports.handler = async (event) => {
     const assinaturaValida = validarAssinatura(payloadRaw, assinatura, clientSecret);
     console.log('[WEBHOOK] Assinatura válida:', assinaturaValida);
     
-    // TEMPORARIAMENTE aceitar mesmo com assinatura inválida para testes
-    if (!assinaturaValida) {
-      console.log('[WEBHOOK] AVISO: Assinatura inválida, mas aceitando para teste');
-      
-      try {
-        // Tenta analisar o payload como JSON se existir
-        if (payloadRaw) {
-          const payload = JSON.parse(payloadRaw);
-          console.log('[WEBHOOK] Evento recebido com assinatura inválida:', JSON.stringify(payload));
-          
-          // Extrai informações principais para log
-          if (payload.id) {
-            console.log(`[WEBHOOK] Detalhes do evento: ID=${payload.id}, Code=${payload.code}, OrderId=${payload.orderId}`);
-          }
-          
-          // Tenta encaminhar o evento para processamento (opcional)
-          try {
-            await fetch('/.netlify/functions/ifood-webhook-events', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ evento: payload })
-            });
-            console.log('[WEBHOOK] Evento encaminhado para processamento');
-          } catch (fetchError) {
-            console.error('[WEBHOOK] Erro ao encaminhar evento:', fetchError);
-          }
-        }
-      } catch (parseError) {
-        console.error('[WEBHOOK] Erro ao analisar payload:', parseError);
-      }
-      
-      return {
-        statusCode: 200,
-        headers,
-        body: JSON.stringify({ 
-          success: true, 
-          message: 'Webhook recebido (teste - ignorando assinatura inválida)',
-          timestamp: timestamp
-        })
-      };
-    }
+    // Se for assinatura invalida
+if (!assinaturaValida) {
+  return {
+    statusCode: 401,
+    headers,
+    body: JSON.stringify({ 
+      error: 'Assinatura inválida',
+      timestamp: timestamp
+    })
+  };
+}
     
     // Processa o payload
     let payload;
