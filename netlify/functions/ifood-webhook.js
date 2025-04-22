@@ -149,25 +149,24 @@ if (!assinaturaValida) {
   };
 }
     
-    // Processa o payload
-    let payload;
-    try {
-      payload = JSON.parse(payloadRaw);
-      console.log('[WEBHOOK] Evento recebido e validado:', JSON.stringify(payload));
-      
-      // Extrai informações principais para log
-      if (payload.id) {
-        console.log(`[WEBHOOK] Detalhes do evento: ID=${payload.id}, Code=${payload.code}, OrderId=${payload.orderId}, MerchantId=${payload.merchantId}`);
-      }
-      
+// Processa o payload
+let payload = JSON.parse(payloadRaw);
+console.log('[WEBHOOK] Evento recebido e validado:', JSON.stringify(payload));
+
+// Extrai informações principais para log
+if (payload.id) {
+  console.log(
+    `[WEBHOOK] Detalhes do evento: ID=${payload.id}, Code=${payload.code}, ` +
+    `OrderId=${payload.orderId}, MerchantId=${payload.merchantId}`
+  );
+}
+
 // Encaminha o evento para processamento
 try {
-  // constroi a URL absoluta
   const eventsUrl = new URL(
     '/.netlify/functions/ifood-webhook-events',
     process.env.URL
   ).href;
-
   console.log('[WEBHOOK] Encaminhando para URL:', eventsUrl);
 
   await fetch(eventsUrl, {
@@ -175,7 +174,6 @@ try {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ evento: payload })
   });
-
   console.log('[WEBHOOK] Evento encaminhado para processamento');
 } catch (error) {
   console.error('[WEBHOOK] Erro ao encaminhar evento:', error);
