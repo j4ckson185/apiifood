@@ -1,18 +1,259 @@
-// Módulo para customizar o modal de pedidos agendados
-const scheduledOrderModalModule = (() => {
-    // Template do modal customizado para pedidos agendados
-    const createScheduledModalContent = (order) => {
-        // Formata as datas de entrega agendada
+// Módulo unificado para gerenciamento de pedidos agendados
+const scheduledOrdersModule = (() => {
+    // Cache de pedidos agendados
+    let scheduledOrders = {};
+
+    // Função para inicializar o módulo
+    function initialize() {
+        console.log('🔄 Inicializando módulo de pedidos agendados...');
+
+        // Adiciona a nova aba
+        addScheduledTab();
+        
+        // Estende a função de displayOrder
+        extendDisplayOrder();
+        
+        // Estende a função de modal
+        extendModalFunction();
+        
+        // Adiciona estilos customizados
+        addCustomStyles();
+        
+        console.log('✅ Módulo de pedidos agendados inicializado');
+    }
+
+    // Função para adicionar a aba de pedidos agendados
+    function addScheduledTab() {
+        // Adiciona o botão da tab
+        const tabNavigation = document.querySelector('.tab-navigation');
+        if (tabNavigation) {
+            const scheduledTab = document.createElement('div');
+            scheduledTab.className = 'tab-item';
+            scheduledTab.setAttribute('data-tab', 'scheduled');
+            scheduledTab.textContent = 'Agendados';
+            tabNavigation.appendChild(scheduledTab);
+
+            // Adiciona evento de clique
+            scheduledTab.addEventListener('click', () => {
+                switchOrderTab('scheduled');
+            });
+        }
+
+        // Adiciona a seção de conteúdo
+        const ordersSection = document.getElementById('orders-section');
+        if (ordersSection) {
+            const scheduledContent = document.createElement('div');
+            scheduledContent.id = 'scheduled-tab';
+            scheduledContent.className = 'tab-content';
+            scheduledContent.innerHTML = `
+                <div class="orders-grid" id="scheduled-orders"></div>
+                <div class="no-orders scheduled-empty hidden">
+                    <i class="fas fa-calendar-alt"></i>
+                    <h3>Sem pedidos agendados</h3>
+                    <p>Pedidos agendados aparecerão aqui</p>
+                </div>
+            `;
+            ordersSection.appendChild(scheduledContent);
+        }
+    }
+
+    // Função para verificar se um pedido é agendado
+    function isScheduledOrder(order) {
+        return order.orderTiming === 'SCHEDULED' && order.scheduled;
+    }
+
+    // Função para calcular o horário de início do preparo
+    function calculatePrepTime(order) {
+        if (!order.scheduled?.deliveryDateTimeStart) return null;
+        
+        const deliveryTime = new Date(order.scheduled.deliveryDateTimeStart);
+        const prepTime = new Date(deliveryTime);
+        prepTime.setMinutes(prepTime.getMinutes() - (order.deliveryTime || 40)); // 40 min default
+        
+        return prepTime;
+    }
+
+    // Função para estender displayOrder
+    function extendDisplayOrder() {
+        const originalDisplayOrder = window.displayOrder;
+        if (!originalDisplayOrder) {
+            console.error('❌ Função displayOrder não encontrada');
+            return;
+        }
+
+        window.displayOrder = function(order) {
+            if (isScheduledOrder(order)) {
+                const prepTime = calculatePrepTime(order);
+                const now = new Date();
+                
+                // Se ainda não está na hora de preparar, exibe na aba de agendados
+                if (prepTime && now < prepTime) {
+                    displayScheduledOrder(order);
+                    return true;
+                }
+            }
+            
+            // Para pedidos não agendados ou já na hora de preparar, usa função original
+            return originalDisplayOrder(order);
+        };
+    }
+
+    // Função para exibir pedido na aba de agendados
+    function displayScheduledOrder(order) {
+        const container = document.getElementById('scheduled-orders');
+        if (!container) return;
+
+        // Cria o card do pedido
+        const card = createScheduledOrderCard(order);
+        
+        // Adiciona ao container
+        container.appendChild(card);
+        
+        // Adiciona ao cache
+        scheduledOrders[order.id] = order;
+        
+        // Verifica se a mensagem de vazio deve ser mostrada
+        checkForEmptyTab('scheduled');
+        
+        // Configura o timer para mover para aba de preparo
+        setupScheduledOrderTimer(order);
+    }
+
+    // Função para criar o card de pedido agendado
+    function createScheduledOrderCard(order) {
+        const card = document.createElement('div');
+        card.className = 'order-card scheduled-order';
+        card.setAttribute('data-order-id', order.id);
+
+        const deliveryStart = new Date(order.scheduled.deliveryDateTimeStart);
+        const prepStart = calculatePrepTime(order);
+
+        card.innerHTML = `
+            <div class="order-header">
+                <span class="order-number">#${order.displayId || order.id.substring(0, 6)}</span>
+                <span class="order-status scheduled">Agendado</span>
+            </div>
+            <div class="order-content">
+                <div class="scheduled-time">
+                    <h3>Horário Agendado</h3>
+                    <p><i class="fas fa-clock"></i> ${deliveryStart.toLocaleTimeString()}</p>
+                    <p><i class="fas fa-calendar-alt"></i> ${deliveryStart.toLocaleDateString()}</p>
+                </div>
+                <div class="scheduled-prep">
+                    <h3>Início do Preparo</h3>
+                    <p><i class="fas fa-utensils"></i> ${prepStart.toLocaleTimeString()}</p>
+                </div>
+                <div class="customer-info">
+                    <h3>Cliente</h3>
+                    <p class="customer-name">Cliente: ${order.customer?.name || 'N/A'}</p>
+                    <p class="customer-phone">Tel: ${order.customer?.phone || 'N/A'}</p>
+                </div>
+                <div class="order-total">
+                    <h3>Total</h3>
+                    <p class="total-amount">R$ ${order.total?.toFixed(2) || '0.00'}</p>
+                </div>
+                <button class="ver-pedido">Ver Detalhes</button>
+            </div>
+        `;
+
+        // Adiciona evento para abrir o modal
+        const btnVerPedido = card.querySelector('.ver-pedido');
+        if (btnVerPedido) {
+            btnVerPedido.addEventListener('click', () => {
+                openScheduledOrderModal(order);
+            });
+        }
+
+        return card;
+    }
+
+    // Função para configurar timer do pedido agendado
+    function setupScheduledOrderTimer(order) {
+        const prepStart = calculatePrepTime(order);
+        if (!prepStart) return;
+        
+        const now = new Date();
+        const timeUntilPrep = prepStart.getTime() - now.getTime();
+        
+        if (timeUntilPrep > 0) {
+            setTimeout(() => {
+                moveToPreparation(order);
+            }, timeUntilPrep);
+        }
+    }
+
+    // Função para mover pedido para aba de preparo
+    function moveToPreparation(order) {
+        // Remove da aba de agendados
+        const scheduledCard = document.querySelector(`#scheduled-orders .order-card[data-order-id="${order.id}"]`);
+        if (scheduledCard) {
+            scheduledCard.remove();
+        }
+        
+        // Remove do cache de agendados
+        delete scheduledOrders[order.id];
+        
+        // Exibe na aba de preparo usando a função original
+        window.displayOrder(order);
+        
+        // Mostra notificação
+        showToast(`Pedido #${order.displayId || order.id.substring(0, 6)} pronto para preparo!`, 'info');
+        
+        // Verifica se a aba de agendados ficou vazia
+        checkForEmptyTab('scheduled');
+    }
+
+    // Função para abrir o modal customizado
+    function openScheduledOrderModal(order) {
+        const modalContainer = document.getElementById('modal-pedido-container');
+        if (!modalContainer) return;
+
+        modalContainer.innerHTML = createScheduledModalContent(order);
+        modalContainer.style.display = 'flex';
+
+        // Adiciona os botões de ação no footer
+        const footerContainer = document.createElement('div');
+        footerContainer.className = 'modal-pedido-footer';
+        footerContainer.id = `modal-actions-container-${order.id}`;
+        
+        // Adiciona botão de fechar
+        const closeButton = document.createElement('button');
+        closeButton.className = 'modal-pedido-fechar';
+        closeButton.textContent = 'Fechar';
+        closeButton.onclick = () => fecharModal();
+        
+        footerContainer.appendChild(closeButton);
+        
+        modalContainer.querySelector('.modal-pedido-content').appendChild(footerContainer);
+        
+        // Adiciona os botões de ação específicos
+        const actionsContainer = footerContainer;
+        const now = new Date();
+        const prepStart = calculatePrepTime(order);
+            
+        if (prepStart) {
+            if (now >= prepStart) {
+                // Já está na hora de preparar - mostra botões normais
+                window.addActionButtons(actionsContainer, order);
+            } else {
+                // Ainda não está na hora - mostra apenas botão de cancelar
+                const cancelButton = document.createElement('button');
+                cancelButton.className = 'action-button cancel';
+                cancelButton.textContent = 'Cancelar';
+                cancelButton.onclick = () => handleOrderAction(order.id, 'requestCancellation');
+                actionsContainer.appendChild(cancelButton);
+            }
+        }
+    }
+
+    // Função para criar o conteúdo do modal
+    function createScheduledModalContent(order) {
+        // Formata as datas
         const deliveryStart = order.scheduled?.deliveryDateTimeStart ? 
             new Date(order.scheduled.deliveryDateTimeStart) : null;
         const deliveryEnd = order.scheduled?.deliveryDateTimeEnd ? 
             new Date(order.scheduled.deliveryDateTimeEnd) : null;
-
-        // Calcula o horário de início do preparo
-        const prepStartTime = deliveryStart ? new Date(deliveryStart) : null;
-        if (prepStartTime && order.deliveryTime) {
-            prepStartTime.setMinutes(prepStartTime.getMinutes() - order.deliveryTime);
-        }
+        const prepStart = calculatePrepTime(order);
 
         return `
             <div class="modal-pedido-content">
@@ -45,10 +286,10 @@ const scheduledOrderModalModule = (() => {
                                     <span class="scheduled-label">Horário Final:</span>
                                     <span class="scheduled-value">${deliveryEnd.toLocaleString('pt-BR')}</span>
                                 </div>` : ''}
-                                ${prepStartTime ? `
+                                ${prepStart ? `
                                 <div class="scheduled-time-row preparation-time">
                                     <span class="scheduled-label">Início do Preparo:</span>
-                                    <span class="scheduled-value">${prepStartTime.toLocaleString('pt-BR')}</span>
+                                    <span class="scheduled-value">${prepStart.toLocaleString('pt-BR')}</span>
                                 </div>` : ''}
                                 <div class="scheduled-time-alert">
                                     <i class="fas fa-info-circle"></i>
@@ -128,65 +369,6 @@ const scheduledOrderModalModule = (() => {
                 </div>
             </div>
         `;
-    };
-
-    // Função para abrir o modal customizado
-    function openScheduledOrderModal(order) {
-        const modalContainer = document.getElementById('modal-pedido-container');
-        if (!modalContainer) return;
-
-        modalContainer.innerHTML = createScheduledModalContent(order);
-        modalContainer.style.display = 'flex';
-
-        // Adiciona os botões de ação
-        const footerContainer = document.createElement('div');
-        footerContainer.className = 'modal-pedido-footer';
-        footerContainer.id = `modal-actions-container-${order.id}`;
-        
-        // Adiciona botão de fechar
-        const closeButton = document.createElement('button');
-        closeButton.className = 'modal-pedido-fechar';
-        closeButton.textContent = 'Fechar';
-        closeButton.onclick = () => fecharModal();
-        
-        footerContainer.appendChild(closeButton);
-        
-        modalContainer.querySelector('.modal-pedido-content').appendChild(footerContainer);
-        
-        // Adiciona os botões de ação específicos
-        const actionsContainer = footerContainer;
-        const now = new Date();
-        const prepStart = order.scheduled?.deliveryDateTimeStart ? 
-            new Date(order.scheduled.deliveryDateTimeStart) : null;
-            
-        if (prepStart) {
-            prepStart.setMinutes(prepStart.getMinutes() - (order.deliveryTime || 0));
-            
-            if (now >= prepStart) {
-                // Já está na hora de preparar - mostra botões normais
-                window.addActionButtons(actionsContainer, order);
-            } else {
-                // Ainda não está na hora - mostra apenas botão de cancelar
-                const cancelButton = document.createElement('button');
-                cancelButton.className = 'action-button cancel';
-                cancelButton.textContent = 'Cancelar';
-                cancelButton.onclick = () => handleOrderAction(order.id, 'requestCancellation');
-                actionsContainer.appendChild(cancelButton);
-            }
-        }
-    }
-
-    // Função de inicialização
-    function initialize() {
-        console.log('🔄 Inicializando módulo de modal para pedidos agendados...');
-
-        // Estende a função de abrir modal original
-        extendModalFunction();
-        
-        // Adiciona estilos customizados
-        addCustomStyles();
-        
-        console.log('✅ Módulo de modal para pedidos agendados inicializado');
     }
 
     // Função para estender a função de modal original
@@ -286,6 +468,49 @@ const scheduledOrderModalModule = (() => {
                 gap: 8px;
                 font-size: 0.9rem;
             }
+
+            /* Estilos para a aba de agendados */
+            .tab-item[data-tab="scheduled"] {
+                color: #9c27b0;
+            }
+
+            .tab-item[data-tab="scheduled"].active::after {
+                background-color: #9c27b0;
+            }
+
+            /* Estilos para cards de pedidos agendados */
+            .scheduled-order {
+                border-left: 4px solid #9c27b0 !important;
+            }
+
+            .scheduled-order .order-status.scheduled {
+                background-color: #9c27b0;
+                color: white;
+            }
+
+            .scheduled-time, .scheduled-prep {
+                background-color: #f3e5f5;
+                padding: 1rem;
+                border-radius: var(--border-radius);
+                margin-bottom: 1rem;
+            }
+
+            .scheduled-time h3, .scheduled-prep h3 {
+                color: #9c27b0;
+                font-size: 0.9rem;
+                margin-bottom: 0.5rem;
+            }
+
+            .scheduled-time p, .scheduled-prep p {
+                display: flex;
+                align-items: center;
+                gap: 0.5rem;
+                margin: 0.3rem 0;
+            }
+
+            .scheduled-time i, .scheduled-prep i {
+                color: #9c27b0;
+            }
         `;
         
         document.head.appendChild(style);
@@ -294,11 +519,11 @@ const scheduledOrderModalModule = (() => {
     // Retorna API pública
     return {
         initialize,
-        openScheduledOrderModal
+        isScheduledOrder
     };
 })();
 
 // Inicializa o módulo quando o DOM estiver pronto
 document.addEventListener('DOMContentLoaded', () => {
-    scheduledOrderModalModule.initialize();
+    scheduledOrdersModule.initialize();
 });
