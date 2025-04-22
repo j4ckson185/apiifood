@@ -1,21 +1,24 @@
 [build]
   functions = "netlify/functions"
-  publish = "."
+  publish   = "."
 
+# Regra específica para o endpoint do iFood
 [[redirects]]
-  from = "/*"
-  to = "/index.html"
-  status = 200
-
-[[redirects]]
-  from = "/webhook"
-  to = "/.netlify/functions/ifood-webhook"
-  status = 200
-  force = true
+  from    = "/webhook"
+  to      = "/.netlify/functions/ifood-webhook"
+  status  = 200
+  force   = true
   methods = ["GET","POST","OPTIONS"]
 
+# Regra para seu endpoint interno de eventos
 [[redirects]]
-  from = "/webhook-events"
-  to = "/.netlify/functions/ifood-webhook-events"
+  from    = "/webhook-events"
+  to      = "/.netlify/functions/ifood-webhook-events"
+  status  = 200
+  force   = true
+
+# Catch‑all para SPA/client‑side routing
+[[redirects]]
+  from   = "/*"
+  to     = "/index.html"
   status = 200
-  force = true
