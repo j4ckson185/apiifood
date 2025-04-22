@@ -59,7 +59,7 @@ const scheduledOrdersModule = (() => {
 
     // Função para verificar se um pedido é agendado
     function isScheduledOrder(order) {
-        return order.orderTiming === 'SCHEDULED' && order.scheduled;
+        return order.orderTiming === 'SCHEDULED';
     }
 
     // Função para calcular o horário de início do preparo
@@ -150,7 +150,11 @@ const scheduledOrdersModule = (() => {
                 </div>
                 <div class="order-total">
                     <h3>Total</h3>
-                    <p class="total-amount">R$ ${order.total?.toFixed(2) || '0.00'}</p>
+                    <p class="total-amount">
+                        R$ ${typeof order.total === 'number' ? 
+                            order.total.toFixed(2) : 
+                            (order.total?.orderAmount?.toFixed(2) || '0.00')}
+                    </p>
                 </div>
                 <button class="ver-pedido">Ver Detalhes</button>
             </div>
@@ -249,10 +253,10 @@ const scheduledOrdersModule = (() => {
     // Função para criar o conteúdo do modal
     function createScheduledModalContent(order) {
         // Formata as datas
-        const deliveryStart = order.scheduled?.deliveryDateTimeStart ? 
-            new Date(order.scheduled.deliveryDateTimeStart) : null;
-        const deliveryEnd = order.scheduled?.deliveryDateTimeEnd ? 
-            new Date(order.scheduled.deliveryDateTimeEnd) : null;
+        const deliveryStart = order.scheduledDateTimeForDelivery ? 
+            new Date(order.scheduledDateTimeForDelivery) : null;
+        const deliveryEnd = order.scheduledDateTimeForDelivery ? 
+            new Date(order.scheduledDateTimeForDelivery) : null;
         const prepStart = calculatePrepTime(order);
 
         return `
@@ -336,7 +340,7 @@ const scheduledOrdersModule = (() => {
                             <ul class="items-list">
                                 ${order.items?.map(item => `
                                     <li>
-                                        ${item.quantity}x ${item.name} - R$ ${(item.price * item.quantity).toFixed(2)}
+                                        ${item.quantity}x ${item.name} - R$ ${(typeof item.totalPrice === 'number' ? item.totalPrice : (item.price * item.quantity)).toFixed(2)}
                                         ${item.observations ? 
                                             `<span class="item-observations">Obs: ${item.observations}</span>` : ''}
                                         ${item.options?.length ? `
@@ -353,7 +357,11 @@ const scheduledOrdersModule = (() => {
                         <!-- Total do Pedido -->
                         <div class="order-total">
                             <h3>Total do Pedido</h3>
-                            <p class="total-amount">R$ ${order.total?.toFixed(2) || '0.00'}</p>
+                            <p class="total-amount">
+                                R$ ${typeof order.total === 'number' ? 
+                                    order.total.toFixed(2) : 
+                                    (order.total?.orderAmount?.toFixed(2) || '0.00')}
+                            </p>
                         </div>
 
                         <!-- Formas de Pagamento -->
