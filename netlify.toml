@@ -12,6 +12,8 @@
   to = "/.netlify/functions/ifood-webhook"
   status = 200
   force = true
+  methods = ["GET","POST","OPTIONS"]
+``` :contentReference[oaicite:6]{index=6}.
 
 [[redirects]]
   from = "/webhook-events"
