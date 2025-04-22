@@ -18,8 +18,13 @@ function initialize() {
     // Adiciona estilos customizados
     addCustomStyles();
     
-    // Restaura pedidos agendados que estavam no cache/localStorage
-    restoreScheduledOrders();
+// 1) Carrega TODOS os pedidos salvos (incluindo agendados) no localStorage para window.ordersCache
+if (typeof window.loadOrdersFromLocalStorage === 'function') {
+  window.loadOrdersFromLocalStorage();
+}
+
+// 2) Agora restaura apenas os agendados do cache (que já estará preenchido)
+restoreScheduledOrders();
     
     console.log('✅ Módulo de pedidos agendados inicializado');
 }
