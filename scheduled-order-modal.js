@@ -121,39 +121,50 @@ restoreScheduledOrders();
         };
     }
 
-    // Função para restaurar pedidos agendados
-    function restoreScheduledOrders() {
-        console.log('🔄 Restaurando pedidos agendados do localStorage...');
-        
-        // Obtem os pedidos do cache global
-        const allOrders = window.ordersCache || {};
-        
-        // Filtra apenas os pedidos agendados
-        const scheduled = Object.values(allOrders).filter(order => {
-            if (!order || !isScheduledOrder(order)) return false;
-            
-            const prepTime = calculatePrepTime(order);
-            const now = new Date();
-            
-            // Filtra apenas pedidos agendados que ainda não estão na hora de preparar
-            return prepTime && now < prepTime;
+// Função para restaurar pedidos agendados
+function restoreScheduledOrders() {
+    console.log('🔄 Restaurando pedidos agendados do localStorage...');
+
+    // 1) Busca todos os agendados diretamente da API
+    fetch(`${PROXY_URL}/order/v1.0/orders?orderTiming=SCHEDULED`, {
+        headers: authHeaders
+    })
+    .then(res => res.json())
+    .then(apiList => {
+        console.log(`📋 Encontrados ${apiList.length} agendados via API`);
+        apiList.forEach(order => {
+            // exibe cada um imediatamente
+            displayScheduledOrder(order);
+            console.log(`✅ Pedido agendado ${order.id} exibido (via API)`);
         });
-        
-        console.log(`📋 Encontrados ${scheduled.length} pedidos agendados para restaurar`);
-        
-        // Exibe cada pedido na aba de agendados
-        scheduled.forEach(order => {
-            // Verifica se o pedido já existe na interface
-            const existingOrder = document.querySelector(`.order-card[data-order-id="${order.id}"]`);
-            if (!existingOrder) {
-                displayScheduledOrder(order);
-                console.log(`✅ Pedido agendado ${order.id} restaurado`);
-            }
-        });
-        
-        // Verifica se a aba de agendados está vazia
-        checkForEmptyTab('scheduled');
-    }
+    })
+    .catch(err => console.error('Erro ao buscar agendados via API:', err));
+
+    // 2) Continua a lógica atual de restaurar do localStorage (ordersCache)
+    const allOrders = window.ordersCache || {};
+    const scheduled = Object.values(allOrders).filter(order => {
+        if (!order || !isScheduledOrder(order)) return false;
+
+        const prepTime = calculatePrepTime(order);
+        const now = new Date();
+        // só restaura os que ainda não passaram da hora de preparar
+        return prepTime && now < prepTime;
+    });
+
+    console.log(`📋 Encontrados ${scheduled.length} pedidos agendados para restaurar do cache`);
+
+    scheduled.forEach(order => {
+        // não duplica se já estiver na interface
+        const existing = document.querySelector(`.order-card[data-order-id="${order.id}"]`);
+        if (!existing) {
+            displayScheduledOrder(order);
+            console.log(`✅ Pedido agendado ${order.id} restaurado (cache)`);
+        }
+    });
+
+    // Atualiza UI caso a aba fique vazia
+    checkForEmptyTab('scheduled');
+}
 
     // Função para exibir pedido na aba de agendados
     function displayScheduledOrder(order) {
