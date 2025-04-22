@@ -810,26 +810,28 @@ addChangeForField(orderElement, order);
                 });
             }
             
-            // NOVO: Adiciona benefícios (descontos) se houver
-            if (order.total.benefits && order.total.benefits > 0) {
-                const benefits = document.createElement('p');
-                benefits.innerHTML = `<span>Descontos:</span> <span>-R$ ${order.total.benefits.toFixed(2)}</span>`;
-                totalDetails.appendChild(benefits);
+            // === Início: exibe cada benefício ou cupom com patrocinador ===
+            if (order.total && order.total.benefits && order.total.benefits > 0) {
+                const p = document.createElement('p');
+                p.innerHTML = `<span>Descontos:</span> <span>-R$ ${order.total.benefits.toFixed(2)}</span>`;
+                totalDetails.appendChild(p);
             } else if (order.benefits && Array.isArray(order.benefits) && order.benefits.length > 0) {
-                let totalBenefits = 0;
-                
-                // Calcula o total de benefícios
                 order.benefits.forEach(benefit => {
-                    if (benefit.value) {
-                        totalBenefits += benefit.value;
-                    }
+                    if (!benefit.value) return;
+
+                    const desc = benefit.description || 'Desconto';
+                    const valueBRL = (benefit.value / 100).toFixed(2);
+                    const sponsor = benefit.sponsorshipValues?.name || 'Loja';
+                    const sponsorValue = ((benefit.sponsorshipValues?.value ?? benefit.value) / 100).toFixed(2);
+
+                    const p = document.createElement('p');
+                    p.innerHTML = `
+                        <span>${desc}:</span>
+                        <span>-R$ ${valueBRL}</span>
+                        <span class="benefit-sponsor">(patrocinado por ${sponsor}: R$ ${sponsorValue})</span>
+                    `;
+                    totalDetails.appendChild(p);
                 });
-                
-                if (totalBenefits > 0) {
-                    const benefits = document.createElement('p');
-                    benefits.innerHTML = `<span>Descontos:</span> <span>-R$ ${totalBenefits.toFixed(2)}</span>`;
-                    totalDetails.appendChild(benefits);
-                }
             }
             
             const totalElement = orderElement.querySelector('.order-total');
