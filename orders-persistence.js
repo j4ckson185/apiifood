@@ -221,11 +221,19 @@ window.updateOrderStatus = function(orderId, status) {
 // Inicialização
 document.addEventListener('DOMContentLoaded', () => {
     console.log('Inicializando persistência de pedidos');
-    
-    // Carregar pedidos salvos do localStorage
+    // Carregar pedidos salvos do localStorage e só então restaurar os agendados
     setTimeout(() => {
         loadOrdersFromLocalStorage();
-    }, 2000); // Aguarda 2 segundos para garantir que a página foi carregada
+
+        // Agora que o cache global (ordersCache) está preenchido,
+        // invoque a restauração dos agendados na aba correta:
+        if (
+            window.scheduledOrdersModule &&
+            typeof window.scheduledOrdersModule.restoreScheduledOrders === 'function'
+        ) {
+            window.scheduledOrdersModule.restoreScheduledOrders();
+        }
+    }, 2000);
 });
 
 // Modificar a função de polling para atualizar todos os pedidos periodicamente
