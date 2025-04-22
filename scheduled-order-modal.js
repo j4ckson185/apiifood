@@ -5,28 +5,24 @@ const scheduledOrdersModule = (() => {
     // Cache de pedidos agendados
     let scheduledOrders = {};
 
-    // Função para inicializar o módulo
-    function initialize() {
-        console.log('🔄 Inicializando módulo de pedidos agendados...');
+ // Função para inicializar o módulo
+function initialize() {
+    console.log('🔄 Inicializando módulo de pedidos agendados...');
 
-        // Adiciona a nova aba
-        addScheduledTab();
-        
-        // Estende a função de displayOrder
-        extendDisplayOrder();
-        
-        // Adiciona estilos customizados
-        addCustomStyles();
-        
-        // *** NOVO: Adiciona evento para carregar pedidos agendados ao iniciar a página
-        window.addEventListener('load', () => {
-            setTimeout(() => {
-                restoreScheduledOrders();
-            }, 2500); // Aguardamos um pouco mais para garantir que tudo já foi carregado
-        });
-        
-        console.log('✅ Módulo de pedidos agendados inicializado');
-    }
+    // Adiciona a nova aba
+    addScheduledTab();
+    
+    // Estende a função de displayOrder
+    extendDisplayOrder();
+    
+    // Adiciona estilos customizados
+    addCustomStyles();
+    
+    // Restaura pedidos agendados que estavam no cache/localStorage
+    restoreScheduledOrders();
+    
+    console.log('✅ Módulo de pedidos agendados inicializado');
+}
 
     // Função para verificar se um pedido é agendado
     function isScheduledOrder(order) {
