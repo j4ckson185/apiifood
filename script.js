@@ -515,58 +515,6 @@ async function toggleStoreStatus() {
     }
 }
 
-// Função para verificar se já é hora de preparar um pedido agendado
-function isTimeToPreparePedidoAgendado(order) {
-    // Se não for agendado, não se aplica
-    if (order.orderTiming !== 'SCHEDULED') return true;
-    
-    // Se não tiver preparationStartDateTime, não podemos verificar
-    if (!order.preparationStartDateTime) return false;
-    
-    const now = new Date();
-    const prepTime = new Date(order.preparationStartDateTime);
-    
-    // Se já passou do tempo de preparo, retorne true
-    return now >= prepTime;
-}
-
-// Função para verificar pedidos agendados periodicamente
-// e movê-los para a tab de preparação quando chegar a hora
-function checkScheduledOrders() {
-    console.log('🔍 Verificando pedidos agendados...');
-    
-    // Busca todos os pedidos agendados
-    const scheduledCards = document.querySelectorAll('.order-card[data-scheduled="true"]');
-    
-    scheduledCards.forEach(card => {
-        const orderId = card.getAttribute('data-order-id');
-        const prepTimeStr = card.getAttribute('data-preparation-time');
-        
-        if (orderId && prepTimeStr) {
-            const now = new Date();
-            const prepTime = new Date(prepTimeStr);
-            
-            if (now >= prepTime) {
-                console.log(`⏰ Hora de preparar o pedido agendado ${orderId}`);
-                
-                // Move o card para a tab de preparação
-                const prepContainer = document.getElementById('preparation-orders');
-                if (prepContainer && card.parentElement) {
-                    card.parentElement.removeChild(card);
-                    prepContainer.appendChild(card);
-                    
-                    // Verifica se há pedidos em cada tab
-                    checkForEmptyTab('scheduled');
-                    checkForEmptyTab('preparation');
-                    
-                    // Notifica o usuário
-                    showToast(`Pedido agendado #${orderId.substring(0, 6)} está pronto para preparo!`, 'info');
-                }
-            }
-        }
-    });
-}
-
 // Função modificada para exibir pedidos com terceiro nível e melhorias de detalhes
 function displayOrder(order) {
     const template = document.getElementById('order-modal-template');
@@ -959,114 +907,6 @@ addChangeForField(orderElement, order);
     console.log('Pedido exibido com sucesso:', order.id);
 }
 
-// Backup da função original para estender
-const originalDisplayOrder = window.displayOrder;
-
-// Sobrescreve a função original
-window.displayOrder = function(order) {
-    // Verifica se é um pedido agendado
-    const isScheduled = order.orderTiming === 'SCHEDULED';
-    
-    // Verifica o tipo de pedido (TAKEOUT ou DELIVERY)
-    const isTakeout = order.orderType === 'TAKEOUT' || 
-                     (order.takeout && order.takeout.mode);
-    
-    // Identifica se já é hora de preparar (para pedidos agendados)
-    const isTimeToPrep = isTimeToPreparePedidoAgendado(order);
-    
-    // Executa a função original para criar o card
-    const result = originalDisplayOrder(order);
-    
-    // Obtém o card que acabou de ser criado
-    const orderCard = document.querySelector(`.order-card[data-order-id="${order.id}"]`);
-    if (!orderCard) {
-        console.log('❌ Card do pedido não encontrado');
-        return result;
-    }
-    
-    // Adiciona informação adicional ao card para identificação futura
-    if (isScheduled) {
-        orderCard.setAttribute('data-scheduled', 'true');
-        
-        // Adiciona classe visual
-        orderCard.classList.add('scheduled-order');
-        
-        // Extrai horário agendado para exibição
-        if (order.schedule && order.schedule.deliveryDateTimeStart) {
-            const scheduledTime = new Date(order.schedule.deliveryDateTimeStart);
-            const formattedTime = scheduledTime.toLocaleString('pt-BR');
-            
-            orderCard.setAttribute('data-scheduled-time', formattedTime);
-            orderCard.setAttribute('data-preparation-time', order.preparationStartDateTime || '');
-        }
-    }
-    
-    if (isTakeout) {
-        orderCard.setAttribute('data-takeout', 'true');
-        orderCard.classList.add('takeout-order');
-    }
-    
-    // Atualiza os botões de ação de acordo com o tipo de pedido
-    const actionsContainer = orderCard.querySelector('.order-actions');
-    if (actionsContainer) {
-        // Se for um pedido para retirar, usa botões específicos
-        if (isTakeout && order.status !== 'CANCELLED' && order.status !== 'CONCLUDED') {
-            // Limpa os botões atuais
-            actionsContainer.innerHTML = '';
-            
-            // Se já estiver pronto para retirada, mostra apenas um texto
-            if (order.status === 'READY_TO_PICKUP') {
-                const readyText = document.createElement('span');
-                readyText.className = 'status-text';
-                readyText.textContent = 'Aguardando Retirada';
-                actionsContainer.appendChild(readyText);
-                
-                // Adiciona apenas o botão de cancelar
-                const cancelButton = document.createElement('button');
-                cancelButton.className = 'action-button cancel';
-                cancelButton.textContent = 'Cancelar';
-                cancelButton.onclick = () => handleOrderAction(order.id, 'requestCancellation');
-                actionsContainer.appendChild(cancelButton);
-            } else {
-                // Adiciona botão "Informar pedido pronto"
-                const readyButton = document.createElement('button');
-                readyButton.className = 'action-button ready';
-                readyButton.innerHTML = '<i class="fas fa-check-circle"></i> Informar pedido pronto';
-                readyButton.onclick = () => handleOrderAction(order.id, 'readyToPickup');
-                actionsContainer.appendChild(readyButton);
-                
-                // Adiciona botão "Cancelar"
-                const cancelButton = document.createElement('button');
-                cancelButton.className = 'action-button cancel';
-                cancelButton.textContent = 'Cancelar';
-                cancelButton.onclick = () => handleOrderAction(order.id, 'requestCancellation');
-                actionsContainer.appendChild(cancelButton);
-            }
-        }
-    }
-    
-    // Move para a tab correta (se for agendado e não for hora de preparar)
-    if (isScheduled && !isTimeToPrep) {
-        // Move para a tab de agendados
-        const scheduledContainer = document.getElementById('scheduled-orders');
-        if (scheduledContainer) {
-            // Remove do container atual (se estiver em algum)
-            if (orderCard.parentElement) {
-                orderCard.parentElement.removeChild(orderCard);
-            }
-            
-            // Adiciona ao container de agendados
-            scheduledContainer.appendChild(orderCard);
-            
-            // Verifica se há pedidos em cada tab
-            checkForEmptyTab('scheduled');
-            checkForEmptyTab('preparation');
-        }
-    }
-    
-    return result;
-};
-
 // Função modificada para atualizar o status apenas quando explicitamente solicitado
 function updateOrderStatus(orderId, status) {
    console.log(`Atualizando status do pedido ${orderId} para ${status}`);
@@ -1150,46 +990,6 @@ function moveCardToCorrectTab(card, status) {
        showToast(`Pedido movido para "${statusText}"`, 'info');
    }
 }
-
-// Backup da função original
-const originalMoveCardToCorrectTab = moveCardToCorrectTab;
-
-// Sobrescreve a função com versão estendida
-moveCardToCorrectTab = function(card, status) {
-    // Verifica se é um pedido agendado e não está na hora de preparar
-    const isScheduled = card.getAttribute('data-scheduled') === 'true';
-    const prepTimeStr = card.getAttribute('data-preparation-time');
-    let isTimeToPrep = true;
-    
-    if (isScheduled && prepTimeStr) {
-        const now = new Date();
-        const prepTime = new Date(prepTimeStr);
-        isTimeToPrep = now >= prepTime;
-    }
-    
-    // Se for agendado e não estiver na hora de preparar, sempre vai para a aba de agendados
-    if (isScheduled && !isTimeToPrep) {
-        const scheduledContainer = document.getElementById('scheduled-orders');
-        const currentParent = card.parentElement;
-        
-        if (scheduledContainer && currentParent && currentParent.id !== 'scheduled-orders') {
-            // Move o card para o container de agendados
-            scheduledContainer.appendChild(card);
-            
-            // Verifica as tabs
-            const oldTabId = currentParent.id.replace('-orders', '');
-            checkForEmptyTab(oldTabId);
-            checkForEmptyTab('scheduled');
-            
-            // Notifica o usuário
-            showToast(`Pedido agendado movido para "Agendados"`, 'info');
-            return; // Encerra a função
-        }
-    }
-    
-    // Se não for agendado ou já estiver na hora de preparar, usa o comportamento original
-    return originalMoveCardToCorrectTab(card, status);
-};
 
 // Adiciona botões de ação baseado no status do pedido
 function addActionButtons(container, order) {
@@ -1419,158 +1219,113 @@ function clearOrdersContainers() {
    });
 }
 
-// Função para lidar com ações de pedidos
-// Esta é uma versão estendida que adiciona suporte para readyToPickup
 async function handleOrderAction(orderId, action) {
-    try {
-        console.log(`Executando ação ${action} para o pedido ${orderId}`);
-        
-        // Mapeamento de ações para endpoints da API
-        const actionEndpoints = {
-            'confirm': '/confirm',
-            'startPreparation': '/startPreparation',
-            'readyToPickup': '/readyToPickup', // Endpoint novo para pedidos "Pra Retirar"
-            'dispatch': '/dispatch',
-            'requestCancellation': '/requestCancellation'
-        };
-        
-        const endpoint = actionEndpoints[action];
-        if (!endpoint) {
-            throw new Error(`Ação desconhecida: ${action}`);
-        }
+   try {
+       console.log(`Executando ação ${action} para o pedido ${orderId}`);
+       
+       // Mapeamento de ações para endpoints da API
+       const actionEndpoints = {
+           'confirm': '/confirm',
+           'startPreparation': '/startPreparation',
+           'readyToPickup': '/readyToPickup',
+           'dispatch': '/dispatch',
+           'requestCancellation': '/requestCancellation'
+       };
+       
+       const endpoint = actionEndpoints[action];
+       if (!endpoint) {
+           throw new Error(`Ação desconhecida: ${action}`);
+       }
 
-        // Se for readyToPickup, tratamento especial
-        if (action === 'readyToPickup') {
-            showLoading();
-            const response = await makeAuthorizedRequest(`/order/v1.0/orders/${orderId}${endpoint}`, 'POST');
-            console.log(`Resposta da ação ${action}:`, response);
-            
-            // Atualiza a interface para mostrar que o pedido está pronto para retirada
-            updateOrderStatus(orderId, 'READY_TO_PICKUP');
-            
-            // Atualiza os botões de ação
-            const orderCard = document.querySelector(`.order-card[data-order-id="${orderId}"]`);
-            if (orderCard) {
-                const actionsContainer = orderCard.querySelector('.order-actions');
-                if (actionsContainer) {
-                    actionsContainer.innerHTML = '';
-                    
-                    // Adiciona o texto de aguardando retirada
-                    const readyText = document.createElement('span');
-                    readyText.className = 'status-text';
-                    readyText.textContent = 'Aguardando Retirada';
-                    actionsContainer.appendChild(readyText);
-                    
-                    // Adiciona apenas o botão de cancelar
-                    const cancelButton = document.createElement('button');
-                    cancelButton.className = 'action-button cancel';
-                    cancelButton.textContent = 'Cancelar';
-                    cancelButton.onclick = () => handleOrderAction(orderId, 'requestCancellation');
-                    actionsContainer.appendChild(cancelButton);
-                }
-            }
-            
-            hideLoading();
-            showToast(`Pedido marcado como pronto para retirada!`, 'success');
-            
-            // Registra que processamos este pedido
-            if (!processedOrderIds.has(orderId)) {
-                processedOrderIds.add(orderId);
-                saveProcessedIds();
-            }
-            
-            return; // Encerra a função após processar readyToPickup
-        }
-        
-        // Tratamento especial para cancelamento (código existente)
-        if (action === 'requestCancellation') {
-            console.log('🚨 Iniciando processo de cancelamento');
-            showLoading();
-            try {
-                cancellationReasons = await makeAuthorizedRequest(`/order/v1.0/orders/${orderId}/cancellationReasons`, 'GET');
-                console.log('🚨 Motivos de cancelamento obtidos:', cancellationReasons);
-                
-                if (cancellationReasons && cancellationReasons.length > 0) {
-                    // Atualiza a variável global
-                    currentCancellationOrderId = orderId;
-                    
-                    // Preenche o select com os motivos
-                    const select = document.getElementById('cancellation-reason');
-                    select.innerHTML = '';
-                    
-                    cancellationReasons.forEach(reason => {
-                        const option = document.createElement('option');
-                        option.value = reason.cancelCodeId;
-                        option.textContent = reason.description;
-                        select.appendChild(option);
-                    });
-                    
-                    hideLoading();
-                    
-                    // Exibe o modal com um atraso mínimo
-                    setTimeout(() => {
-                        const modal = document.getElementById('cancellation-modal');
-                        if (modal) {
-                            console.log('🚨 Tentando abrir modal de cancelamento');
-                            modal.classList.remove('hidden');
-                            modal.style.display = 'flex';
-                            modal.removeAttribute('hidden');
-                        } else {
-                            console.error('🚨 Elemento do modal não encontrado');
-                        }
-                    }, 100);
-                } else {
-                    hideLoading();
-                    showToast('Não foi possível obter os motivos de cancelamento', 'error');
-                }
-            } catch (cancelError) {
-                hideLoading();
-                console.error('Erro ao obter motivos de cancelamento:', cancelError);
-                showToast('Erro ao obter motivos de cancelamento', 'error');
-            }
-        } else if (action !== 'readyToPickup') { // Ações normais (exceto readyToPickup que já foi tratado)
-            // Todas as outras ações normais
-            showLoading();
-            const response = await makeAuthorizedRequest(`/order/v1.0/orders/${orderId}${endpoint}`, 'POST');
-            console.log(`Resposta da ação ${action}:`, response);
+       // Tratamento especial para cancelamento
+       if (action === 'requestCancellation') {
+           console.log('🚨 Iniciando processo de cancelamento');
+           showLoading();
+           try {
+               cancellationReasons = await makeAuthorizedRequest(`/order/v1.0/orders/${orderId}/cancellationReasons`, 'GET');
+               console.log('🚨 Motivos de cancelamento obtidos:', cancellationReasons);
+               
+               if (cancellationReasons && cancellationReasons.length > 0) {
+                   // Atualiza a variável global
+                   currentCancellationOrderId = orderId;
+                   
+                   // Preenche o select com os motivos
+                   const select = document.getElementById('cancellation-reason');
+                   select.innerHTML = '';
+                   
+                   cancellationReasons.forEach(reason => {
+                       const option = document.createElement('option');
+                       option.value = reason.cancelCodeId;
+                       option.textContent = reason.description;
+                       select.appendChild(option);
+                   });
+                   
+                   hideLoading();
+                   
+                   // Exibe o modal com um atraso mínimo
+                   setTimeout(() => {
+                       const modal = document.getElementById('cancellation-modal');
+                       if (modal) {
+                           console.log('🚨 Tentando abrir modal de cancelamento');
+                           modal.classList.remove('hidden');
+                           modal.style.display = 'flex';
+                           modal.removeAttribute('hidden');
+                       } else {
+                           console.error('🚨 Elemento do modal não encontrado');
+                       }
+                   }, 100);
+               } else {
+                   hideLoading();
+                   showToast('Não foi possível obter os motivos de cancelamento', 'error');
+               }
+           } catch (cancelError) {
+               hideLoading();
+               console.error('Erro ao obter motivos de cancelamento:', cancelError);
+               showToast('Erro ao obter motivos de cancelamento', 'error');
+           }
+       } else {
+           // Todas as outras ações normais
+           showLoading();
+           const response = await makeAuthorizedRequest(`/order/v1.0/orders/${orderId}${endpoint}`, 'POST');
+           console.log(`Resposta da ação ${action}:`, response);
 
-            // Atualizar o status manualmente na interface de acordo com a ação executada
-            let newStatus;
-            switch(action) {
-                case 'confirm':
-                    newStatus = 'CONFIRMED';
-                    break;
-                case 'startPreparation':
-                    newStatus = 'IN_PREPARATION';
-                    break;
-                case 'readyToPickup':
-                    newStatus = 'READY_TO_PICKUP';
-                    break;
-                case 'dispatch':
-                    newStatus = 'DISPATCHED';
-                    break;
-                default:
-                    // Para outros casos, buscamos o status atual
-                    const updatedOrder = await makeAuthorizedRequest(`/order/v1.0/orders/${orderId}`, 'GET');
-                    newStatus = updatedOrder.status;
-            }
+           // Atualizar o status manualmente na interface de acordo com a ação executada
+           let newStatus;
+           switch(action) {
+               case 'confirm':
+                   newStatus = 'CONFIRMED';
+                   break;
+               case 'startPreparation':
+                   newStatus = 'IN_PREPARATION';
+                   break;
+               case 'readyToPickup':
+                   newStatus = 'READY_TO_PICKUP';
+                   break;
+               case 'dispatch':
+                   newStatus = 'DISPATCHED';
+                   break;
+               default:
+                   // Para outros casos, buscamos o status atual
+                   const updatedOrder = await makeAuthorizedRequest(`/order/v1.0/orders/${orderId}`, 'GET');
+                   newStatus = updatedOrder.status;
+           }
 
-            // Atualiza a UI com o novo status
-            updateOrderStatus(orderId, newStatus);
+           // Atualiza a UI com o novo status
+           updateOrderStatus(orderId, newStatus);
 
-            if (!processedOrderIds.has(orderId)) {
-                processedOrderIds.add(orderId);
-                saveProcessedIds();
-            }
+           if (!processedOrderIds.has(orderId)) {
+               processedOrderIds.add(orderId);
+               saveProcessedIds();
+           }
 
-            hideLoading();
-            showToast(`Ação "${action}" realizada com sucesso!`, 'success');
-        }
-    } catch (error) {
-        hideLoading();
-        console.error(`Erro ao realizar ação ${action} para o pedido ${orderId}:`, error);
-        showToast(`Erro ao realizar ação: ${error.message}`, 'error');
-    }
+           hideLoading();
+           showToast(`Ação "${action}" realizada com sucesso!`, 'success');
+       }
+   } catch (error) {
+       hideLoading();
+       console.error(`Erro ao realizar ação ${action} para o pedido ${orderId}:`, error);
+       showToast(`Erro ao realizar ação: ${error.message}`, 'error');
+   }
 }
 
 function closeCancellationModal() {
@@ -2250,12 +2005,6 @@ document.querySelectorAll('.sidebar-item').forEach(item => {
             showToast('Selecione uma loja primeiro', 'warning');
         }
     });
-
-    // Verifica pedidos agendados a cada minuto
-setInterval(checkScheduledOrders, 60000);
-
-// Verifica imediatamente após carregar a página
-setTimeout(checkScheduledOrders, 5000);
 
     // Inicialização
     initialize();
