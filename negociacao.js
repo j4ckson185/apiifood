@@ -110,18 +110,29 @@ async function processarEventoDisputa(event) {
         console.log('✅ Processando disputa com ID:', disputeId);
         
         // Prepare dispute data
-        const disputeData = {
-            disputeId: disputeId,
-            orderId: orderId,
-            customerName: await getCustomerNameFromOrder(event.orderId) || 'Cliente',
-            type: event.metadata?.handshakeType || 'UNKNOWN',
-            reason: event.metadata?.message || 'Motivo não especificado',
-            expiresAt: event.metadata?.expiresAt,
-            timeoutAction: event.metadata?.timeoutAction,
-            alternatives: event.metadata?.alternatives || [],
-            metadata: event.metadata,
-            ...event
-        };
+// Prepare dispute data
+const disputeData = {
+    disputeId: disputeId,
+    orderId: orderId,
+    customerName: await getCustomerNameFromOrder(event.orderId) || 'Cliente',
+    type: event.metadata?.handshakeType || 'UNKNOWN',
+    reason: event.metadata?.message || 'Motivo não especificado',
+    expiresAt: event.metadata?.expiresAt,
+    timeoutAction: event.metadata?.timeoutAction,
+    alternatives: event.metadata?.alternatives || [],
+    metadata: event.metadata,
+    photos: [], // Inicializa array vazio para manter compatibilidade
+    ...event
+};
+
+// Processa as evidências (photos) se existirem
+if (event.metadata && event.metadata.metadata && 
+    event.metadata.metadata.evidences && 
+    Array.isArray(event.metadata.metadata.evidences)) {
+    
+    console.log('✅ Evidências encontradas:', event.metadata.metadata.evidences.length);
+    disputeData.photos = event.metadata.metadata.evidences;
+}
         
         console.log('Dados da disputa preparados:', disputeData);
         
@@ -557,7 +568,24 @@ async function proporAlternativa(disputeId, alternativeId) {
         console.log(`🤝 Propondo alternativa ${alternativeId} para a disputa ${disputeId}`);
         showLoading();
         
-        const response = await makeAuthorizedRequest(`/order/v1.0/disputes/${disputeId}/alternatives/${alternativeId}`, 'POST');
+        // Busca a disputa ativa para obter o orderId
+        const disputa = activeDisputes.find(d => d.disputeId === disputeId);
+        const orderId = disputa ? disputa.orderId : null;
+        
+        // Prepara o payload baseado no tipo da alternativa
+        const alternativa = disputa?.alternatives?.find(a => a.id === alternativeId);
+        let payload = {
+            type: alternativa?.type || "REFUND"
+        };
+        
+        // Se for uma alternativa do tipo REFUND e tiver metadata, inclui-os
+        if (alternativa?.type === "REFUND" && alternativa?.metadata) {
+            payload.metadata = alternativa.metadata;
+        }
+        
+        console.log("📦 Payload a ser enviado:", payload);
+        
+        const response = await makeAuthorizedRequest(`/order/v1.0/disputes/${disputeId}/alternatives/${alternativeId}`, 'POST', payload);
         
         console.log('✅ Alternativa proposta com sucesso:', response);
         showToast('Alternativa proposta com sucesso', 'success');
@@ -565,8 +593,44 @@ async function proporAlternativa(disputeId, alternativeId) {
         // Remove da lista de disputas ativas
         removeActiveDispute(disputeId);
         
+        // Guarda o orderId para restaurar botões depois
+        const savedOrderId = orderId;
+        
         // Fecha o modal
         fecharModalNegociacao();
+        
+        // Restaura os botões específicos para este pedido
+        if (savedOrderId) {
+            setTimeout(() => {
+                try {
+                    console.log(`⏳ Tentando restaurar botões para pedido ${savedOrderId}`);
+                    
+                    if (typeof window.restoreOrderButtons === 'function') {
+                        window.restoreOrderButtons(savedOrderId);
+                    } else {
+                        // Fallback para código direto
+                        const orderCard = document.querySelector(`.order-card[data-order-id="${savedOrderId}"]`);
+                        if (orderCard) {
+                            const actionsContainer = orderCard.querySelector('.order-actions');
+                            if (actionsContainer) {
+                                // Usa o status conhecido, normalmente CONCLUDED para casos após entrega
+                                addActionButtons(actionsContainer, { id: savedOrderId, status: 'CONCLUDED' });
+                                console.log('✅ Botões de ação restaurados diretamente');
+                            }
+                        }
+                    }
+                } catch (innerError) {
+                    console.error('❌ Erro ao restaurar botões após propor alternativa:', innerError);
+                }
+            }, 500);
+            
+            // Tenta garantir a restauração dos botões com múltiplas tentativas
+            if (typeof window.garantirRestauracaoBotoes === 'function') {
+                setTimeout(() => {
+                    window.garantirRestauracaoBotoes(savedOrderId);
+                }, 1000);
+            }
+        }
         
         return true;
     } catch (error) {
@@ -854,18 +918,19 @@ function exibirModalNegociacao(dispute) {
                 
                 ${clientResponseHtml}
                 
-                ${dispute.photos && dispute.photos.length > 0 ? `
-                <div class="dispute-photos">
-                    <h3>Evidências do cliente</h3>
-                    <div class="photos-container">
-                        ${dispute.photos.map(photo => `
-                            <div class="photo-item">
-                                <img src="${photo.url}" alt="Evidência do cliente" onclick="abrirImagemAmpliada('${photo.url}')">
-                            </div>
-                        `).join('')}
-                    </div>
-                </div>
-                ` : ''}
+// No arquivo negociacao.js, função exibirModalNegociacao
+${dispute.metadata && dispute.metadata.metadata && dispute.metadata.metadata.evidences && dispute.metadata.metadata.evidences.length > 0 ? `
+<div class="dispute-photos">
+    <h3>Evidências do cliente</h3>
+    <div class="photos-container">
+        ${dispute.metadata.metadata.evidences.map(evidence => `
+            <div class="photo-item">
+                <img src="${evidence.url}" alt="Evidência do cliente" onclick="abrirImagemAmpliada('${evidence.url}')">
+            </div>
+        `).join('')}
+    </div>
+</div>
+` : ''}
                 
                 ${alternativesHtml}
                 
