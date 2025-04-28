@@ -926,8 +926,14 @@ function updateOrderStatus(orderId, status) {
        // Atualiza as ações disponíveis
        const actionsContainer = card.querySelector('.order-actions');
        if (actionsContainer) {
-           // Adiciona novas ações baseadas no status atualizado
-           addActionButtons(actionsContainer, { id: orderId, status });
+           // Recupera os dados completos do pedido do cache
+           const orderData = ordersCache[orderId] || { id: orderId };
+           
+           // Mantém o status atualizado
+           orderData.status = status;
+           
+           // Adiciona novas ações baseadas no pedido completo com status atualizado
+           addActionButtons(actionsContainer, orderData);
        }
        
        // Atualiza classes do card baseado no status
