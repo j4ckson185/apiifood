@@ -39,25 +39,28 @@ const takeoutOrdersModule = (() => {
         };
     }
 
-    // Função para estender addActionButtons
-    function extendAddActionButtons() {
-        const originalAddActionButtons = window.addActionButtons;
-        if (!originalAddActionButtons) {
-            console.error('❌ Função addActionButtons não encontrada');
+// Função para estender addActionButtons
+function extendAddActionButtons() {
+    const originalAddActionButtons = window.addActionButtons;
+    if (!originalAddActionButtons) {
+        console.error('❌ Função addActionButtons não encontrada');
+        return;
+    }
+
+    window.addActionButtons = function(container, order) {
+        if (isTakeoutOrder(order)) {
+            // Adiciona botões específicos para pedidos de retirada
+            addTakeoutButtons(container, order);
             return;
         }
-
-        window.addActionButtons = function(container, order) {
-            if (isTakeoutOrder(order)) {
-                // Adiciona botões específicos para pedidos de retirada
-                addTakeoutButtons(container, order);
-                return;
-            }
-            
-            // Usa a função original para outros tipos de pedido
-            return originalAddActionButtons(container, order);
-        };
-    }
+        
+        // Usa a função original para outros tipos de pedido
+        return originalAddActionButtons(container, order);
+    };
+    
+    // Salva a referência para uso interno
+    takeoutOrdersModule.originalAddActionButtons = originalAddActionButtons;
+}
 
     // Função para adicionar informações de retirada ao pedido
     function enhanceOrderWithTakeoutInfo(order) {
@@ -72,56 +75,56 @@ const takeoutOrdersModule = (() => {
         takeoutOrders[order.id] = order;
     }
 
-    // Função para adicionar botões específicos para pedidos de retirada
-    function addTakeoutButtons(container, order) {
-        // Limpa o container
-        container.innerHTML = '';
+// Função para adicionar botões específicos para pedidos de retirada
+function addTakeoutButtons(container, order) {
+    // Limpa o container
+    container.innerHTML = '';
 
-        switch(order.status) {
-            case 'PLACED':
-                // Pedido novo - botões de confirmar e cancelar
-                addButton(container, 'Confirmar', 'confirm', () => {
-                    handleOrderAction(order.id, 'confirm');
-                });
-                addButton(container, 'Cancelar', 'cancel', () => {
-                    handleOrderAction(order.id, 'requestCancellation');
-                });
-                break;
+    switch(order.status) {
+        case 'PLACED':
+            // Pedido novo - botões de confirmar e cancelar
+            addButton(container, 'Confirmar', 'confirm', () => {
+                handleOrderAction(order.id, 'confirm');
+            });
+            addButton(container, 'Cancelar', 'cancel', () => {
+                handleOrderAction(order.id, 'requestCancellation');
+            });
+            break;
 
-            case 'CONFIRMED':
-            case 'IN_PREPARATION':
-                // Pedido confirmado/em preparo - botões de pronto e cancelar
-                addButton(container, 'Informar pedido pronto', 'ready', () => {
-                    handleReadyToPickup(order.id);
-                });
-                addButton(container, 'Cancelar', 'cancel', () => {
-                    handleOrderAction(order.id, 'requestCancellation');
-                });
-                break;
+        case 'CONFIRMED':
+        case 'IN_PREPARATION':
+            // Pedido confirmado/em preparo - botões de pronto e cancelar
+            addButton(container, 'Informar pedido pronto', 'ready', () => {
+                handleReadyToPickup(order.id);
+            });
+            addButton(container, 'Cancelar', 'cancel', () => {
+                handleOrderAction(order.id, 'requestCancellation');
+            });
+            break;
 
-            case 'READY_TO_PICKUP':
-                // Pedido pronto - mostrar mensagem e botão de cancelar
-                addStatusMessage(container, 'Aguardando Retirada');
-                addButton(container, 'Cancelar', 'cancel', () => {
-                    handleOrderAction(order.id, 'requestCancellation');
-                });
-                break;
+        case 'READY_TO_PICKUP':
+            // Pedido pronto - mostrar mensagem e botão de cancelar
+            addStatusMessage(container, 'Aguardando Retirada');
+            addButton(container, 'Cancelar', 'cancel', () => {
+                handleOrderAction(order.id, 'requestCancellation');
+            });
+            break;
 
-            case 'CANCELLED':
-                // Pedido cancelado - apenas mensagem
-                addStatusMessage(container, 'Pedido Cancelado', 'disabled');
-                break;
+        case 'CANCELLED':
+            // Pedido cancelado - apenas mensagem
+            addStatusMessage(container, 'Pedido Cancelado', 'disabled');
+            break;
 
-            case 'CONCLUDED':
-                // Pedido concluído - apenas mensagem
-                addStatusMessage(container, 'Pedido Concluído', 'disabled');
-                break;
+        case 'CONCLUDED':
+            // Pedido concluído - apenas mensagem
+            addStatusMessage(container, 'Pedido Concluído', 'disabled');
+            break;
 
-            default:
-                // Status desconhecido - botões padrão via função original
-                window.addActionButtons(container, order);
-        }
+        default:
+            // Status desconhecido - botões padrão via função original original (não a atual)
+            takeoutOrdersModule.originalAddActionButtons(container, order);
     }
+}
 
     // Função auxiliar para adicionar botão
     function addButton(container, label, className, onClick) {
