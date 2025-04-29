@@ -313,49 +313,49 @@ function saveProcessedIds() {
 }
 
 // Polling de eventos corrigido para receber pedidos novamente
-async function pollEvents() {
+// Polling unificado: eventos, disputas, status de loja e atualizações
+async function unifiedPolling() {
     if (!state.isPolling || !state.accessToken) return;
 
+    console.log(`🔄 Polling unificado executado em ${new Date().toISOString()}`);
+
     try {
-        console.log('Iniciando polling...');
-        const events = await makeAuthorizedRequest('/events/v1.0/events:polling', 'GET', null);
-        
-        if (events && Array.isArray(events) && events.length > 0) {
+        // 1) Poll de eventos
+        const events = await makeAuthorizedRequest('/events/v1.0/events:polling', 'GET');
+        if (Array.isArray(events) && events.length) {
             console.log('Eventos recebidos:', events);
-            
-            // Processa todos os eventos, mas lida com eles de forma seletiva em handleEvent
-            for (const event of events) {
-                await handleEvent(event);
-            }
+            for (const e of events) await handleEvent(e);
+            await makeAuthorizedRequest('/events/v1.0/events/acknowledgment', 'POST', events.map(e => ({ id: e.id })));
+        }
 
-            // Formato correto para acknowledgment
-            const acknowledgmentFormat = events.map(event => ({ id: event.id }));
-            console.log('📤 Enviando acknowledgment com formato:', acknowledgmentFormat);
+        // 2) Poll de disputas (fallback)
+        await pollForNewDisputesOnce();
 
-            try {
-                // Envia acknowledgment para todos os eventos
-                await makeAuthorizedRequest('/events/v1.0/events/acknowledgment', 'POST', acknowledgmentFormat);
-                console.log('✅ Acknowledgment enviado com sucesso');
-            } catch (ackError) {
-                console.error('❌ Erro ao enviar acknowledgment:', ackError);
-            }
-        } else {
-            console.log('Nenhum evento recebido neste polling');
+        // 3) Atualiza status da loja (se já chamou startStatusPolling)
+        if (window.currentMerchantId) {
+            const status = await fetchStoreStatus(window.currentMerchantId);
+            displayStoreStatus(status);
         }
-    } catch (error) {
-        console.error('Erro no polling:', error);
-        
-        // Verificar se o token expirou e renovar se necessário
-        if (error.message && error.message.includes('401')) {
-            console.log('🔑 Token possivelmente expirado. Tentando renovar...');
-            state.accessToken = null;
-            await authenticate();
+
+        // 4) Verifica disputas expiradas
+        checkExpiredDisputes();
+
+        // 5) Atualiza pedidos visíveis a cada 3 ciclos
+        state.pollingCounter = (state.pollingCounter||0) + 1;
+        if (state.pollingCounter >= 3) {
+            await updateAllVisibleOrders();
+            state.pollingCounter = 0;
         }
-    } finally {
-        if (state.isPolling) {
-            setTimeout(pollEvents, CONFIG.pollingInterval);
-        }
+    } catch (err) {
+        console.error('Erro no polling unificado:', err);
     }
+}
+
+// Substitui startPolling para usar unifiedPolling a cada 30s
+function startPolling() {
+    state.isPolling = true;
+    unifiedPolling();                              // primeira chamada imediata
+    setInterval(unifiedPolling, CONFIG.pollingInterval);
 }
 
 async function handleEvent(event) {
@@ -1495,12 +1495,6 @@ function getStatusText(status) {
        'CANR': 'Cancelamento Solicitado'
    };
    return statusMap[status] || status;
-}
-
-// Inicia o polling de eventos
-function startPolling() {
-   state.isPolling = true;
-   pollEvents();
 }
 
 // Variáveis para controle de paginação
