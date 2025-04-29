@@ -316,48 +316,67 @@ function saveProcessedIds() {
 // Polling unificado: eventos, disputas, status, pedidos
 // ----------------------------------------------
 async function unifiedPolling() {
-    if (!state.isPolling || !state.accessToken) return;
+  if (!state.isPolling || !state.accessToken) return;
 
-    console.log(`🔄 Polling unificado em ${new Date().toISOString()}`);
+  console.log(`🔄 Polling unificado em ${new Date().toISOString()}`);
 
-    try {
-        // 1) Eventos
-        const events = await makeAuthorizedRequest('/events/v1.0/events:polling', 'GET');
-        if (Array.isArray(events) && events.length) {
-            for (const e of events) {
-                await handleEvent(e);
-            }
-            await makeAuthorizedRequest(
-                '/events/v1.0/events/acknowledgment',
-                'POST',
-                events.map(ev => ({ id: ev.id }))
-            );
-        }
-
-        // 2) Disputas (fallback)
-        await pollForNewDisputesOnce();
-
-        // 3) Status da loja (se setado)
-        if (window.currentMerchantId) {
-            const status = await fetchStoreStatus(window.currentMerchantId);
-            if (status) displayStoreStatus(status);
-        }
-
-        // 4) Disputas expiradas
-        if (typeof checkExpiredDisputes === 'function') {
-            checkExpiredDisputes();
-        }
-
-        // 5) Atualiza todos os pedidos a cada 3 ciclos (~90 s)
-        state.pollingCounter = (state.pollingCounter || 0) + 1;
-        if (state.pollingCounter >= 3) {
-            await updateAllVisibleOrders();
-            state.pollingCounter = 0;
-        }
-
-    } catch (err) {
-        console.error('❌ Erro no polling unificado:', err);
+  try {
+    // 1) Eventos iFood API
+    const events = await makeAuthorizedRequest('/events/v1.0/events:polling', 'GET');
+    if (Array.isArray(events) && events.length) {
+      for (const e of events) {
+        await handleEvent(e);
+      }
+      await makeAuthorizedRequest(
+        '/events/v1.0/events/acknowledgment',
+        'POST',
+        events.map(ev => ({ id: ev.id }))
+      );
     }
+
+    // 2) Disputas (fallback)
+    await pollForNewDisputesOnce();
+
+    // 3) Webhook Netlify
+    try {
+      const res = await fetch('/.netlify/functions/ifood-webhook-events', {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      if (res.ok) {
+        const { eventos } = await res.json();
+        if (eventos?.length) {
+          console.log(`[WEBHOOK] ${eventos.length} eventos recebidos via unifiedPolling`);
+          for (const ev of eventos) {
+            await handleEvent(ev);
+          }
+        }
+      }
+    } catch (err) {
+      console.error('[WEBHOOK] Erro fetch webhook no unifiedPolling:', err);
+    }
+
+    // 4) Status da loja
+    if (window.currentMerchantId) {
+      const status = await fetchStoreStatus(window.currentMerchantId);
+      if (status) displayStoreStatus(status);
+    }
+
+    // 5) Disputas expiradas
+    if (typeof checkExpiredDisputes === 'function') {
+      checkExpiredDisputes();
+    }
+
+    // 6) Atualiza todos os pedidos a cada 3 ciclos (~90 s)
+    state.pollingCounter = (state.pollingCounter || 0) + 1;
+    if (state.pollingCounter >= 3) {
+      await updateAllVisibleOrders();
+      state.pollingCounter = 0;
+    }
+
+  } catch (err) {
+    console.error('❌ Erro no polling unificado:', err);
+  }
 }
 
 function startPolling() {
@@ -2184,7 +2203,8 @@ window.addEventListener('load', () => {
 // ─── INÍCIO DO BLOCO DE WEBHOOK UNIFICADO ───────────────────────
 // Módulo para integração de eventos do webhook com polling único
 const webhookIntegration = (() => {
-  const POLLING_INTERVAL = 5000;  // 5s
+  const POLLING_INTERVAL = CONFIG.pollingInterval;  // agora 30s
+
   let isPolling = false;
   let totalEvents = 0;
   let lastTimestamp = null;
@@ -2216,7 +2236,7 @@ const webhookIntegration = (() => {
     } catch (err) {
       console.error('[WEBHOOK] Erro no polling:', err);
     } finally {
-      if (isPolling) setTimeout(pollWebhookEvents, POLLING_INTERVAL);
+      // sem re-agendamento aqui; vai rodar via unifiedPolling()
     }
   }
 
@@ -2244,7 +2264,6 @@ Intervalo: ${POLLING_INTERVAL}ms
     `);
   }
 
-  // expõe para debug
   window.testarWebhook = () => {
     fetch('/.netlify/functions/ifood-webhook-events')
       .then(r => r.json())
@@ -2260,10 +2279,10 @@ const _origInit = initialize;
 window.initialize = async function() {
   console.log('[APP] Inicializando com webhook unificado...');
   await _origInit();
-  webhookIntegration.start();
-  // opcional: exibe status após 2s
+  // webhookIntegration.start();  // removido, pois agora roda pelo unifiedPolling
   setTimeout(() => webhookIntegration.status(), 2000);
 };
+
 // ─── FIM DO BLOCO DE WEBHOOK UNIFICADO ────────────────────────
 
 // ─── INICIALIZAÇÃO COM WEBHOOK (corrigido) ──────────────────────
