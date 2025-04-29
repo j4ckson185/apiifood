@@ -312,51 +312,63 @@ function saveProcessedIds() {
     localStorage.setItem('processedOrderIds', JSON.stringify([...processedOrderIds]));
 }
 
-// Polling de eventos corrigido para receber pedidos novamente
-// Polling unificado: eventos, disputas, status de loja e atualizações
+// ----------------------------------------------
+// Polling unificado: eventos, disputas, status, pedidos
+// ----------------------------------------------
 async function unifiedPolling() {
     if (!state.isPolling || !state.accessToken) return;
 
-    console.log(`🔄 Polling unificado executado em ${new Date().toISOString()}`);
+    console.log(`🔄 Polling unificado em ${new Date().toISOString()}`);
 
     try {
-        // 1) Poll de eventos
+        // 1) Eventos
         const events = await makeAuthorizedRequest('/events/v1.0/events:polling', 'GET');
         if (Array.isArray(events) && events.length) {
-            console.log('Eventos recebidos:', events);
-            for (const e of events) await handleEvent(e);
-            await makeAuthorizedRequest('/events/v1.0/events/acknowledgment', 'POST', events.map(e => ({ id: e.id })));
+            for (const e of events) {
+                await handleEvent(e);
+            }
+            await makeAuthorizedRequest(
+                '/events/v1.0/events/acknowledgment',
+                'POST',
+                events.map(ev => ({ id: ev.id }))
+            );
         }
 
-        // 2) Poll de disputas (fallback)
+        // 2) Disputas (fallback)
         await pollForNewDisputesOnce();
 
-        // 3) Atualiza status da loja (se já chamou startStatusPolling)
+        // 3) Status da loja (se setado)
         if (window.currentMerchantId) {
             const status = await fetchStoreStatus(window.currentMerchantId);
-            displayStoreStatus(status);
+            if (status) displayStoreStatus(status);
         }
 
-        // 4) Verifica disputas expiradas
-        checkExpiredDisputes();
+        // 4) Disputas expiradas
+        if (typeof checkExpiredDisputes === 'function') {
+            checkExpiredDisputes();
+        }
 
-        // 5) Atualiza pedidos visíveis a cada 3 ciclos
-        state.pollingCounter = (state.pollingCounter||0) + 1;
+        // 5) Atualiza todos os pedidos a cada 3 ciclos (~90 s)
+        state.pollingCounter = (state.pollingCounter || 0) + 1;
         if (state.pollingCounter >= 3) {
             await updateAllVisibleOrders();
             state.pollingCounter = 0;
         }
+
     } catch (err) {
-        console.error('Erro no polling unificado:', err);
+        console.error('❌ Erro no polling unificado:', err);
     }
 }
 
-// Substitui startPolling para usar unifiedPolling a cada 30s
+// Inicia o polling unificado a cada 30 s
 function startPolling() {
     state.isPolling = true;
-    unifiedPolling();                              // primeira chamada imediata
+    unifiedPolling();  // primeira execução imediata
     setInterval(unifiedPolling, CONFIG.pollingInterval);
 }
+
+// Substitua qualquer uso anterior de pollEvents() por:
+window.pollEvents = unifiedPolling;
 
 async function handleEvent(event) {
     try {
@@ -1600,8 +1612,8 @@ async function fetchStoreDetails(merchantId) {
         // Busca os horários de funcionamento
         await fetchOpeningHours(merchantId);
         
-        // ADICIONE ESTA LINHA: Inicia o polling de status da loja
-        startStatusPolling(merchantId);
+    // … ao final de fetchStoreDetails:
+    // startStatusPolling(merchantId);  // agora comentado: faz parte do unifiedPolling
 
                 // ADICIONAR AQUI: Busca as interrupções da loja
         await fetchInterruptions(merchantId);
