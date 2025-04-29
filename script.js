@@ -2286,15 +2286,64 @@ window.testarWebhook = function() {
 // Adicione esta função ao arquivo script.js para corrigir o comportamento dos botões
 // de pedidos para retirada com status READY_TO_PICKUP
 
+// Definição global da função checkForCompletedOrders que está faltando
+window.checkForCompletedOrders = async function() {
+    try {
+        console.log('🔍 Verificando pedidos concluídos...');
+        
+        // Busca todos os pedidos visíveis
+        const orderCards = document.querySelectorAll('.order-card');
+        
+        for (const card of orderCards) {
+            const orderId = card.getAttribute('data-order-id');
+            if (!orderId) continue;
+            
+            // Verifica se o pedido já está marcado como concluído
+            const statusElement = card.querySelector('.order-status');
+            if (statusElement && statusElement.textContent === getStatusText('CONCLUDED')) {
+                continue; // Já está concluído, não precisa verificar
+            }
+            
+            try {
+                // Busca o status atual do pedido
+                const orderDetails = await makeAuthorizedRequest(`/order/v1.0/orders/${orderId}`, 'GET');
+                
+                // Verifica se o status voltou como concluído
+                if (orderDetails.status === 'CONCLUDED' || 
+                    orderDetails.status === 'CONC' || 
+                    orderDetails.status === 'CON') {
+                    
+                    console.log(`🏁 Pedido ${orderId} está concluído no iFood, atualizando interface...`);
+                    
+                    // Atualiza o status no cache
+                    if (ordersCache[orderId]) {
+                        ordersCache[orderId].status = 'CONCLUDED';
+                    }
+                    
+                    // Atualiza a interface
+                    updateOrderStatus(orderId, 'CONCLUDED');
+                    
+                    // Mostra notificação
+                    showToast(`Pedido #${orderId.substring(0, 6)} foi concluído!`, 'success');
+                }
+            } catch (error) {
+                console.error(`Erro ao verificar status do pedido ${orderId}:`, error);
+            }
+        }
+    } catch (error) {
+        console.error('Erro ao verificar pedidos concluídos:', error);
+    }
+};
+
 // Verificar se a função setupCompletedOrdersCheck já existe globalmente
 if (typeof window.setupCompletedOrdersCheck !== 'function') {
     // Se não existir, definimos ela localmente
     window.setupCompletedOrdersCheck = function() {
         // Verificar a cada 2 minutos
-        setInterval(checkForCompletedOrders, 120000);
+        setInterval(window.checkForCompletedOrders, 120000);
         
         // Também verifica na inicialização
-        setTimeout(checkForCompletedOrders, 5000);
+        setTimeout(window.checkForCompletedOrders, 5000);
     };
     
     console.log('✅ Função setupCompletedOrdersCheck definida localmente');
