@@ -360,11 +360,16 @@ async function unifiedPolling() {
     }
 }
 
-// Inicia o polling unificado a cada 30 s
 function startPolling() {
+    if (state.isPolling) {
+        console.log('🛑 Polling já iniciado — abortando nova inicialização.');
+        return;
+    }
     state.isPolling = true;
     unifiedPolling();  // primeira execução imediata
-    setInterval(unifiedPolling, CONFIG.pollingInterval);
+
+    // salva o ID para possível clearInterval no futuro
+    state.pollingIntervalId = setInterval(unifiedPolling, CONFIG.pollingInterval);
 }
 
 // Substitua qualquer uso anterior de pollEvents() por:
