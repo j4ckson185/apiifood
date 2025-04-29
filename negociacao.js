@@ -845,80 +845,102 @@ async function exibirModalNegociacao(dispute) {
             ? 'Selecione uma das opções acima ou aceite/rejeite a solicitação de cancelamento.'
             : 'Você pode aceitar o cancelamento, rejeitá-lo ou oferecer uma alternativa.');
 
-    // Monta o HTML completo do modal
-    modalContainer.innerHTML = `
-        <div class="modal-negociacao-content">
-            <div class="modal-negociacao-header">
-                <div class="modal-negociacao-title">
-                    <i class="fas fa-${disputeIcon}"></i><h2>${disputeTitle}</h2>
-                </div>
-                <span class="modal-negociacao-pedido">Pedido #${orderDisplayId}</span>
-                <button class="modal-negociacao-close" onclick="fecharModalNegociacao()">×</button>
+// Monta o HTML completo do modal (fecha apenas o body)
+modalContainer.innerHTML = `
+    <div class="modal-negociacao-content">
+        <div class="modal-negociacao-header">
+            <div class="modal-negociacao-title">
+                <i class="fas fa-${disputeIcon}"></i><h2>${disputeTitle}</h2>
             </div>
-            <div class="modal-negociacao-body">
-                <div class="dispute-info">
-                    <div class="dispute-row"><span class="dispute-label">Cliente:</span><span class="dispute-value">${customerName}</span></div>
-                    <div class="dispute-row"><span class="dispute-label">Motivo:</span><span class="dispute-value">${reason}</span></div>
-                    ${expiresAt ? `<div class="dispute-row"><span class="dispute-label">Tempo restante:</span><span class="dispute-value dispute-timer">${timeRemaining}</span></div>
-                    <div class="dispute-row"><span class="dispute-label">Ação automática:</span><span class="dispute-value">${timeoutAction==='ACCEPT'?'Aceitar cancelamento':'Rejeitar cancelamento'}</span></div>` : ''}
+            <span class="modal-negociacao-pedido">Pedido #${orderDisplayId}</span>
+            <button class="modal-negociacao-close" onclick="fecharModalNegociacao()">×</button>
+        </div>
+        <div class="modal-negociacao-body">
+            <div class="dispute-info">
+                <div class="dispute-row">
+                    <span class="dispute-label">Cliente:</span>
+                    <span class="dispute-value">${customerName}</span>
                 </div>
-                ${clientResponseHtml}
-                ${photosHtml}
-                ${alternativesHtml}
-                ${otherAlternativesHtml}
-    <div class="dispute-message">
-      <p class="message-text">
-        <i class="fas fa-info-circle"></i>${messageText}
-      </p>
-    </div>
-  </div>
-</div>`;
+                <div class="dispute-row">
+                    <span class="dispute-label">Motivo:</span>
+                    <span class="dispute-value">${reason}</span>
+                </div>
+                ${expiresAt ? `
+                    <div class="dispute-row">
+                        <span class="dispute-label">Tempo restante:</span>
+                        <span class="dispute-value dispute-timer">${timeRemaining}</span>
+                    </div>
+                    <div class="dispute-row">
+                        <span class="dispute-label">Ação automática:</span>
+                        <span class="dispute-value">${
+                            timeoutAction === 'ACCEPT'
+                            ? 'Aceitar cancelamento'
+                            : 'Rejeitar cancelamento'
+                        }</span>
+                    </div>
+                ` : ''}
+            </div>
+            ${clientResponseHtml}
+            ${photosHtml}
+            ${alternativesHtml}
+            ${otherAlternativesHtml}
+            <div class="dispute-message">
+                <p class="message-text">
+                    <i class="fas fa-info-circle"></i>${messageText}
+                </p>
+            </div>
+        </div>
+`; 
 
 // ===== CARREGA AS IMAGENS VIA PROXY =====
 if (dispute.photos && dispute.photos.length > 0) {
-  const container = modalContainer.querySelector('.photos-container');
-  dispute.photos.forEach(photo => {
-    const imgEl = document.createElement('img');
-    imgEl.className = 'negotiation-photo';
-    imgEl.alt = 'Evidência do cliente';
-    imgEl.style.maxWidth = '100%';
-    imgEl.style.margin = '4px';
+    const container = modalContainer.querySelector('.photos-container');
+    dispute.photos.forEach(photo => {
+        const imgEl = document.createElement('img');
+        imgEl.className = 'negotiation-photo';
+        imgEl.alt = 'Evidência do cliente';
+        imgEl.style.maxWidth = '100%';
+        imgEl.style.margin = '4px';
 
-    fetch('/.netlify/functions/ifood-proxy', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        path: `/order/v1.0/orders/${dispute.orderId}/cancellationEvidences/${photo.imageId}`,
-        method: 'GET',
-        headers: { 'Authorization': `Bearer ${state.accessToken}` },
-        isAuth: true
-      })
-    })
-    .then(res => res.blob())
-    .then(blob => {
-      imgEl.src = URL.createObjectURL(blob);
-    })
-    .catch(err => {
-      console.error('Falha ao carregar imagem:', err);
-      imgEl.alt = 'Erro ao carregar evidência';
+        fetch('/.netlify/functions/ifood-proxy', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                path: `/order/v1.0/orders/${dispute.orderId}/cancellationEvidences/${photo.imageId}`,
+                method: 'GET',
+                headers: { 'Authorization': `Bearer ${state.accessToken}` },
+                isAuth: true
+            })
+        })
+        .then(res => res.blob())
+        .then(blob => {
+            imgEl.src = URL.createObjectURL(blob);
+        })
+        .catch(err => {
+            console.error('Falha ao carregar imagem:', err);
+            imgEl.alt = 'Erro ao carregar evidência';
+        });
+
+        container.appendChild(imgEl);
     });
-
-    container.appendChild(imgEl);
-  });
 }
 // ===== FIM DO BLOCO DE IMAGENS =====
 
-// ===== INJEÇÃO DO FOOTER =====
+// ===== INJEÇÃO DO FOOTER (dentro de .modal-negociacao-content) =====
 modalContainer.innerHTML += `
-  <div class="modal-negociacao-footer">
-    <button class="dispute-button reject" onclick="rejeitarDisputa('${dispute.disputeId}')">
-      <i class="fas fa-times"></i> Rejeitar
-    </button>
-    <button class="dispute-button accept" onclick="aceitarDisputa('${dispute.disputeId}')">
-      <i class="fas fa-check"></i> Aceitar
-    </button>
-  </div>
-</div>`;  // fecha .modal-negociacao-content
+    <div class="modal-negociacao-footer">
+        <button class="dispute-button reject" onclick="rejeitarDisputa('${dispute.disputeId}')">
+            <i class="fas fa-times"></i> Rejeitar
+        </button>
+        <button class="dispute-button accept" onclick="aceitarDisputa('${dispute.disputeId}')">
+            <i class="fas fa-check"></i> Aceitar
+        </button>
+    </div>
+</div>`; 
+
+// Agora exibe o modal e inicia o timer normalmente
+modalContainer.style.display = 'flex';
+if (expiresAt) iniciarContadorTempo(expiresAt);
 
     // Exibe o modal
     modalContainer.style.display = 'flex';
