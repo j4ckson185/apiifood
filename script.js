@@ -810,29 +810,93 @@ addChangeForField(orderElement, order);
                 });
             }
             
-            // === Início: exibe cada benefício ou cupom com patrocinador ===
-            if (order.total && order.total.benefits && order.total.benefits > 0) {
-                const p = document.createElement('p');
-                p.innerHTML = `<span>Descontos:</span> <span>-R$ ${order.total.benefits.toFixed(2)}</span>`;
-                totalDetails.appendChild(p);
-            } else if (order.benefits && Array.isArray(order.benefits) && order.benefits.length > 0) {
-                order.benefits.forEach(benefit => {
-                    if (!benefit.value) return;
+// === Início: exibe cada benefício ou cupom com patrocinador ===
+if (order.total && order.total.benefits && order.total.benefits > 0) {
+    const p = document.createElement('p');
+    p.innerHTML = `<span>Descontos:</span> <span>-R$ ${order.total.benefits.toFixed(2)}</span>`;
+    totalDetails.appendChild(p);
+} else if (order.benefits && Array.isArray(order.benefits) && order.benefits.length > 0) {
+    // Adiciona título da seção de cupons
+    const benefitsTitle = document.createElement('div');
+    benefitsTitle.className = 'benefits-title';
+    benefitsTitle.innerHTML = '<i class="fas fa-ticket-alt"></i> Cupons de Desconto Aplicados:';
+    totalDetails.appendChild(benefitsTitle);
+    
+    // Cria container para cupons
+    const benefitsContainer = document.createElement('div');
+    benefitsContainer.className = 'benefits-container';
+    
+    order.benefits.forEach(benefit => {
+        if (!benefit.value) return;
 
-                    const desc = benefit.description || 'Desconto';
-                    const valueBRL = (benefit.value / 100).toFixed(2);
-                    const sponsor = benefit.sponsorshipValues?.name || 'Loja';
-                    const sponsorValue = ((benefit.sponsorshipValues?.value ?? benefit.value) / 100).toFixed(2);
-
-                    const p = document.createElement('p');
-                    p.innerHTML = `
-                        <span>${desc}:</span>
-                        <span>-R$ ${valueBRL}</span>
-                        <span class="benefit-sponsor">(patrocinado por ${sponsor}: R$ ${sponsorValue})</span>
-                    `;
-                    totalDetails.appendChild(p);
-                });
-            }
+        // Traduz o tipo de alvo do cupom
+        const targetMap = {
+            'CART': 'Desconto no Carrinho',
+            'DELIVERY_FEE': 'Desconto na Taxa de Entrega',
+            'ITEM': 'Desconto no Item'
+        };
+        
+        // Formata o valor do benefício (convertendo de centavos para reais se necessário)
+        const benefitValue = benefit.value > 100 ? benefit.value / 100 : benefit.value;
+        
+        // Cria container para cada cupom
+        const benefitItem = document.createElement('div');
+        benefitItem.className = 'benefit-item';
+        
+        // Cabeçalho do cupom
+        const benefitHeader = document.createElement('div');
+        benefitHeader.className = 'benefit-header';
+        benefitHeader.innerHTML = `
+            <span class="benefit-type">${targetMap[benefit.target] || 'Desconto'}</span>
+            <span class="benefit-value">-R$ ${benefitValue.toFixed(2)}</span>
+        `;
+        
+        // Adiciona nome da campanha se disponível
+        if (benefit.campaign && benefit.campaign.name) {
+            benefitHeader.innerHTML += `
+                <span class="benefit-campaign">${benefit.campaign.name}</span>
+            `;
+        }
+        
+        benefitItem.appendChild(benefitHeader);
+        
+        // Adiciona detalhes dos patrocinadores
+        if (benefit.sponsorshipValues && Array.isArray(benefit.sponsorshipValues)) {
+            const sponsorsContainer = document.createElement('div');
+            sponsorsContainer.className = 'benefit-sponsors';
+            
+            benefit.sponsorshipValues.forEach(sponsor => {
+                if (!sponsor.value) return;
+                
+                // Traduz o nome do patrocinador
+                const sponsorNameMap = {
+                    'IFOOD': 'iFood',
+                    'MERCHANT': 'Loja',
+                    'EXTERNAL': 'Indústria'
+                };
+                
+                const sponsorName = sponsorNameMap[sponsor.name] || sponsor.name;
+                const sponsorValue = sponsor.value > 100 ? sponsor.value / 100 : sponsor.value;
+                
+                const sponsorItem = document.createElement('div');
+                sponsorItem.className = 'sponsor-item';
+                sponsorItem.innerHTML = `
+                    <span class="sponsor-name">${sponsorName}</span>
+                    <span class="sponsor-value">R$ ${sponsorValue.toFixed(2)}</span>
+                    <span class="sponsor-desc">${sponsor.description || ''}</span>
+                `;
+                
+                sponsorsContainer.appendChild(sponsorItem);
+            });
+            
+            benefitItem.appendChild(sponsorsContainer);
+        }
+        
+        benefitsContainer.appendChild(benefitItem);
+    });
+    
+    totalDetails.appendChild(benefitsContainer);
+}
             
             const totalElement = orderElement.querySelector('.order-total');
             totalElement.appendChild(totalDetails);
