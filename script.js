@@ -2261,7 +2261,7 @@ window.initialize = async function() {
 };
 // ─── FIM DO BLOCO DE WEBHOOK UNIFICADO ────────────────────────
 
-// Modifica a função de inicialização para incluir webhook
+// ─── INICIALIZAÇÃO COM WEBHOOK (corrigido) ──────────────────────
 const originalInitialize = initialize;
 window.initialize = async function() {
   try {
@@ -2271,7 +2271,7 @@ window.initialize = async function() {
     await originalInitialize();
     
     // Inicia polling de eventos do webhook
-    webhookIntegration.startPolling();
+    webhookIntegration.start();           // <-- método correto
     
     console.log('[WEBHOOK-CLIENT] Webhook integrado com sucesso!');
     
