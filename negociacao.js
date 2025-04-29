@@ -609,29 +609,27 @@ async function proporAlternativa(disputeId, alternativeId) {
         
         console.log('📦 Alternativa encontrada:', alternativa);
         
-// Preparação do payload para REFUND após entrega (AFTER_DELIVERY)
-// Correção: monta payload conforme spec do endpoint /alternative :contentReference[oaicite:2]{index=2}
-    let payload;
-    if (alternativa.type === "REFUND" || alternativa.type === "BENEFIT") {
-        // Deve enviar metadata.amount, não metadata.maxAmount :contentReference[oaicite:3]{index=3}
-        payload = {
-            type: alternativa.type,
-            metadata: {
-                amount: {
-                    value: alternativa.metadata.maxAmount.value,    // ex: "2400"
-                    currency: alternativa.metadata.maxAmount.currency // ex: "BRL"
-                }
+// ✔️ DEPOIS: busca maxAmount em metadata ou direto na alternative
+let payload;
+if (alternativa.type === "REFUND" || alternativa.type === "BENEFIT") {
+    // tenta usar metadata.maxAmount, senão cai em alternativa.maxAmount
+    const maxAmt = alternativa.metadata?.maxAmount ?? alternativa.maxAmount;
+    payload = {
+        type: alternativa.type,
+        metadata: {
+            amount: {
+                value: maxAmt.value,      // ex: "800"
+                currency: maxAmt.currency // ex: "BRL"
             }
-        };
-    } else {
-        // Mantém fluxo de tempo adicional inalterado :contentReference[oaicite:4]{index=4}
-        payload = {
-            type: alternativa.type,
-            metadata: alternativa.metadata
-        };
-    }
-    
-    console.log("📦 Payload corrigido a ser enviado:", payload);
+        }
+    };
+} else {
+    payload = {
+        type: alternativa.type,
+        metadata: alternativa.metadata
+    };
+}
+console.log("📦 Payload final a ser enviado:", payload);
     
     const response = await makeAuthorizedRequest(
       `/order/v1.0/disputes/${disputeId}/alternatives/${alternativeId}`,
@@ -759,22 +757,15 @@ async function exibirModalNegociacao(dispute) {
             break;
     }
 
-    // Prepara galeria de fotos de evidência
+    // Prepara galeria de fotos de evidência (container vazio)
     let photosHtml = '';
     if (dispute.photos && dispute.photos.length > 0) {
-        photosHtml = `<div class="dispute-photos">
-            <h3>Evidências do cliente (${dispute.photos.length})</h3>
-            <div class="photos-container">`;
-        dispute.photos.forEach(photo => {
-            photosHtml += `
-                <div class="photo-item">
-                    <img src="${photo.url}" alt="Evidência do cliente" onclick="abrirImagemAmpliada('${photo.url}')">
-                    <div class="photo-info">${photo.contentType || 'Imagem'}</div>
-                </div>`;
-        });
-        photosHtml += `
+        photosHtml = `
+            <div class="dispute-photos">
+                <h3>Evidências do cliente (${dispute.photos.length})</h3>
+                <div class="photos-container"></div>
             </div>
-        </div>`;
+        `;
     }
 
     // Extrai alternativas
@@ -877,6 +868,40 @@ async function exibirModalNegociacao(dispute) {
                 ${otherAlternativesHtml}
                 <div class="dispute-message"><p class="message-text"><i class="fas fa-info-circle"></i>${messageText}</p></div>
             </div>
+                // ===== CARREGA AS IMAGENS VIA PROXY =====
+    if (dispute.photos && dispute.photos.length > 0) {
+        const container = modalContainer.querySelector('.photos-container');
+        dispute.photos.forEach(photo => {
+            const imgEl = document.createElement('img');
+            imgEl.className = 'negotiation-photo';
+            imgEl.alt = 'Evidência do cliente';
+            imgEl.style.maxWidth = '100%';
+            imgEl.style.margin = '4px';
+
+            fetch('/.netlify/functions/ifood-proxy', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    path: `/order/v1.0/orders/${dispute.orderId}/cancellationEvidences/${photo.imageId}`,
+                    method: 'GET',
+                    headers: { 'Authorization': `Bearer ${state.accessToken}` },
+                    isAuth: true
+                })
+            })
+            .then(res => res.blob())
+            .then(blob => {
+                imgEl.src = URL.createObjectURL(blob);
+            })
+            .catch(err => {
+                console.error('Falha ao carregar imagem:', err);
+                imgEl.alt = 'Erro ao carregar evidência';
+            });
+
+            container.appendChild(imgEl);
+        });
+    }
+    // ===== FIM DO BLOCO DE IMAGENS =====
+
             <div class="modal-negociacao-footer">
                 <button class="dispute-button reject" onclick="rejeitarDisputa('${dispute.disputeId}')"><i class="fas fa-times"></i> Rejeitar</button>
                 <button class="dispute-button accept" onclick="aceitarDisputa('${dispute.disputeId}')"><i class="fas fa-check"></i> Aceitar</button>
