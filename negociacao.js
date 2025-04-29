@@ -40,7 +40,11 @@ function estenderHandlerEventos() {
     window.handleEvent = async function(event) {
         try {
             // Verifica se é um evento de disputa (HANDSHAKE_DISPUTE)
-            if (event.code === 'HANDSHAKE_DISPUTE' || event.fullCode === 'HANDSHAKE_DISPUTE') {
+            if (
+                event.code === 'HANDSHAKE_DISPUTE' ||
+                event.fullCode === 'HANDSHAKE_DISPUTE' ||
+                event.fullcode === 'HANDSHAKE_DISPUTE'
+            ) {
                 console.log('🤝 Evento de disputa (HANDSHAKE_DISPUTE) recebido:', event);
                 
                 // Processa o evento de disputa
