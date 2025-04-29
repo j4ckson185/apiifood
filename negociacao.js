@@ -871,8 +871,8 @@ async function exibirModalNegociacao(dispute) {
         <i class="fas fa-info-circle"></i>${messageText}
       </p>
     </div>
-  </div>       // FECHA .modal-negociacao-body
-</div>`;       // FECHA .modal-negociacao-content E TEMPLATE STRING
+  </div>
+</div>`;
 
 // ===== CARREGA AS IMAGENS VIA PROXY =====
 if (dispute.photos && dispute.photos.length > 0) {
