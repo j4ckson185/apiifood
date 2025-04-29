@@ -896,7 +896,17 @@ modalContainer.innerHTML = `
                 </p>
             </div>
         </div>
-`; 
+        <div class="modal-negociacao-footer">
+            <button class="dispute-button reject"
+                    onclick="rejeitarDisputa('${dispute.disputeId}')">
+                <i class="fas fa-times"></i> Rejeitar
+            </button>
+            <button class="dispute-button accept"
+                    onclick="aceitarDisputa('${dispute.disputeId}')">
+                <i class="fas fa-check"></i> Aceitar
+            </button>
+        </div>
+    </div>`;
 
 // ===== CARREGA AS IMAGENS VIA PROXY =====
 if (dispute.photos && dispute.photos.length > 0) {
@@ -931,18 +941,6 @@ if (dispute.photos && dispute.photos.length > 0) {
     });
 }
 // ===== FIM DO BLOCO DE IMAGENS =====
-
-// ===== INJEÇÃO DO FOOTER (dentro de .modal-negociacao-content) =====
-modalContainer.innerHTML += `
-    <div class="modal-negociacao-footer">
-        <button class="dispute-button reject" onclick="rejeitarDisputa('${dispute.disputeId}')">
-            <i class="fas fa-times"></i> Rejeitar
-        </button>
-        <button class="dispute-button accept" onclick="aceitarDisputa('${dispute.disputeId}')">
-            <i class="fas fa-check"></i> Aceitar
-        </button>
-    </div>
-</div>`; 
 
 // Agora exibe o modal e inicia o timer normalmente
 modalContainer.style.display = 'flex';
