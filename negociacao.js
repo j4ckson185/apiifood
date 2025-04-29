@@ -912,11 +912,13 @@ modalContainer.innerHTML = `
 if (dispute.photos && dispute.photos.length > 0) {
     const container = modalContainer.querySelector('.photos-container');
     dispute.photos.forEach(photo => {
-        const imgEl = document.createElement('img');
-        imgEl.className = 'negotiation-photo';
-        imgEl.alt = 'Evidência do cliente';
-        imgEl.style.maxWidth = '100%';
-        imgEl.style.margin = '4px';
+const imgEl = document.createElement('img');
+imgEl.className = 'negotiation-photo';
+imgEl.alt = 'Evidência do cliente';
+imgEl.style.width = '80px';
+imgEl.style.height = '80px';
+imgEl.style.objectFit = 'cover';
+imgEl.style.margin = '4px';
 
         fetch('/.netlify/functions/ifood-proxy', {
             method: 'POST',
