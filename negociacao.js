@@ -609,16 +609,18 @@ async function proporAlternativa(disputeId, alternativeId) {
         
         console.log('📦 Alternativa encontrada:', alternativa);
         
-        // Prepara o payload completo com base no exemplo da API
-        let payload = {
-            type: alternativa.type,
-            metadata: alternativa.metadata || {}
-        };
-        
-        // Garante que temos o campo metadata.maxAmount se for um REFUND
-        if (alternativa.type === "REFUND" && !payload.metadata.maxAmount && alternativa.maxAmount) {
-            payload.metadata.maxAmount = alternativa.maxAmount;
+// Preparação do payload para REFUND após entrega (AFTER_DELIVERY)
+let payload = {
+    type: alternativa.type,
+    handshakeType: dispute.type,                        // ex: 'AFTER_DELIVERY'
+    handshakeGroup: dispute.metadata.handshakeGroup,     // ex: 'CUSTOMER_ORDER_SUPPORT'
+    metadata: {
+        maxAmount: {
+            value: alternativa.metadata.maxAmount.value,
+            currency: alternativa.metadata.maxAmount.currency
         }
+    }
+};
         
         console.log("📦 Payload a ser enviado:", payload);
         
@@ -956,22 +958,17 @@ function exibirModalNegociacao(dispute) {
                 ${clientResponseHtml}
 
                 
-${dispute.metadata && dispute.metadata.metadata && dispute.metadata.metadata.evidences && dispute.metadata.metadata.evidences.length > 0 ? `
+${dispute.photos && dispute.photos.length > 0 ? `
 <div class="dispute-photos">
-    <h3>Evidências do cliente (${dispute.metadata.metadata.evidences.length})</h3>
+    <h3>Evidências do cliente (${dispute.photos.length})</h3>
     <div class="photos-container">
-        ${dispute.metadata.metadata.evidences.map(evidence => {
-            // Substitui placeholders na URL se necessário
-            let imageUrl = evidence.url;
-            if (imageUrl.includes('{orderId}') && dispute.orderId) {
-                imageUrl = imageUrl.replace('{orderId}', dispute.orderId);
-            }
-            return `
+        ${dispute.photos.map(photo => `
             <div class="photo-item">
-                <img src="${imageUrl}" alt="Evidência do cliente" onclick="abrirImagemAmpliada('${imageUrl}')">
-                <div class="photo-info">${evidence.contentType || 'Imagem'}</div>
-            </div>`;
-        }).join('')}
+                <img src="${photo.url}" alt="Evidência do cliente"
+                     onclick="abrirImagemAmpliada('${photo.url}')">
+                <div class="photo-info">${photo.contentType || 'Imagem'}</div>
+            </div>
+        `).join('')}
     </div>
 </div>
 ` : ''}
