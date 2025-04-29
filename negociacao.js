@@ -866,47 +866,59 @@ async function exibirModalNegociacao(dispute) {
                 ${photosHtml}
                 ${alternativesHtml}
                 ${otherAlternativesHtml}
-                <div class="dispute-message"><p class="message-text"><i class="fas fa-info-circle"></i>${messageText}</p></div>
-            </div>
-                // ===== CARREGA AS IMAGENS VIA PROXY =====
-    if (dispute.photos && dispute.photos.length > 0) {
-        const container = modalContainer.querySelector('.photos-container');
-        dispute.photos.forEach(photo => {
-            const imgEl = document.createElement('img');
-            imgEl.className = 'negotiation-photo';
-            imgEl.alt = 'Evidência do cliente';
-            imgEl.style.maxWidth = '100%';
-            imgEl.style.margin = '4px';
+    <div class="dispute-message">
+      <p class="message-text">
+        <i class="fas fa-info-circle"></i>${messageText}
+      </p>
+    </div>
+  </div>       // FECHA .modal-negociacao-body
+</div>`;       // FECHA .modal-negociacao-content E TEMPLATE STRING
 
-            fetch('/.netlify/functions/ifood-proxy', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    path: `/order/v1.0/orders/${dispute.orderId}/cancellationEvidences/${photo.imageId}`,
-                    method: 'GET',
-                    headers: { 'Authorization': `Bearer ${state.accessToken}` },
-                    isAuth: true
-                })
-            })
-            .then(res => res.blob())
-            .then(blob => {
-                imgEl.src = URL.createObjectURL(blob);
-            })
-            .catch(err => {
-                console.error('Falha ao carregar imagem:', err);
-                imgEl.alt = 'Erro ao carregar evidência';
-            });
+// ===== CARREGA AS IMAGENS VIA PROXY =====
+if (dispute.photos && dispute.photos.length > 0) {
+  const container = modalContainer.querySelector('.photos-container');
+  dispute.photos.forEach(photo => {
+    const imgEl = document.createElement('img');
+    imgEl.className = 'negotiation-photo';
+    imgEl.alt = 'Evidência do cliente';
+    imgEl.style.maxWidth = '100%';
+    imgEl.style.margin = '4px';
 
-            container.appendChild(imgEl);
-        });
-    }
-    // ===== FIM DO BLOCO DE IMAGENS =====
+    fetch('/.netlify/functions/ifood-proxy', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        path: `/order/v1.0/orders/${dispute.orderId}/cancellationEvidences/${photo.imageId}`,
+        method: 'GET',
+        headers: { 'Authorization': `Bearer ${state.accessToken}` },
+        isAuth: true
+      })
+    })
+    .then(res => res.blob())
+    .then(blob => {
+      imgEl.src = URL.createObjectURL(blob);
+    })
+    .catch(err => {
+      console.error('Falha ao carregar imagem:', err);
+      imgEl.alt = 'Erro ao carregar evidência';
+    });
 
-            <div class="modal-negociacao-footer">
-                <button class="dispute-button reject" onclick="rejeitarDisputa('${dispute.disputeId}')"><i class="fas fa-times"></i> Rejeitar</button>
-                <button class="dispute-button accept" onclick="aceitarDisputa('${dispute.disputeId}')"><i class="fas fa-check"></i> Aceitar</button>
-            </div>
-        </div>`;
+    container.appendChild(imgEl);
+  });
+}
+// ===== FIM DO BLOCO DE IMAGENS =====
+
+// ===== INJEÇÃO DO FOOTER =====
+modalContainer.innerHTML += `
+  <div class="modal-negociacao-footer">
+    <button class="dispute-button reject" onclick="rejeitarDisputa('${dispute.disputeId}')">
+      <i class="fas fa-times"></i> Rejeitar
+    </button>
+    <button class="dispute-button accept" onclick="aceitarDisputa('${dispute.disputeId}')">
+      <i class="fas fa-check"></i> Aceitar
+    </button>
+  </div>
+</div>`;  // fecha .modal-negociacao-content
 
     // Exibe o modal
     modalContainer.style.display = 'flex';
