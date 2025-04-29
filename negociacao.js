@@ -809,15 +809,21 @@ async function exibirModalNegociacao(dispute) {
             <div class="alternatives-container">`;
         nonTimeAlts.forEach(alt => {
             let altContent = '';
-            if (alt.type === 'REFUND') {
-                const value = alt.metadata?.maxAmount ? `R$ ${(parseInt(alt.metadata.maxAmount.value)/100).toFixed(2)}` : 'Valor não especificado';
-                altContent = `<i class="fas fa-money-bill-wave"></i><div><h4>Proposta de Reembolso</h4><p>Valor: ${value}</p></div>`;
-            } else if (alt.type === 'BENEFIT') {
-                const value = alt.metadata?.maxAmount ? `R$ ${(parseInt(alt.metadata.maxAmount.value)/100).toFixed(2)}` : 'Valor não especificado';
-                altContent = `<i class="fas fa-gift"></i><div><h4>Oferecer Benefício</h4><p>Valor: ${value}</p></div>`;
-            } else {
-                altContent = `<i class="fas fa-exclamation-circle"></i><div><h4>${alt.type}</h4><p>${alt.description||''}</p></div>`;
-            }
+   if (alt.type === 'REFUND') {
+    const maxAmt = alt.metadata?.maxAmount ?? alt.maxAmount;
+    const value = maxAmt
+        ? `R$ ${(parseInt(maxAmt.value, 10) / 100).toFixed(2)}`
+        : 'Valor não especificado';
+    altContent = `<i class="fas fa-money-bill-wave"></i><div><h4>Proposta de Reembolso</h4><p>Valor: ${value}</p></div>`;
+} else if (alt.type === 'BENEFIT') {
+    const maxAmt = alt.metadata?.maxAmount ?? alt.maxAmount;
+    const value = maxAmt
+        ? `R$ ${(parseInt(maxAmt.value, 10) / 100).toFixed(2)}`
+        : 'Valor não especificado';
+    altContent = `<i class="fas fa-gift"></i><div><h4>Oferecer Benefício</h4><p>Valor: ${value}</p></div>`;
+} else {
+    altContent = `<i class="fas fa-exclamation-circle"></i><div><h4>${alt.type}</h4><p>${alt.description || ''}</p></div>`;
+}
             otherAlternativesHtml += `
                 <div class="alternative-option">
                     <div class="alternative-card">${altContent}</div>
