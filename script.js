@@ -2286,6 +2286,20 @@ window.testarWebhook = function() {
 // Adicione esta função ao arquivo script.js para corrigir o comportamento dos botões
 // de pedidos para retirada com status READY_TO_PICKUP
 
+// Verificar se a função setupCompletedOrdersCheck já existe globalmente
+if (typeof window.setupCompletedOrdersCheck !== 'function') {
+    // Se não existir, definimos ela localmente
+    window.setupCompletedOrdersCheck = function() {
+        // Verificar a cada 2 minutos
+        setInterval(checkForCompletedOrders, 120000);
+        
+        // Também verifica na inicialização
+        setTimeout(checkForCompletedOrders, 5000);
+    };
+    
+    console.log('✅ Função setupCompletedOrdersCheck definida localmente');
+}
+
 // Sobrescreve a função updateOrderStatus para tratar pedidos para retirada
 const originalUpdateOrderStatus = window.updateOrderStatus;
 window.updateOrderStatus = function(orderId, status) {
