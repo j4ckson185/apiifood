@@ -2176,112 +2176,90 @@ window.addEventListener('load', () => {
     }
 });
 
-// Módulo para integração do webhook (adicionado ao final do script.js)
+// ─── INÍCIO DO BLOCO DE WEBHOOK UNIFICADO ───────────────────────
+// Módulo para integração de eventos do webhook com polling único
 const webhookIntegration = (() => {
-  // Intervalo em ms para verificar eventos do webhook (a cada 5 segundos)
-  const POLLING_INTERVAL = 5000;
+  const POLLING_INTERVAL = 5000;  // 5s
   let isPolling = false;
-  let lastPollTimestamp = null;
-  let eventosTotaisRecebidos = 0;
-  
-  // Função para buscar eventos do webhook
+  let totalEvents = 0;
+  let lastTimestamp = null;
+
   async function pollWebhookEvents() {
     if (!isPolling || !state.accessToken) return;
-    
+    lastTimestamp = new Date().toISOString();
+    console.log(`[WEBHOOK] Polling em ${lastTimestamp}`);
     try {
-      const now = new Date();
-      lastPollTimestamp = now.toISOString();
-      console.log(`[WEBHOOK-CLIENT][${lastPollTimestamp}] Buscando eventos recebidos via webhook...`);
-      
-      const response = await fetch('/.netlify/functions/ifood-webhook-events', {
+      const res = await fetch('/.netlify/functions/ifood-webhook-events', {
         method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        }
+        headers: { 'Content-Type': 'application/json' }
       });
-      
-      if (!response.ok) {
-        throw new Error(`Erro ao buscar eventos: ${response.status}`);
-      }
-      
-      const data = await response.json();
-      
-      if (data.eventos && data.eventos.length > 0) {
-        console.log(`[WEBHOOK-CLIENT] Recebidos ${data.eventos.length} eventos via webhook`);
-        eventosTotaisRecebidos += data.eventos.length;
-        
-        // Log de resumo dos eventos recebidos
-        data.eventos.forEach((evento, index) => {
-          console.log(`[WEBHOOK-CLIENT] Evento ${index+1}/${data.eventos.length}: ID=${evento.id}, Code=${evento.code}, OrderId=${evento.orderId}`);
-        });
-        
-        // Processa cada evento usando o handler existente
-        for (const evento of data.eventos) {
-          console.log(`[WEBHOOK-CLIENT] Processando evento: ${evento.code} para pedido ${evento.orderId}`);
+      if (!res.ok) throw new Error(res.statusText);
+      const { eventos } = await res.json();
+      if (eventos?.length) {
+        console.log(`[WEBHOOK] ${eventos.length} eventos recebidos`, eventos);
+        totalEvents += eventos.length;
+        for (const ev of eventos) {
           try {
-            await handleEvent(evento);
-            console.log(`[WEBHOOK-CLIENT] Evento ${evento.id} processado com sucesso`);
-          } catch (handlerError) {
-            console.error(`[WEBHOOK-CLIENT] Erro ao processar evento ${evento.id}:`, handlerError);
+            await handleEvent(ev);
+            console.log(`[WEBHOOK] Evento ${ev.id} processado`);
+          } catch(err) {
+            console.error(`[WEBHOOK] Falha em ${ev.id}:`, err);
           }
         }
-        
-        // Exibe uma notificação
-        showToast(`${data.eventos.length} eventos recebidos via webhook`, 'info');
-      } else {
-        console.log('[WEBHOOK-CLIENT] Nenhum evento recebido nesta verificação');
+        showToast(`${eventos.length} eventos via webhook`, 'info');
       }
-    } catch (error) {
-      console.error('[WEBHOOK-CLIENT] Erro ao buscar eventos do webhook:', error);
+    } catch (err) {
+      console.error('[WEBHOOK] Erro no polling:', err);
     } finally {
-      // Agenda próxima verificação
-      if (isPolling) {
-        setTimeout(pollWebhookEvents, POLLING_INTERVAL);
-      }
+      if (isPolling) setTimeout(pollWebhookEvents, POLLING_INTERVAL);
     }
   }
-  
-  // Inicia o polling de eventos do webhook
-  function startWebhookPolling() {
+
+  function start() {
     if (!isPolling) {
       isPolling = true;
-      eventosTotaisRecebidos = 0;
-      console.log('[WEBHOOK-CLIENT] Iniciando polling de eventos do webhook...');
+      totalEvents = 0;
+      console.log('[WEBHOOK] Iniciando polling único');
       pollWebhookEvents();
     }
   }
-  
-  // Para o polling de eventos do webhook
-  function stopWebhookPolling() {
+
+  function stop() {
     isPolling = false;
-    console.log(`[WEBHOOK-CLIENT] Polling de eventos do webhook parado. Total de eventos recebidos: ${eventosTotaisRecebidos}`);
+    console.log(`[WEBHOOK] Polling parado. Total eventos: ${totalEvents}`);
   }
-  
-  // Exibe status do webhook
-  function logStatus() {
-    const statusAtivo = isPolling ? 'ATIVO' : 'INATIVO';
-    const ultimaVerificacao = lastPollTimestamp ? lastPollTimestamp : 'Nunca';
+
+  function status() {
     console.log(`
-    =============================================
-    [WEBHOOK-CLIENT] STATUS DO WEBHOOK
-    =============================================
-    Status: ${statusAtivo}
-    Última verificação: ${ultimaVerificacao}
-    Total de eventos recebidos: ${eventosTotaisRecebidos}
-    Intervalo de polling: ${POLLING_INTERVAL}ms
-    =============================================
+[WEBHOOK] STATUS
+Polling: ${isPolling}
+Última execução: ${lastTimestamp}
+Total de eventos: ${totalEvents}
+Intervalo: ${POLLING_INTERVAL}ms
     `);
   }
-  
-  // Expõe função de status no escopo global para debug
-  window.webhookStatus = logStatus;
-  
-  return {
-    startPolling: startWebhookPolling,
-    stopPolling: stopWebhookPolling,
-    status: logStatus
+
+  // expõe para debug
+  window.testarWebhook = () => {
+    fetch('/.netlify/functions/ifood-webhook-events')
+      .then(r => r.json())
+      .then(() => showToast('Webhook OK', 'success'))
+      .catch(() => showToast('Erro no webhook', 'error'));
   };
+
+  return { start, stop, status };
 })();
+
+// ─── INTEGRAÇÃO NA INICIALIZAÇÃO DA APP ────────────────────────
+const _origInit = initialize;
+window.initialize = async function() {
+  console.log('[APP] Inicializando com webhook unificado...');
+  await _origInit();
+  webhookIntegration.start();
+  // opcional: exibe status após 2s
+  setTimeout(() => webhookIntegration.status(), 2000);
+};
+// ─── FIM DO BLOCO DE WEBHOOK UNIFICADO ────────────────────────
 
 // Modifica a função de inicialização para incluir webhook
 const originalInitialize = initialize;
