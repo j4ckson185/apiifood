@@ -106,22 +106,13 @@ function displayStoreStatus(status) {
     }
 }
 
-// Função para iniciar polling de status
+// Agora o status da loja é atualizado pelo polling unificado
 function startStatusPolling(merchantId) {
-    // Para qualquer polling anterior se existir
-    stopStatusPolling();
-    
-    // Busca o status imediatamente
-    fetchStoreStatus(merchantId).then(status => {
-        displayStoreStatus(status);
-    });
-    
-    // Configura o polling a cada 30 segundos
-    statusPollingInterval = setInterval(() => {
-        fetchStoreStatus(merchantId).then(status => {
-            displayStoreStatus(status);
-        });
-    }, 30000); // 30 segundos
+    // Armazena merchantId para uso no unifiedPolling
+    window.currentMerchantId = merchantId;
+}
+function stopStatusPolling() {
+    // não faz nada, gerenciado pelo polling unificado
 }
 
 // Função para parar o polling
