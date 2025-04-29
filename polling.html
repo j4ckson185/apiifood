@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Monitor de Polling</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background-color: #f0f2f5;
+        }
+        
+        .monitor-container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .polling-card {
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            margin-bottom: 15px;
+            background: #f8f9fa;
+        }
+        
+        .polling-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .polling-title {
+            font-size: 18px;
+            font-weight: bold;
+            color: #333;
+        }
+        
+        .polling-status {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 14px;
+            font-weight: bold;
+        }
+        
+        .status-active {
+            background-color: #28a745;
+            color: white;
+        }
+        
+        .status-inactive {
+            background-color: #dc3545;
+            color: white;
+        }
+        
+        .polling-info {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 10px;
+        }
+        
+        .info-item {
+            padding: 10px;
+            background: white;
+            border-radius: 4px;
+            border: 1px solid #e9ecef;
+        }
+        
+        .info-label {
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 5px;
+        }
+        
+        .info-value {
+            font-size: 16px;
+            font-weight: bold;
+            color: #333;
+        }
+        
+        .time-remaining {
+            color: #0066cc;
+        }
+        
+        .refresh-time {
+            font-size: 12px;
+            color: #666;
+            text-align: right;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="monitor-container">
+        <h1>Monitor de Polling</h1>
+        
+        <!-- Polling Principal -->
+        <div class="polling-card" id="main-polling">
+            <div class="polling-header">
+                <div class="polling-title">Polling Principal (30s)</div>
+                <div class="polling-status" id="main-status">Verificando...</div>
+            </div>
+            <div class="polling-info">
+                <div class="info-item">
+                    <div class="info-label">Última Execução</div>
+                    <div class="info-value" id="main-last-time">-</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">Próxima Execução</div>
+                    <div class="info-value time-remaining" id="main-next-time">-</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">Contagem</div>
+                    <div class="info-value" id="main-count">0</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">Intervalo Real</div>
+                    <div class="info-value" id="main-interval">-</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Polling do Webhook -->
+        <div class="polling-card" id="webhook-polling">
+            <div class="polling-header">
+                <div class="polling-title">Polling Webhook (5s)</div>
+                <div class="polling-status" id="webhook-status">Verificando...</div>
+            </div>
+            <div class="polling-info">
+                <div class="info-item">
+                    <div class="info-label">Última Execução</div>
+                    <div class="info-value" id="webhook-last-time">-</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">Próxima Execução</div>
+                    <div class="info-value time-remaining" id="webhook-next-time">-</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">Contagem</div>
+                    <div class="info-value" id="webhook-count">0</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">Intervalo Real</div>
+                    <div class="info-value" id="webhook-interval">-</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="refresh-time" id="refresh-time">
+            Última atualização: -
+        </div>
+    </div>
+
+    <script>
+        // Estado para monitoramento
+        const pollingState = {
+            main: {
+                lastTime: null,
+                nextTime: null,
+                count: 0,
+                lastInterval: null
+            },
+            webhook: {
+                lastTime: null,
+                nextTime: null,
+                count: 0,
+                lastInterval: null
+            }
+        };
+
+        // Função para formatar tempo
+        function formatTime(date) {
+            return date ? date.toLocaleTimeString('pt-BR', { 
+                hour: '2-digit', 
+                minute: '2-digit', 
+                second: '2-digit',
+                fractionalSecondDigits: 3 
+            }) : '-';
+        }
+
+        // Função para calcular tempo restante
+        function getTimeRemaining(targetTime) {
+            if (!targetTime) return '-';
+            const now = new Date();
+            const diff = targetTime - now;
+            if (diff <= 0) return 'Executando...';
+            return `${(diff / 1000).toFixed(1)}s`;
+        }
+
+        // Função para atualizar a interface
+        function updateUI() {
+            const now = new Date();
+
+            // Atualiza polling principal
+            document.getElementById('main-last-time').textContent = formatTime(pollingState.main.lastTime);
+            document.getElementById('main-next-time').textContent = pollingState.main.nextTime ? getTimeRemaining(pollingState.main.nextTime) : '-';
+            document.getElementById('main-count').textContent = pollingState.main.count;
+            document.getElementById('main-interval').textContent = pollingState.main.lastInterval ? `${pollingState.main.lastInterval.toFixed(1)}s` : '-';
+            document.getElementById('main-status').textContent = pollingState.main.lastTime ? 'Ativo' : 'Inativo';
+            document.getElementById('main-status').className = `polling-status ${pollingState.main.lastTime ? 'status-active' : 'status-inactive'}`;
+
+            // Atualiza polling webhook
+            document.getElementById('webhook-last-time').textContent = formatTime(pollingState.webhook.lastTime);
+            document.getElementById('webhook-next-time').textContent = pollingState.webhook.nextTime ? getTimeRemaining(pollingState.webhook.nextTime) : '-';
+            document.getElementById('webhook-count').textContent = pollingState.webhook.count;
+            document.getElementById('webhook-interval').textContent = pollingState.webhook.lastInterval ? `${pollingState.webhook.lastInterval.toFixed(1)}s` : '-';
+            document.getElementById('webhook-status').textContent = pollingState.webhook.lastTime ? 'Ativo' : 'Inativo';
+            document.getElementById('webhook-status').className = `polling-status ${pollingState.webhook.lastTime ? 'status-active' : 'status-inactive'}`;
+
+            // Atualiza horário de refresh
+            document.getElementById('refresh-time').textContent = `Última atualização: ${formatTime(now)}`;
+        }
+
+        // Intercepta as funções de polling
+        function setupPollingMonitoring() {
+            // Monitora o polling principal
+            if (window.pollEvents && typeof window.pollEvents === 'function') {
+                const originalPollEvents = window.pollEvents;
+                window.pollEvents = function(...args) {
+                    const now = new Date();
+                    if (pollingState.main.lastTime) {
+                        pollingState.main.lastInterval = (now - pollingState.main.lastTime) / 1000;
+                    }
+                    pollingState.main.lastTime = now;
+                    pollingState.main.nextTime = new Date(now.getTime() + 30000);
+                    pollingState.main.count++;
+                    updateUI();
+                    return originalPollEvents.apply(this, args);
+                };
+            }
+
+            // Monitora o polling do webhook
+            if (window.pollWebhookEvents && typeof window.pollWebhookEvents === 'function') {
+                const originalWebhookPolling = window.pollWebhookEvents;
+                window.pollWebhookEvents = function(...args) {
+                    const now = new Date();
+                    if (pollingState.webhook.lastTime) {
+                        pollingState.webhook.lastInterval = (now - pollingState.webhook.lastTime) / 1000;
+                    }
+                    pollingState.webhook.lastTime = now;
+                    pollingState.webhook.nextTime = new Date(now.getTime() + 5000);
+                    pollingState.webhook.count++;
+                    updateUI();
+                    return originalWebhookPolling.apply(this, args);
+                };
+            }
+        }
+
+        // Inicia o monitoramento
+        setupPollingMonitoring();
+
+        // Atualiza a UI a cada segundo
+        setInterval(updateUI, 1000);
+    </script>
+</body>
+</html>
