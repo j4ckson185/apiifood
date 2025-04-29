@@ -189,7 +189,7 @@ function checkForEmptyTab(tabId) {
 }
 
 // Sobrescreve a função updateOrderStatus original para incluir cache
-const originalUpdateOrderStatus = updateOrderStatus;
+window.originalUpdateOrderStatus = window.updateOrderStatus; // Usando objeto window para evitar conflito
 window.updateOrderStatus = function(orderId, status) {
     const currentStatus = ordersCache[orderId]?.status;
     
