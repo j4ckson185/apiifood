@@ -130,8 +130,27 @@ if (event.metadata && event.metadata.metadata &&
     event.metadata.metadata.evidences && 
     Array.isArray(event.metadata.metadata.evidences)) {
     
-    console.log('✅ Evidências encontradas:', event.metadata.metadata.evidences.length);
-    disputeData.photos = event.metadata.metadata.evidences;
+    // Processar URLs de imagens
+    const evidences = event.metadata.metadata.evidences.map(evidence => {
+        // Cria uma cópia para não modificar o objeto original
+        const processedEvidence = {...evidence};
+        
+        // Substitui placeholders na URL se necessário
+        if (processedEvidence.url && processedEvidence.url.includes('{orderId}') && orderId) {
+            processedEvidence.url = processedEvidence.url.replace('{orderId}', orderId);
+        }
+        
+        // Se houver um imageId na URL, tenta extrair
+        const imageIdMatch = processedEvidence.url.match(/cancellationEvidences\/([^/]+)/);
+        if (imageIdMatch && imageIdMatch[1]) {
+            processedEvidence.imageId = imageIdMatch[1].replace('{imageId}', '');
+        }
+        
+        return processedEvidence;
+    });
+    
+    console.log('✅ Evidências encontradas e processadas:', evidences.length);
+    disputeData.photos = evidences;
 }
         
         console.log('Dados da disputa preparados:', disputeData);
@@ -568,19 +587,37 @@ async function proporAlternativa(disputeId, alternativeId) {
         console.log(`🤝 Propondo alternativa ${alternativeId} para a disputa ${disputeId}`);
         showLoading();
         
-        // Busca a disputa ativa para obter o orderId
+        // Busca a disputa ativa para obter o orderId e os detalhes completos
         const disputa = activeDisputes.find(d => d.disputeId === disputeId);
         const orderId = disputa ? disputa.orderId : null;
         
-        // Prepara o payload baseado no tipo da alternativa
-        const alternativa = disputa?.alternatives?.find(a => a.id === alternativeId);
+        // Busca a alternativa específica pelos dados da disputa
+        let alternativa = null;
+        
+        // Procurar a alternativa nas diversas estruturas possíveis
+        if (disputa?.alternatives && Array.isArray(disputa.alternatives)) {
+            alternativa = disputa.alternatives.find(a => a.id === alternativeId);
+        } else if (disputa?.metadata?.alternatives && Array.isArray(disputa.metadata.alternatives)) {
+            alternativa = disputa.metadata.alternatives.find(a => a.id === alternativeId);
+        }
+        
+        if (!alternativa) {
+            console.error('❌ Alternativa não encontrada com o ID:', alternativeId);
+            showToast(`Erro: Alternativa não encontrada`, 'error');
+            return false;
+        }
+        
+        console.log('📦 Alternativa encontrada:', alternativa);
+        
+        // Prepara o payload completo com base no exemplo da API
         let payload = {
-            type: alternativa?.type || "REFUND"
+            type: alternativa.type,
+            metadata: alternativa.metadata || {}
         };
         
-        // Se for uma alternativa do tipo REFUND e tiver metadata, inclui-os
-        if (alternativa?.type === "REFUND" && alternativa?.metadata) {
-            payload.metadata = alternativa.metadata;
+        // Garante que temos o campo metadata.maxAmount se for um REFUND
+        if (alternativa.type === "REFUND" && !payload.metadata.maxAmount && alternativa.maxAmount) {
+            payload.metadata.maxAmount = alternativa.maxAmount;
         }
         
         console.log("📦 Payload a ser enviado:", payload);
@@ -917,17 +954,24 @@ function exibirModalNegociacao(dispute) {
                 </div>
                 
                 ${clientResponseHtml}
+
                 
-// No arquivo negociacao.js, função exibirModalNegociacao
 ${dispute.metadata && dispute.metadata.metadata && dispute.metadata.metadata.evidences && dispute.metadata.metadata.evidences.length > 0 ? `
 <div class="dispute-photos">
-    <h3>Evidências do cliente</h3>
+    <h3>Evidências do cliente (${dispute.metadata.metadata.evidences.length})</h3>
     <div class="photos-container">
-        ${dispute.metadata.metadata.evidences.map(evidence => `
+        ${dispute.metadata.metadata.evidences.map(evidence => {
+            // Substitui placeholders na URL se necessário
+            let imageUrl = evidence.url;
+            if (imageUrl.includes('{orderId}') && dispute.orderId) {
+                imageUrl = imageUrl.replace('{orderId}', dispute.orderId);
+            }
+            return `
             <div class="photo-item">
-                <img src="${evidence.url}" alt="Evidência do cliente" onclick="abrirImagemAmpliada('${evidence.url}')">
-            </div>
-        `).join('')}
+                <img src="${imageUrl}" alt="Evidência do cliente" onclick="abrirImagemAmpliada('${imageUrl}')">
+                <div class="photo-info">${evidence.contentType || 'Imagem'}</div>
+            </div>`;
+        }).join('')}
     </div>
 </div>
 ` : ''}
@@ -1594,21 +1638,37 @@ function adicionarEstilosNegociacao() {
             padding-bottom: 10px;
         }
 
-        .photo-item {
-            width: 100px;
-            height: 100px;
-            border-radius: 8px;
-            overflow: hidden;
-            flex-shrink: 0;
-            cursor: pointer;
-            border: 1px solid #ddd;
-        }
+.photo-item {
+    position: relative;
+    width: 100px;
+    height: 100px;
+    border-radius: 8px;
+    overflow: hidden;
+    flex-shrink: 0;
+    cursor: pointer;
+    border: 1px solid #ddd;
+}
 
-        .photo-item img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-        }
+.photo-item img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.photo-info {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background-color: rgba(0, 0, 0, 0.6);
+    color: white;
+    font-size: 10px;
+    padding: 2px 4px;
+    text-align: center;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
 
         .negotiation-alternatives {
             margin-bottom: 20px;
