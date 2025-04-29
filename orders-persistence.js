@@ -93,55 +93,59 @@ function loadOrdersFromLocalStorage() {
 
 async function updateAllVisibleOrders() {
     try {
-        console.log('Atualizando status de todos os pedidos visíveis...');
-        
+        console.log('Atualizando status de todos os pedidos visíveis.');
+
         const orderCards = document.querySelectorAll('.order-card');
         console.log(`Encontrados ${orderCards.length} pedidos para atualizar`);
-        
+
         for (const card of orderCards) {
             const orderId = card.getAttribute('data-order-id');
             if (!orderId) continue;
-            
-            try {
-                console.log(`Verificando necessidade de buscar detalhes para ${orderId}`);
-                const now = Date.now();
-                const lastFetch = lastOrderFetchTimestamps[orderId] || 0;
-                let orderDetails;
-                
- if (ordersCache[orderId]) {
-    // Lê status em cache e na UI
-    const cachedStatus = ordersCache[orderId].status;
-    const uiStatusText = card.querySelector('.order-status')?.textContent;
-    const uiStatusCode = Object.entries({
-        'Novo':'PLACED','Confirmado':'CONFIRMED','Em Preparação':'IN_PREPARATION',
-        'A Caminho':'DISPATCHED','Concluído':'CONCLUDED','Cancelado':'CANCELLED'
-    }).find(([,code])=> getStatusText(code)===uiStatusText)?.[1] || cachedStatus;
 
-    if (uiStatusCode === cachedStatus) {
-        console.log(`Pedido ${orderId} sem mudança de status (“${cachedStatus}”); usando cache`);
-        orderDetails = ordersCache[orderId];
-    } else {
-        console.log(`Status mudou de ${cachedStatus} para ${uiStatusCode}; buscando detalhes`);
-        orderDetails = await makeAuthorizedRequest(`/order/v1.0/orders/${orderId}`, 'GET');
-        ordersCache[orderId] = orderDetails;
-        lastOrderFetchTimestamps[orderId] = now;
-    }
-} else {
-    console.log(`Primeira vez vendo o pedido ${orderId}; buscando detalhes`);
-    orderDetails = await makeAuthorizedRequest(`/order/v1.0/orders/${orderId}`, 'GET');
-    ordersCache[orderId] = orderDetails;
-    lastOrderFetchTimestamps[orderId] = now;
-}
-                
+            try {
+                console.log(`Verificando mudanças para pedido ${orderId}`);
+                let orderDetails;
+
+                if (ordersCache[orderId]) {
+                    // Obtém status em cache e status atual na UI
+                    const cachedStatus = ordersCache[orderId].status;
+                    const uiText = card.querySelector('.order-status')?.textContent;
+                    const uiStatus = Object.entries({
+                        'Novo': 'PLACED',
+                        'Confirmado': 'CONFIRMED',
+                        'Em Preparação': 'IN_PREPARATION',
+                        'Pronto para Retirada': 'READY_TO_PICKUP',
+                        'A Caminho': 'DISPATCHED',
+                        'Concluído': 'CONCLUDED',
+                        'Cancelado': 'CANCELLED'
+                    }).find(([text]) => text === uiText)?.[1] || cachedStatus;
+
+                    if (uiStatus === cachedStatus) {
+                        console.log(`Pedido ${orderId} sem mudança de status (“${cachedStatus}”); usando cache`);
+                        orderDetails = ordersCache[orderId];
+                    } else {
+                        console.log(`Status mudou de ${cachedStatus} para ${uiStatus}; buscando detalhes`);
+                        orderDetails = await makeAuthorizedRequest(`/order/v1.0/orders/${orderId}`, 'GET');
+                    }
+                } else {
+                    console.log(`Primeiro contato com pedido ${orderId}; buscando detalhes`);
+                    orderDetails = await makeAuthorizedRequest(`/order/v1.0/orders/${orderId}`, 'GET');
+                }
+
                 if (orderDetails && orderDetails.status) {
-                    ordersCache[orderId] = orderDetails;
-                    // ... resto da lógica de updateStatus ...
+                    const previousStatus = ordersCache[orderId]?.status;
+                    if (previousStatus !== orderDetails.status) {
+                        // Atualiza cache e UI somente se houve mudança de status
+                        ordersCache[orderId] = orderDetails;
+                        updateOrderStatus(orderId, orderDetails.status);
+                        console.log(`Pedido ${orderId} atualizado para status ${orderDetails.status}`);
+                    }
                 }
             } catch (err) {
                 console.error(`Erro ao atualizar pedido ${orderId}:`, err);
             }
         }
-        
+
         saveOrdersToLocalStorage();
     } catch (error) {
         console.error('Erro ao atualizar todos os pedidos:', error);
