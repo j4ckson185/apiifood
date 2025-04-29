@@ -106,21 +106,15 @@ function displayStoreStatus(status) {
     }
 }
 
-// Agora o status da loja é atualizado pelo polling unificado
+// Integra o status da loja ao unifiedPolling
 function startStatusPolling(merchantId) {
-    // Armazena merchantId para uso no unifiedPolling
+    // Registra o merchantId para o polling unificado
     window.currentMerchantId = merchantId;
 }
-function stopStatusPolling() {
-    // não faz nada, gerenciado pelo polling unificado
-}
 
-// Função para parar o polling
+// Não faz nada, pois o polling é gerenciado por unifiedPolling()
 function stopStatusPolling() {
-    if (statusPollingInterval) {
-        clearInterval(statusPollingInterval);
-        statusPollingInterval = null;
-    }
+    // Intencionalmente vazio
 }
 
 // Adicionando CSS para os status
