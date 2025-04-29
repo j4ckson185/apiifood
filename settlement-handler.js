@@ -55,11 +55,10 @@ function isDelayDispute(dispute) {
             dispute.metadata.message.toLowerCase().includes('atraso'));
 }
 
-// Executa uma vez o fallback de polling de disputas
+// Somente busca uma vez, chamado pelo unifiedPolling()
 async function pollForNewDisputesOnce() {
     if (!state.accessToken) return;
     try {
-        console.log('🔍 Buscando novas disputas via polling...');
         const events = await makeAuthorizedRequest('/events/v1.0/events:polling', 'GET');
         if (Array.isArray(events)) {
             const disputes = events.filter(ev =>
@@ -67,16 +66,19 @@ async function pollForNewDisputesOnce() {
             );
             for (const d of disputes) {
                 if (!activeDisputes.find(x => x.disputeId === d.disputeId)) {
-                    console.log('🆕 Nova disputa via polling:', d);
                     await processarEventoDisputa(d);
                 }
             }
             if (events.length) {
-                await makeAuthorizedRequest('/events/v1.0/events/acknowledgment', 'POST', events.map(e => ({ id: e.id })));
+                await makeAuthorizedRequest(
+                    '/events/v1.0/events/acknowledgment',
+                    'POST',
+                    events.map(e => ({ id: e.id }))
+                );
             }
         }
-    } catch (error) {
-        console.error('❌ Erro no polling de disputas:', error);
+    } catch (e) {
+        console.error('❌ Erro no polling de disputas:', e);
     }
 }
 
