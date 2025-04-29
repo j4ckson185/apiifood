@@ -2282,3 +2282,120 @@ window.testarWebhook = function() {
     showToast('Erro ao acessar endpoint do webhook', 'error');
   });
 }
+
+// Adicione esta função ao arquivo script.js para corrigir o comportamento dos botões
+// de pedidos para retirada com status READY_TO_PICKUP
+
+// Sobrescreve a função updateOrderStatus para tratar pedidos para retirada
+const originalUpdateOrderStatus = window.updateOrderStatus;
+window.updateOrderStatus = function(orderId, status) {
+    console.log(`🔍 Atualizando status do pedido ${orderId} para ${status}`);
+
+    // Primeiro, executa a função original para manter todas as funcionalidades existentes
+    originalUpdateOrderStatus(orderId, status);
+    
+    // Agora, verificamos se é um pedido para retirada com status READY_TO_PICKUP
+    setTimeout(() => {
+        const orderCard = document.querySelector(`.order-card[data-order-id="${orderId}"]`);
+        if (!orderCard) return;
+        
+        // Busca no cache para verificar se é um pedido para retirada
+        const order = ordersCache[orderId];
+        if (!order) return;
+        
+        const isTakeout = order.orderType === 'TAKEOUT' || (order.takeout && order.takeout.mode);
+        const isReady = status === 'READY_TO_PICKUP' || status === 'RTP';
+        
+        console.log(`✓ Verificação adicional: pedido ${orderId} é takeout? ${isTakeout}, está pronto? ${isReady}`);
+        
+        // Se for pedido para retirada E com status pronto para retirada
+        if (isTakeout && isReady) {
+            console.log(`🔧 Corrigindo botões para pedido para retirada ${orderId} com status pronto`);
+            
+            // Busca o container de ações
+            const actionsContainer = orderCard.querySelector('.order-actions');
+            if (!actionsContainer) return;
+            
+            // Limpa o container de ações existente (remove o botão despachar incorreto)
+            actionsContainer.innerHTML = '';
+            
+            // Adiciona mensagem de status e botão de cancelar
+            const statusDiv = document.createElement('div');
+            statusDiv.className = 'status-message';
+            statusDiv.textContent = 'Aguardando Retirada';
+            actionsContainer.appendChild(statusDiv);
+            
+            const cancelButton = document.createElement('button');
+            cancelButton.className = 'action-button cancel';
+            cancelButton.textContent = 'Cancelar';
+            cancelButton.onclick = () => handleOrderAction(orderId, 'requestCancellation');
+            actionsContainer.appendChild(cancelButton);
+            
+            console.log(`✅ Botões corrigidos para pedido de retirada ${orderId}`);
+        }
+    }, 100); // Pequeno delay para garantir que a função original terminou
+};
+
+// Melhorar a verificação de pedidos para retirada também na função original
+const originalIsTakeoutOrder = window.takeoutOrdersModule?.isTakeoutOrder;
+if (typeof originalIsTakeoutOrder === 'function') {
+    window.takeoutOrdersModule.isTakeoutOrder = function(order) {
+        // Verificação melhorada
+        return order.orderType === 'TAKEOUT' || 
+               (order.takeout && order.takeout.mode) ||
+               (order.enhancedTakeoutInfo && order.enhancedTakeoutInfo.mode);
+    };
+}
+
+// Função auxiliar para verificar se um pedido é para retirada (caso a função oficial não exista)
+function isOrderTakeout(order) {
+    return order.orderType === 'TAKEOUT' || 
+           (order.takeout && order.takeout.mode) ||
+           (order.enhancedTakeoutInfo && order.enhancedTakeoutInfo.mode);
+}
+
+// Adicione esse código ao final do arquivo para adicionar um ouvinte que corrige pedidos existentes
+document.addEventListener('DOMContentLoaded', () => {
+    console.log('🔄 Adicionando verificação adicional para pedidos de retirada com status READY_TO_PICKUP');
+    
+    // Verifica pedidos existentes para corrigir
+    setTimeout(() => {
+        const cards = document.querySelectorAll('.order-card');
+        console.log(`Verificando ${cards.length} pedidos existentes para corrigir botões...`);
+        
+        cards.forEach(card => {
+            const orderId = card.getAttribute('data-order-id');
+            if (!orderId) return;
+            
+            const order = ordersCache[orderId];
+            if (!order) return;
+            
+            const isTakeout = isOrderTakeout(order);
+            const isReady = order.status === 'READY_TO_PICKUP' || 
+                           order.status === 'RTP' || 
+                           card.classList.contains('status-ready_to_pickup');
+            
+            if (isTakeout && isReady) {
+                console.log(`🔧 Corrigindo botões para pedido existente para retirada ${orderId}`);
+                
+                const actionsContainer = card.querySelector('.order-actions');
+                if (!actionsContainer) return;
+                
+                // Limpa o container
+                actionsContainer.innerHTML = '';
+                
+                // Adiciona mensagem de status e botão
+                const statusDiv = document.createElement('div');
+                statusDiv.className = 'status-message';
+                statusDiv.textContent = 'Aguardando Retirada';
+                actionsContainer.appendChild(statusDiv);
+                
+                const cancelButton = document.createElement('button');
+                cancelButton.className = 'action-button cancel';
+                cancelButton.textContent = 'Cancelar';
+                cancelButton.onclick = () => handleOrderAction(orderId, 'requestCancellation');
+                actionsContainer.appendChild(cancelButton);
+            }
+        });
+    }, 2000); // Delay para garantir que outros scripts foram carregados
+});
