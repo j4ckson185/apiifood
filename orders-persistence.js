@@ -108,14 +108,30 @@ async function updateAllVisibleOrders() {
                 const lastFetch = lastOrderFetchTimestamps[orderId] || 0;
                 let orderDetails;
                 
-                if (ordersCache[orderId] && now - lastFetch < CONFIG.pollingInterval) {
-                    console.log(`Usando cache para o pedido ${orderId}`);
-                    orderDetails = ordersCache[orderId];
-                } else {
-                    console.log(`Buscando detalhes do pedido ${orderId}`);
-                    orderDetails = await makeAuthorizedRequest(`/order/v1.0/orders/${orderId}`, 'GET');
-                    lastOrderFetchTimestamps[orderId] = now;
-                }
+ if (ordersCache[orderId]) {
+    // Lê status em cache e na UI
+    const cachedStatus = ordersCache[orderId].status;
+    const uiStatusText = card.querySelector('.order-status')?.textContent;
+    const uiStatusCode = Object.entries({
+        'Novo':'PLACED','Confirmado':'CONFIRMED','Em Preparação':'IN_PREPARATION',
+        'A Caminho':'DISPATCHED','Concluído':'CONCLUDED','Cancelado':'CANCELLED'
+    }).find(([,code])=> getStatusText(code)===uiStatusText)?.[1] || cachedStatus;
+
+    if (uiStatusCode === cachedStatus) {
+        console.log(`Pedido ${orderId} sem mudança de status (“${cachedStatus}”); usando cache`);
+        orderDetails = ordersCache[orderId];
+    } else {
+        console.log(`Status mudou de ${cachedStatus} para ${uiStatusCode}; buscando detalhes`);
+        orderDetails = await makeAuthorizedRequest(`/order/v1.0/orders/${orderId}`, 'GET');
+        ordersCache[orderId] = orderDetails;
+        lastOrderFetchTimestamps[orderId] = now;
+    }
+} else {
+    console.log(`Primeira vez vendo o pedido ${orderId}; buscando detalhes`);
+    orderDetails = await makeAuthorizedRequest(`/order/v1.0/orders/${orderId}`, 'GET');
+    ordersCache[orderId] = orderDetails;
+    lastOrderFetchTimestamps[orderId] = now;
+}
                 
                 if (orderDetails && orderDetails.status) {
                     ordersCache[orderId] = orderDetails;
