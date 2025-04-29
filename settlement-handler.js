@@ -55,47 +55,28 @@ function isDelayDispute(dispute) {
             dispute.metadata.message.toLowerCase().includes('atraso'));
 }
 
-// Função que busca novas disputas via polling (fallback)
-async function pollForNewDisputes() {
-    if (!isDisputePollingActive || !state.accessToken) return;
-    
+// Executa uma vez o fallback de polling de disputas
+async function pollForNewDisputesOnce() {
+    if (!state.accessToken) return;
     try {
         console.log('🔍 Buscando novas disputas via polling...');
-        
-        // Busca eventos recentes
         const events = await makeAuthorizedRequest('/events/v1.0/events:polling', 'GET');
-        
-        if (events && Array.isArray(events)) {
-            // Filtra apenas eventos HANDSHAKE_DISPUTE
-            const disputeEvents = events.filter(event => 
-                event.code === 'HANDSHAKE_DISPUTE' || 
-                event.fullCode === 'HANDSHAKE_DISPUTE'
+        if (Array.isArray(events)) {
+            const disputes = events.filter(ev =>
+                ev.code === 'HANDSHAKE_DISPUTE' || ev.fullCode === 'HANDSHAKE_DISPUTE'
             );
-            
-            // Processa cada disputa encontrada
-            for (const event of disputeEvents) {
-                // Verifica se já temos essa disputa
-                const existingDispute = activeDisputes.find(d => d.disputeId === event.disputeId);
-                
-                if (!existingDispute) {
-                    console.log('🆕 Nova disputa encontrada via polling:', event);
-                    await processarEventoDisputa(event);
+            for (const d of disputes) {
+                if (!activeDisputes.find(x => x.disputeId === d.disputeId)) {
+                    console.log('🆕 Nova disputa via polling:', d);
+                    await processarEventoDisputa(d);
                 }
             }
-            
-            // Envia acknowledgment
-            if (events.length > 0) {
-                const acknowledgeFormat = events.map(event => ({ id: event.id }));
-                await makeAuthorizedRequest('/events/v1.0/events/acknowledgment', 'POST', acknowledgeFormat);
+            if (events.length) {
+                await makeAuthorizedRequest('/events/v1.0/events/acknowledgment', 'POST', events.map(e => ({ id: e.id })));
             }
         }
     } catch (error) {
         console.error('❌ Erro no polling de disputas:', error);
-    } finally {
-        // Agenda próximo polling
-        if (isDisputePollingActive) {
-            setTimeout(pollForNewDisputes, DISPUTE_POLLING_INTERVAL);
-        }
     }
 }
 
