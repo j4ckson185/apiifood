@@ -420,52 +420,55 @@ window.handleEvent = async function(event) {
     }
 };
 
-// Adicione esta função para verificar especificamente pedidos com status de conclusão
 async function checkForCompletedOrders() {
-    try {
-        console.log('🔍 Verificando pedidos concluídos...');
-        
-        // Busca todos os pedidos visíveis
-        const orderCards = document.querySelectorAll('.order-card');
-        
-        for (const card of orderCards) {
-            const orderId = card.getAttribute('data-order-id');
-            if (!orderId) continue;
-            
-            // Verifica se o pedido já está marcado como concluído
-            const statusElement = card.querySelector('.order-status');
-            if (statusElement && statusElement.textContent === getStatusText('CONCLUDED')) {
-                continue; // Já está concluído, não precisa verificar
-            }
-            
-            try {
-                // Busca o status atual do pedido
-                const orderDetails = await makeAuthorizedRequest(`/order/v1.0/orders/${orderId}`, 'GET');
+    console.log('🔍 Verificando pedidos concluídos.');
+    const orderCards = document.querySelectorAll('.order-card');
+
+    // mapeia texto da UI para código de status
+    const statusMap = {
+      'Novo': 'PLACED',
+      'Confirmado': 'CONFIRMED',
+      'Em Preparação': 'IN_PREPARATION',
+      'Pronto para Retirada': 'READY_TO_PICKUP',
+      'A Caminho': 'DISPATCHED',
+      'Concluído': 'CONCLUDED',
+      'Cancelado': 'CANCELLED'
+    };
+
+    for (const card of orderCards) {
+        const orderId = card.getAttribute('data-order-id');
+        if (!orderId) continue;
+
+        const statusEl = card.querySelector('.order-status');
+        if (!statusEl) continue;
+
+        const uiStatus = statusMap[statusEl.textContent] || null;
+        const cachedStatus = ordersCache[orderId]?.status;
+
+        // se não mudou, pula sem fetch
+        if (cachedStatus && uiStatus === cachedStatus) {
+            console.log(`Pedido ${orderId} já está em "${cachedStatus}"; sem fetch`);
+            continue;
+        }
+
+        // só busca detalhes se mudou
+        try {
+            console.log(`Status mudou de ${cachedStatus || '[nenhum]'} para ${uiStatus}; buscando detalhes`);
+            const details = await makeAuthorizedRequest(`/order/v1.0/orders/${orderId}`, 'GET');
+
+            // se realmente mudou no iFood
+            if (details.status && details.status !== cachedStatus) {
+                ordersCache[orderId] = details;
+                updateOrderStatus(orderId, details.status);
                 
-                // Verifica se o status voltou como concluído
-                if (orderDetails.status === 'CONCLUDED' || 
-                    orderDetails.status === 'CONC' || 
-                    orderDetails.status === 'CON') {
-                    
-                    console.log(`🏁 Pedido ${orderId} está concluído no iFood, atualizando interface...`);
-                    
-                    // Atualiza o status no cache
-                    if (ordersCache[orderId]) {
-                        ordersCache[orderId].status = 'CONCLUDED';
-                    }
-                    
-                    // Atualiza a interface
-                    updateOrderStatus(orderId, 'CONCLUDED');
-                    
-                    // Mostra notificação
+                if (details.status === 'CONCLUDED') {
+                    console.log(`🏁 Pedido ${orderId} está concluído; notificando usuário.`);
                     showToast(`Pedido #${orderId.substring(0, 6)} foi concluído!`, 'success');
                 }
-            } catch (error) {
-                console.error(`Erro ao verificar status do pedido ${orderId}:`, error);
             }
+        } catch (err) {
+            console.error(`Erro ao fetch detalhes de ${orderId}:`, err);
         }
-    } catch (error) {
-        console.error('Erro ao verificar pedidos concluídos:', error);
     }
 }
 
