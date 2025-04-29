@@ -87,10 +87,10 @@ function startDisputePolling() {
     if (!isDisputePollingActive) {
         isDisputePollingActive = true;
         console.log('🔄 Iniciando polling de disputas...');
-        if (typeof pollForNewDisputes === 'function') {
-            pollForNewDisputes();
+        if (typeof pollForNewDisputesOnce === 'function') {
+            pollForNewDisputesOnce();
         } else {
-            console.error('❌ pollForNewDisputes não está definida, abortando polling de disputas');
+            console.error('❌ pollForNewDisputesOnce não está definida, abortando polling de disputas');
         }
     }
 }
