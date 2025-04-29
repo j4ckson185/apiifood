@@ -610,21 +610,34 @@ async function proporAlternativa(disputeId, alternativeId) {
         console.log('📦 Alternativa encontrada:', alternativa);
         
 // Preparação do payload para REFUND após entrega (AFTER_DELIVERY)
-let payload = {
-    type: alternativa.type,
-    handshakeType: dispute.type,                        // ex: 'AFTER_DELIVERY'
-    handshakeGroup: dispute.metadata.handshakeGroup,     // ex: 'CUSTOMER_ORDER_SUPPORT'
-    metadata: {
-        maxAmount: {
-            value: alternativa.metadata.maxAmount.value,
-            currency: alternativa.metadata.maxAmount.currency
-        }
+// Correção: monta payload conforme spec do endpoint /alternative :contentReference[oaicite:2]{index=2}
+    let payload;
+    if (alternativa.type === "REFUND" || alternativa.type === "BENEFIT") {
+        // Deve enviar metadata.amount, não metadata.maxAmount :contentReference[oaicite:3]{index=3}
+        payload = {
+            type: alternativa.type,
+            metadata: {
+                amount: {
+                    value: alternativa.metadata.maxAmount.value,    // ex: "2400"
+                    currency: alternativa.metadata.maxAmount.currency // ex: "BRL"
+                }
+            }
+        };
+    } else {
+        // Mantém fluxo de tempo adicional inalterado :contentReference[oaicite:4]{index=4}
+        payload = {
+            type: alternativa.type,
+            metadata: alternativa.metadata
+        };
     }
-};
-        
-        console.log("📦 Payload a ser enviado:", payload);
-        
-        const response = await makeAuthorizedRequest(`/order/v1.0/disputes/${disputeId}/alternatives/${alternativeId}`, 'POST', payload);
+    
+    console.log("📦 Payload corrigido a ser enviado:", payload);
+    
+    const response = await makeAuthorizedRequest(
+      `/order/v1.0/disputes/${disputeId}/alternatives/${alternativeId}`,
+      'POST',
+      payload
+    );
         
         console.log('✅ Alternativa proposta com sucesso:', response);
         showToast('Alternativa proposta com sucesso', 'success');
@@ -681,69 +694,58 @@ let payload = {
     }
 }
 
-// Modificação da função exibirModalNegociacao para tratar PREPARATION_TIME
-function exibirModalNegociacao(dispute) {
+async function exibirModalNegociacao(dispute) {
     // Preserva o status original do pedido
     if (dispute && dispute.orderId) {
         preservarStatusOriginal(dispute.orderId);
     }
-    
+
     // Atualiza o ID da disputa atual
     currentDisputeId = dispute.disputeId;
-    
+
     // Obtém o container do modal
     const modalContainer = document.getElementById('modal-negociacao-container');
     if (!modalContainer) {
         console.error('Container do modal de negociação não encontrado');
         return;
     }
-    
-    console.log("Exibindo modal para disputa:", dispute);
-    
-    // Extrai informações relevantes da disputa
+
+    console.log('Exibindo modal para disputa:', dispute);
+
+    // Extrai informações básicas
     const orderId = dispute.orderId || 'N/A';
     const orderDisplayId = dispute.displayId || orderId.substring(0, 6);
     const customerName = dispute.customerName || 'Cliente';
     const expiresAt = dispute.expiresAt ? new Date(dispute.expiresAt) : null;
     const timeoutAction = dispute.timeoutAction || 'ACCEPT';
     const reason = dispute.reason || 'Não especificado';
-    
+
     // Determina o tipo de disputa
     const disputeType = dispute.type || dispute.metadata?.handshakeType || 'UNKNOWN';
-    console.log("Tipo de disputa:", disputeType);
-    
-    // NOVO: Identifica se é uma disputa de preparo
     const isPreparationTime = disputeType === 'PREPARATION_TIME';
-    
-    // Identifica se é uma disputa relacionada a atraso
-    const isDelayRelated = 
-        disputeType === 'PREPARATION_TIME' || 
-        disputeType === 'ORDER_LATE' || 
-        disputeType === 'DELAY' ||
-        disputeType === 'CANCELLATION_WITH_DELAY_PROPOSAL';
-    
-    console.log("É disputa relacionada a atraso?", isDelayRelated);
-    console.log("É disputa de tempo de preparo?", isPreparationTime);
-    
-    // Formata o tempo restante
+    const isDelayRelated = ['PREPARATION_TIME', 'ORDER_LATE', 'DELAY', 'CANCELLATION_WITH_DELAY_PROPOSAL'].includes(disputeType);
+
+    // Calcula tempo restante
     let timeRemaining = '';
     if (expiresAt) {
         const now = new Date();
         const diffMs = expiresAt - now;
-        const diffMins = Math.round(diffMs / 60000);
-        timeRemaining = diffMins > 0 ? `${diffMins} minutos` : 'expirando';
+        const diffMins = Math.floor(diffMs / 60000);
+        const diffSecs = Math.floor((diffMs % 60000) / 1000);
+        timeRemaining = diffMins > 0 ? `${diffMins}:${String(diffSecs).padStart(2, '0')}` : 'expirando';
     }
-    
-    // Cria o título baseado no tipo de disputa
+
+    // Define título e ícone baseados no tipo de disputa
     let disputeTitle = 'Solicitação de Negociação';
     let disputeIcon = 'handshake';
-    
-    switch(disputeType) {
+    switch (disputeType) {
         case 'CANCELLATION_WITH_REFUND_PROPOSAL':
             disputeTitle = 'Solicitação de Cancelamento com Reembolso';
             disputeIcon = 'money-bill-wave';
             break;
         case 'CANCELLATION_WITH_DELAY_PROPOSAL':
+        case 'ORDER_LATE':
+        case 'DELAY':
             disputeTitle = 'Cancelamento por Atraso';
             disputeIcon = 'clock';
             break;
@@ -751,270 +753,147 @@ function exibirModalNegociacao(dispute) {
             disputeTitle = 'Cancelamento Durante Preparo';
             disputeIcon = 'utensils';
             break;
-        case 'ORDER_LATE':
-        case 'DELAY':
-            disputeTitle = 'Cancelamento por Atraso';
-            disputeIcon = 'clock';
-            break;
         case 'CANCELLATION_REQUEST':
             disputeTitle = 'Solicitação de Cancelamento';
             disputeIcon = 'times-circle';
             break;
     }
-    
-    // Obtém as alternativas da disputa
+
+    // Prepara galeria de fotos de evidência
+    let photosHtml = '';
+    if (dispute.photos && dispute.photos.length > 0) {
+        photosHtml = `<div class="dispute-photos">
+            <h3>Evidências do cliente (${dispute.photos.length})</h3>
+            <div class="photos-container">`;
+        dispute.photos.forEach(photo => {
+            photosHtml += `
+                <div class="photo-item">
+                    <img src="${photo.url}" alt="Evidência do cliente" onclick="abrirImagemAmpliada('${photo.url}')">
+                    <div class="photo-info">${photo.contentType || 'Imagem'}</div>
+                </div>`;
+        });
+        photosHtml += `
+            </div>
+        </div>`;
+    }
+
+    // Extrai alternativas
     const alternatives = dispute.metadata?.alternatives || dispute.alternatives || [];
-    console.log("Alternativas disponíveis:", alternatives);
-    
-    // Procura por alternativa de tempo adicional e extrai opções
-    const timeAlternative = alternatives.find(a => a.type === "ADDITIONAL_TIME");
-    console.log("Alternativa de tempo encontrada:", timeAlternative);
-    
-    // Extrai tempos e motivos permitidos
-    const allowedTimes = timeAlternative?.metadata?.allowedsAdditionalTimeInMinutes || [10, 15, 20, 30];
-    const allowedReasons = timeAlternative?.metadata?.allowedsAdditionalTimeReasons || ["HIGH_STORE_DEMAND"];
-    
-    console.log("Tempos permitidos:", allowedTimes);
-    console.log("Motivos permitidos:", allowedReasons);
-    
-    // Motivo padrão (primeiro da lista ou HIGH_STORE_DEMAND)
-    const defaultReason = allowedReasons[0] || "HIGH_STORE_DEMAND";
-    
-    // Inicia HTML vazio
+
+    // Monta HTML das opções de tempo adicional e cancelamento (para atrasos)
     let alternativesHtml = '';
-    
-    // MODIFICADO: Mostra opções de tempo apenas se for disputa de atraso (DELAY) e não PREPARATION_TIME
-    if (isDelayRelated && !isPreparationTime) {
-        alternativesHtml = `
-            <div class="negotiation-alternatives">
-                <h3>Opções de Resposta</h3>
-                
-                <div class="time-options-section">
-                    <h4>Adicionar Tempo ao Pedido</h4>
-                    <div class="time-options-grid">`;
-                    
-        // Adiciona um botão para cada tempo permitido
+    const timeAlt = alternatives.find(a => a.type === 'ADDITIONAL_TIME');
+    if (isDelayRelated && !isPreparationTime && timeAlt) {
+        const allowedTimes = timeAlt.metadata?.allowedsAdditionalTimeInMinutes || [10,15,20,30];
+        const defaultReason = timeAlt.metadata?.allowedsAdditionalTimeReasons?.[0] || 'HIGH_STORE_DEMAND';
+        alternativesHtml += `<div class="negotiation-alternatives">
+            <h3>Opções de Resposta</h3>
+            <div class="time-options-section">
+                <h4>Adicionar Tempo ao Pedido</h4>
+                <div class="time-options-grid">`;
         allowedTimes.forEach(minutes => {
             alternativesHtml += `
-                <button class="time-option-button" onclick="proporTempoAdicional('${dispute.disputeId}', '${minutes}', '${defaultReason}', '${timeAlternative?.id || ''}')">
-                    <i class="fas fa-clock"></i> +${minutes} minutos
-                </button>`;
+                    <button class="time-option-button" onclick="proporTempoAdicional('${dispute.disputeId}', ${minutes}, '${defaultReason}', '${timeAlt.id}')">
+                        <i class="fas fa-clock"></i> +${minutes} minutos
+                    </button>`;
         });
-        
         alternativesHtml += `
-                    </div>
-                </div>
-                
-                <div class="cancellation-options-section">
-                    <h4>Informar que o Pedido Não Será Entregue</h4>
-                    <button class="cancellation-option-button" onclick="abrirModalMotivoCancelamento('${dispute.disputeId}')">
-                        <i class="fas fa-times-circle"></i> Pedido Não Será Entregue
-                    </button>
                 </div>
             </div>
-        `;
+            <div class="cancellation-options-section">
+                <h4>Informar que o Pedido Não Será Entregue</h4>
+                <button class="cancellation-option-button" onclick="abrirModalMotivoCancelamento('${dispute.disputeId}')">
+                    <i class="fas fa-times-circle"></i> Pedido Não Será Entregue
+                </button>
+            </div>
+        </div>`;
     }
-    
-    // Gera HTML para outras alternativas
+
+    // Monta HTML de outras alternativas (REFUND, BENEFIT etc.)
     let otherAlternativesHtml = '';
-    
-    if (alternatives.length > 0) {
-        // Filtra para remover ADDITIONAL_TIME se já estamos lidando com isso acima
-        const otherAlts = isDelayRelated 
-            ? alternatives.filter(a => a.type !== "ADDITIONAL_TIME") 
-            : alternatives;
-            
-        if (otherAlts.length > 0) {
-            otherAlternativesHtml = `
-                <div class="negotiation-alternatives">
-                    <h3>Outras Alternativas Disponíveis</h3>
-                    <div class="alternatives-container">
-            `;
-            
-            otherAlts.forEach(alternative => {
-                let altContent = '';
-                
-                switch (alternative.type) {
-                    case 'REFUND':
-                        const refundValue = alternative.metadata && alternative.metadata.maxAmount 
-                            ? `R$ ${parseFloat(alternative.metadata.maxAmount.value)/100}` 
-                            : 'Valor não especificado';
-                        altContent = `
-                            <div class="alternative-details">
-                                <i class="fas fa-money-bill-wave"></i>
-                                <div>
-                                    <h4>Proposta de Reembolso</h4>
-                                    <p>Valor: ${refundValue}</p>
-                                    <p>${alternative.description || ''}</p>
-                                </div>
-                            </div>
-                        `;
-                        break;
-                        
-                    case 'BENEFIT':
-                        const benefitValue = alternative.metadata && alternative.metadata.maxAmount 
-                            ? `R$ ${parseFloat(alternative.metadata.maxAmount.value)/100}` 
-                            : 'Valor não especificado';
-                        altContent = `
-                            <div class="alternative-details">
-                                <i class="fas fa-gift"></i>
-                                <div>
-                                    <h4>Oferecer Benefício</h4>
-                                    <p>Valor: ${benefitValue}</p>
-                                    <p>${alternative.description || ''}</p>
-                                </div>
-                            </div>
-                        `;
-                        break;
-                        
-                    default:
-                        altContent = `
-                            <div class="alternative-details">
-                                <i class="fas fa-exclamation-circle"></i>
-                                <div>
-                                    <h4>${alternative.type || 'Alternativa'}</h4>
-                                    <p>${alternative.description || 'Sem descrição'}</p>
-                                </div>
-                            </div>
-                        `;
-                }
-                
-                otherAlternativesHtml += `
-                    <div class="alternative-option">
-                        <div class="alternative-card">
-                            ${altContent}
-                        </div>
-                        <button class="alternative-button" onclick="proporAlternativa('${dispute.disputeId}', '${alternative.id}')">
-                            Propor esta alternativa
-                        </button>
-                    </div>
-                `;
-            });
-            
+    const nonTimeAlts = isDelayRelated ? alternatives.filter(a => a.type !== 'ADDITIONAL_TIME') : alternatives;
+    if (nonTimeAlts.length > 0) {
+        otherAlternativesHtml += `<div class="negotiation-alternatives">
+            <h3>Outras Alternativas Disponíveis</h3>
+            <div class="alternatives-container">`;
+        nonTimeAlts.forEach(alt => {
+            let altContent = '';
+            if (alt.type === 'REFUND') {
+                const value = alt.metadata?.maxAmount ? `R$ ${(parseInt(alt.metadata.maxAmount.value)/100).toFixed(2)}` : 'Valor não especificado';
+                altContent = `<i class="fas fa-money-bill-wave"></i><div><h4>Proposta de Reembolso</h4><p>Valor: ${value}</p></div>`;
+            } else if (alt.type === 'BENEFIT') {
+                const value = alt.metadata?.maxAmount ? `R$ ${(parseInt(alt.metadata.maxAmount.value)/100).toFixed(2)}` : 'Valor não especificado';
+                altContent = `<i class="fas fa-gift"></i><div><h4>Oferecer Benefício</h4><p>Valor: ${value}</p></div>`;
+            } else {
+                altContent = `<i class="fas fa-exclamation-circle"></i><div><h4>${alt.type}</h4><p>${alt.description||''}</p></div>`;
+            }
             otherAlternativesHtml += `
-                    </div>
-                </div>
-            `;
-        }
+                <div class="alternative-option">
+                    <div class="alternative-card">${altContent}</div>
+                    <button class="alternative-button" onclick="proporAlternativa('${dispute.disputeId}', '${alt.id}')">Propor esta alternativa</button>
+                </div>`;
+        });
+        otherAlternativesHtml += `
+            </div>
+        </div>`;
     }
-    
-    // Adiciona seção para resposta do cliente se existir
+
+    // Monta HTML para resposta do cliente, se houver
     let clientResponseHtml = '';
     if (dispute.responseFromCustomer) {
-        clientResponseHtml = `
-            <div class="customer-response">
-                <h3>Resposta do Cliente</h3>
-                <div class="response-content">
-                    <p><i class="fas fa-comment"></i> ${dispute.responseFromCustomer}</p>
-                </div>
-            </div>
-        `;
+        clientResponseHtml = `<div class="customer-response">
+            <h3>Resposta do Cliente</h3>
+            <div class="response-content"><p><i class="fas fa-comment"></i> ${dispute.responseFromCustomer}</p></div>
+        </div>`;
     }
-    
-    // NOVA MENSAGEM: Texto específico para casos de PREPARATION_TIME
-    let messageText = '';
-    if (isPreparationTime) {
-        messageText = 'O cliente solicitou o cancelamento durante o preparo do pedido. Você pode aceitar ou rejeitar esta solicitação.';
-    } else if (isDelayRelated) {
-        messageText = 'Selecione uma das opções acima ou aceite/rejeite a solicitação de cancelamento.';
-    } else {
-        messageText = 'Você pode aceitar o cancelamento, rejeitá-lo ou oferecer uma alternativa.';
-    }
-    
-    // Cria o conteúdo do modal
+
+    // Texto informativo por tipo
+    let messageText = isPreparationTime
+        ? 'O cliente solicitou o cancelamento durante o preparo do pedido. Você pode aceitar ou rejeitar esta solicitação.'
+        : (isDelayRelated
+            ? 'Selecione uma das opções acima ou aceite/rejeite a solicitação de cancelamento.'
+            : 'Você pode aceitar o cancelamento, rejeitá-lo ou oferecer uma alternativa.');
+
+    // Monta o HTML completo do modal
     modalContainer.innerHTML = `
         <div class="modal-negociacao-content">
             <div class="modal-negociacao-header">
                 <div class="modal-negociacao-title">
-                    <i class="fas fa-${disputeIcon}"></i>
-                    <h2>${disputeTitle}</h2>
+                    <i class="fas fa-${disputeIcon}"></i><h2>${disputeTitle}</h2>
                 </div>
                 <span class="modal-negociacao-pedido">Pedido #${orderDisplayId}</span>
                 <button class="modal-negociacao-close" onclick="fecharModalNegociacao()">×</button>
             </div>
-            
             <div class="modal-negociacao-body">
                 <div class="dispute-info">
-                    <div class="dispute-row">
-                        <span class="dispute-label">Cliente:</span>
-                        <span class="dispute-value">${customerName}</span>
-                    </div>
-                    <div class="dispute-row">
-                        <span class="dispute-label">Motivo:</span>
-                        <span class="dispute-value">${reason}</span>
-                    </div>
-                    ${expiresAt ? `
-                    <div class="dispute-row">
-                        <span class="dispute-label">Tempo restante:</span>
-                        <span class="dispute-value dispute-timer">${timeRemaining}</span>
-                    </div>
-                    <div class="dispute-row">
-                        <span class="dispute-label">Ação automática:</span>
-                        <span class="dispute-value">${timeoutAction === 'ACCEPT' ? 'Aceitar cancelamento' : 'Rejeitar cancelamento'}</span>
-                    </div>
-                    ` : ''}
+                    <div class="dispute-row"><span class="dispute-label">Cliente:</span><span class="dispute-value">${customerName}</span></div>
+                    <div class="dispute-row"><span class="dispute-label">Motivo:</span><span class="dispute-value">${reason}</span></div>
+                    ${expiresAt ? `<div class="dispute-row"><span class="dispute-label">Tempo restante:</span><span class="dispute-value dispute-timer">${timeRemaining}</span></div>
+                    <div class="dispute-row"><span class="dispute-label">Ação automática:</span><span class="dispute-value">${timeoutAction==='ACCEPT'?'Aceitar cancelamento':'Rejeitar cancelamento'}</span></div>` : ''}
                 </div>
-                
                 ${clientResponseHtml}
-
-                
-${dispute.photos && dispute.photos.length > 0 ? `
-<div class="dispute-photos">
-    <h3>Evidências do cliente (${dispute.photos.length})</h3>
-    <div class="photos-container">
-        ${dispute.photos.map(photo => `
-            <div class="photo-item">
-                <img src="${photo.url}" alt="Evidência do cliente"
-                     onclick="abrirImagemAmpliada('${photo.url}')">
-                <div class="photo-info">${photo.contentType || 'Imagem'}</div>
-            </div>
-        `).join('')}
-    </div>
-</div>
-` : ''}
-                
+                ${photosHtml}
                 ${alternativesHtml}
-                
                 ${otherAlternativesHtml}
-                
-                <div class="dispute-message">
-                    <p class="message-text">
-                        <i class="fas fa-info-circle"></i>
-                        ${messageText}
-                    </p>
-                </div>
+                <div class="dispute-message"><p class="message-text"><i class="fas fa-info-circle"></i>${messageText}</p></div>
             </div>
-            
             <div class="modal-negociacao-footer">
-                <button class="dispute-button reject" onclick="rejeitarDisputa('${dispute.disputeId}')">
-                    <i class="fas fa-times"></i> Rejeitar
-                </button>
-                <button class="dispute-button accept" onclick="aceitarDisputa('${dispute.disputeId}')">
-                    <i class="fas fa-check"></i> Aceitar
-                </button>
+                <button class="dispute-button reject" onclick="rejeitarDisputa('${dispute.disputeId}')"><i class="fas fa-times"></i> Rejeitar</button>
+                <button class="dispute-button accept" onclick="aceitarDisputa('${dispute.disputeId}')"><i class="fas fa-check"></i> Aceitar</button>
             </div>
-        </div>
-    `;
-    
+        </div>`;
+
     // Exibe o modal
     modalContainer.style.display = 'flex';
-    
-    // Inicia o timer de atualização do tempo restante
-    if (expiresAt) {
-        iniciarContadorTempo(expiresAt);
-    }
-    
-    console.log('✅ Modal de negociação exibido para a disputa:', dispute);
 
-    // Oculta o botão "Rejeitar" se for disputa de atraso do tipo DELAY
-    // Note que agora estamos verificando especificamente o tipo DELAY, não mais isDelayRelated
+    // Inicia contador de tempo se aplicável
+    if (expiresAt) iniciarContadorTempo(expiresAt);
+
+    // Remove botão Rejeitar para disputas do tipo DELAY
     if (disputeType === 'DELAY') {
         setTimeout(() => {
-            const rejectBtn = document.querySelector('.modal-negociacao-footer .dispute-button.reject');
-            if (rejectBtn) {
-                rejectBtn.remove(); // remove o botão de rejeição
-                console.log('⛔ Botão de rejeitar removido por ser disputa de atraso tipo DELAY');
-            }
+            const rejectBtn = modalContainer.querySelector('.dispute-button.reject');
+            if (rejectBtn) rejectBtn.remove();
         }, 100);
     }
 }
