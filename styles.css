@@ -1333,3 +1333,80 @@ main {
     gap: 10px;
     color: var(--primary-color);
 }
+
+/* Estilos para cupons de desconto */
+.benefits-title {
+    font-weight: bold;
+    margin-top: 15px;
+    padding-top: 15px;
+    border-top: 1px dashed #eee;
+    color: #ea1d2c;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.benefits-container {
+    margin-top: 10px;
+}
+
+.benefit-item {
+    background-color: #fff8f8;
+    border-left: 3px solid #ea1d2c;
+    border-radius: 6px;
+    padding: 10px;
+    margin-bottom: 8px;
+}
+
+.benefit-header {
+    display: flex;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 5px;
+    margin-bottom: 8px;
+}
+
+.benefit-type {
+    font-weight: 600;
+    color: #ea1d2c;
+}
+
+.benefit-value {
+    font-weight: bold;
+    color: #ea1d2c;
+}
+
+.benefit-campaign {
+    font-size: 0.85em;
+    font-style: italic;
+    color: #666;
+    width: 100%;
+}
+
+.benefit-sponsors {
+    font-size: 0.9em;
+    border-top: 1px dotted #eee;
+    padding-top: 8px;
+}
+
+.sponsor-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 5px;
+}
+
+.sponsor-name {
+    font-weight: 500;
+}
+
+.sponsor-value {
+    font-weight: 600;
+    color: #28a745;
+}
+
+.sponsor-desc {
+    font-size: 0.85em;
+    color: #666;
+    font-style: italic;
+}
