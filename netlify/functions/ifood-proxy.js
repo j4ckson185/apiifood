@@ -106,12 +106,26 @@ if (method !== 'GET' && body) {
   console.log('ℹ️ Método GET detectado — body será ignorado conforme padrão da API');
 }
 
-    console.log('🚀 Enviando requisição final para:', `${baseURL}${path}`);
-    console.log('📦 Com opções:', fetchOptions);
-    
     const response = await fetch(`${baseURL}${path}`, fetchOptions);
     console.log('📥 Status da resposta:', response.status);
-    
+
+    // ===== BLOCO NOVO: retorna binário puro para images de evidência =====
+    if (path.includes('/cancellationEvidences/')) {
+      const contentType = response.headers.get('content-type') || 'application/octet-stream';
+      const buffer = await response.arrayBuffer();
+      return {
+        statusCode: response.status,
+        headers: {
+          ...corsHeaders,
+          'Content-Type': contentType
+        },
+        isBase64Encoded: true,
+        body: Buffer.from(buffer).toString('base64')
+      };
+    }
+    // ===== FIM DO BLOCO NOVO =====
+
+    // continua o fluxo normal para JSON…
     let responseData;
     try {
       const responseText = await response.text();
@@ -121,8 +135,6 @@ if (method !== 'GET' && body) {
       console.error('❌ Erro ao processar resposta:', e);
       responseData = { error: 'Erro ao processar resposta' };
     }
-
-    console.log('📊 Dados da resposta processados:', responseData);
 
     return {
       statusCode: response.status,
