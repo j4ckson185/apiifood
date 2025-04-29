@@ -82,16 +82,19 @@ async function pollForNewDisputesOnce() {
     }
 }
 
-// Função que inicia o polling de disputas
+// DEPOIS (substitui as mesmas linhas, ~88–96)
 function startDisputePolling() {
     if (!isDisputePollingActive) {
         isDisputePollingActive = true;
         console.log('🔄 Iniciando polling de disputas...');
-        pollForNewDisputes();
+        if (typeof pollForNewDisputes === 'function') {
+            pollForNewDisputes();
+        } else {
+            console.error('❌ pollForNewDisputes não está definida, abortando polling de disputas');
+        }
     }
 }
 
-// Função que para o polling de disputas
 function stopDisputePolling() {
     isDisputePollingActive = false;
     console.log('⏹️ Polling de disputas parado');
