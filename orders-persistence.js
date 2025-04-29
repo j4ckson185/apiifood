@@ -230,59 +230,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }, 2000);
 });
 
-// Modificar a função de polling para atualizar todos os pedidos periodicamente
-const originalPollEvents = pollEvents;
-window.pollEvents = async function() {
-    if (!state.isPolling || !state.accessToken) return;
-
-    try {
-        console.log('Iniciando polling...');
-        const events = await makeAuthorizedRequest('/events/v1.0/events:polling', 'GET');
-        
-        if (events && Array.isArray(events) && events.length > 0) {
-            console.log('Eventos recebidos:', events);
-            
-            // Processa todos os eventos
-            for (const event of events) {
-                await handleEvent(event);
-            }
-
-            // Formato correto para acknowledgment
-            const acknowledgmentFormat = events.map(event => ({ id: event.id }));
-            console.log('📤 Enviando acknowledgment com formato:', acknowledgmentFormat);
-
-            try {
-                // Envia acknowledgment para todos os eventos
-                await makeAuthorizedRequest('/events/v1.0/events/acknowledgment', 'POST', acknowledgmentFormat);
-                console.log('✅ Acknowledgment enviado com sucesso');
-            } catch (ackError) {
-                console.error('❌ Erro ao enviar acknowledgment:', ackError);
-            }
-        } else {
-            console.log('Nenhum evento recebido neste polling');
-        }
-        
-        // Adicionar contador para atualização periódica de todos os pedidos
-        state.pollingCounter = (state.pollingCounter || 0) + 1;
-        if (state.pollingCounter >= 3) { // A cada 3 ciclos (90 segundos)
-            await updateAllVisibleOrders();
-            state.pollingCounter = 0;
-        }
-    } catch (error) {
-        console.error('Erro no polling:', error);
-        
-        // Verificar se o token expirou e renovar se necessário
-        if (error.message && error.message.includes('401')) {
-            console.log('🔑 Token possivelmente expirado. Tentando renovar...');
-            state.accessToken = null;
-            await authenticate();
-        }
-    } finally {
-        if (state.isPolling) {
-            setTimeout(pollEvents, CONFIG.pollingInterval);
-        }
-    }
-};
+// Removido override de pollEvents: agora usamos unifiedPolling() em script.js
+// Mantemos um alias para compatibilidade (semelhante à antiga pollEvents)
+window.pollEvents = unifiedPolling;
 
 // Modificar a função handleEvent para incluir logs mais detalhados
 window.handleEvent = async function(event) {
