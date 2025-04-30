@@ -879,22 +879,19 @@ if (order.total && order.total.benefits && order.total.benefits > 0) {
         const benefitItem = document.createElement('div');
         benefitItem.className = 'benefit-item';
         
-        // Cabeçalho do cupom
-        const benefitHeader = document.createElement('div');
-        benefitHeader.className = 'benefit-header';
-        benefitHeader.innerHTML = `
-            <span class="benefit-type">${targetMap[benefit.target] || 'Desconto'}</span>
-            <span class="benefit-value">-R$ ${benefitValue.toFixed(2)}</span>
-        `;
-        
-        // Adiciona nome da campanha se disponível
-        if (benefit.campaign && benefit.campaign.name) {
-            benefitHeader.innerHTML += `
-                <span class="benefit-campaign">${benefit.campaign.name}</span>
-            `;
-        }
-        
-        benefitItem.appendChild(benefitHeader);
+// Cabeçalho do cupom (string concatenation)
+const benefitHeader = document.createElement('div');
+benefitHeader.className = 'benefit-header';
+benefitHeader.innerHTML =
+  '<span class="benefit-type">' + (targetMap[benefit.target] || 'Desconto') + '</span>' +
+  '<span class="benefit-value">-R$ ' + benefitValue.toFixed(2) + '</span>';
+
+if (benefit.campaign && benefit.campaign.name) {
+    benefitHeader.innerHTML +=
+      '<span class="benefit-campaign">' + benefit.campaign.name + '</span>';
+}
+
+benefitItem.appendChild(benefitHeader);
         
 // === Início: exibe patrocinador de cada cupom ===
 if (benefit.sponsorshipValues && Array.isArray(benefit.sponsorshipValues)) {
