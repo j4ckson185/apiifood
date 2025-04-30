@@ -896,24 +896,20 @@ if (order.total && order.total.benefits && order.total.benefits > 0) {
         
         benefitItem.appendChild(benefitHeader);
         
-// Exibe patrocinador de cada cupom
+// === Início: exibe patrocinador de cada cupom ===
 if (benefit.sponsorshipValues && Array.isArray(benefit.sponsorshipValues)) {
-    benefit.sponsorshipValues.forEach(sponsor => {
-        if (!sponsor.value) return;
-        // API já fornece description: "Incentivo do iFood" ou "Incentivo da Loja"
-        const sponsorValue = sponsor.value > 100
-            ? sponsor.value / 100
-            : sponsor.value;
-        const sponsorParagraph = document.createElement('p');
-        sponsorParagraph.className = 'sponsor-info';
-        sponsorParagraph.innerHTML = `
-            <strong>Patrocinador:</strong>
-            <span>${sponsor.description}</span>
-            <strong>- R$ ${sponsorValue.toFixed(2)}</strong>
-        `;
-        benefitItem.appendChild(sponsorParagraph);
-    });
+  benefit.sponsorshipValues.forEach(sponsor => {
+    if (!sponsor.value) return;
+    const sponsorValue = sponsor.value > 100 ? sponsor.value / 100 : sponsor.value;
+    const p = document.createElement('p');
+    p.className = 'sponsor-info';
+    p.innerHTML =
+      '<strong>Patrocinador:</strong> ' + sponsor.description +
+      ' <strong>- R$ ' + sponsorValue.toFixed(2) + '</strong>';
+    benefitItem.appendChild(p);
+  });
 }
+// === Fim do bloco de patrocinadores ===
     
     totalDetails.appendChild(benefitsContainer);
 }
