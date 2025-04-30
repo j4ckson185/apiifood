@@ -847,11 +847,7 @@ addChangeForField(orderElement, order);
             }
             
 // === Início: exibe cada benefício ou cupom com patrocinador ===
-if (order.total && order.total.benefits && order.total.benefits > 0) {
-    const p = document.createElement('p');
-    p.innerHTML = `<span>Descontos:</span> <span>-R$ ${order.total.benefits.toFixed(2)}</span>`;
-    totalDetails.appendChild(p);
-} else if (order.benefits && Array.isArray(order.benefits) && order.benefits.length > 0) {
+if (order.benefits && Array.isArray(order.benefits) && order.benefits.length > 0) {
     // Título dos cupons
     const benefitsTitle = document.createElement('div');
     benefitsTitle.className = 'benefits-title';
@@ -867,15 +863,15 @@ if (order.total && order.total.benefits && order.total.benefits > 0) {
             return;
         }
 
-        // Valor formatado
-        var benefitValue = benefit.value > 100 ? benefit.value / 100 : benefit.value;
+        // Valor do benefício
+        const benefitValue = benefit.value > 100 ? benefit.value / 100 : benefit.value;
 
         // Item de cupom
-        var benefitItem = document.createElement('div');
+        const benefitItem = document.createElement('div');
         benefitItem.className = 'benefit-item';
 
         // Cabeçalho do cupom
-        var benefitHeader = document.createElement('div');
+        const benefitHeader = document.createElement('div');
         benefitHeader.className = 'benefit-header';
         benefitHeader.innerHTML =
             '<span class="benefit-type">' + (targetMap[benefit.target] || 'Desconto') + '</span>' +
@@ -892,8 +888,8 @@ if (order.total && order.total.benefits && order.total.benefits > 0) {
                 if (!sponsor.value) {
                     return;
                 }
-                var sponsorValue = sponsor.value > 100 ? sponsor.value / 100 : sponsor.value;
-                var p = document.createElement('p');
+                const sponsorValue = sponsor.value > 100 ? sponsor.value / 100 : sponsor.value;
+                const p = document.createElement('p');
                 p.className = 'sponsor-info';
                 p.innerHTML =
                     '<strong>Patrocinador:</strong> ' + sponsor.description +
@@ -907,10 +903,17 @@ if (order.total && order.total.benefits && order.total.benefits > 0) {
     });
 
     totalDetails.appendChild(benefitsContainer);
+
+} else if (order.total && order.total.benefits && order.total.benefits > 0) {
+    // Fallback: exibe só o total quando não há array de benefits
+    const p = document.createElement('p');
+    p.innerHTML = '<span>Descontos:</span> <span>-R$ ' + order.total.benefits.toFixed(2) + '</span>';
+    totalDetails.appendChild(p);
 }
-            
-            const totalElement = orderElement.querySelector('.order-total');
-            totalElement.appendChild(totalDetails);
+// === Fim do bloco de cupons ===
+
+const totalElement = orderElement.querySelector('.order-total');
+totalElement.appendChild(totalDetails);
         }
     } else {
         // Tenta calcular o total a partir dos itens
