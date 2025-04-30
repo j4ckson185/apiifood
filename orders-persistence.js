@@ -378,10 +378,12 @@ window.handleEvent = async function(event) {
                 const currentIndex = statusPriority.indexOf(currentStatus);
                 const incomingIndex = statusPriority.indexOf(mappedStatus);
 
-                if (currentIndex > -1 && incomingIndex > -1 && incomingIndex < currentIndex) {
-                    console.log(`⛔ Ignorando regressão de status: ${mappedStatus} < ${currentStatus}`);
-                    return;
-                }
+// DEPOIS
+// Permite confirmação (CFM) mesmo que o cache esteja em DISPATCHED
+if (event.code !== 'CFM' && currentIndex > -1 && incomingIndex > -1 && incomingIndex < currentIndex) {
+    console.log(`⛔ Ignorando regressão de status: ${mappedStatus} < ${currentStatus}`);
+    return;
+}
 
                 console.log(`=== PROCESSANDO MUDANÇA DE STATUS ===`);
                 console.log(`Timestamp: ${new Date().toLocaleString()}`);
