@@ -904,23 +904,21 @@ if (order.total && order.total.benefits && order.total.benefits > 0) {
             benefit.sponsorshipValues.forEach(sponsor => {
                 if (!sponsor.value) return;
                 
-                // Traduz o nome do patrocinador
-                const sponsorNameMap = {
-                    'IFOOD': 'iFood',
-                    'MERCHANT': 'Loja',
-                    'EXTERNAL': 'Indústria'
-                };
-                
-                const sponsorName = sponsorNameMap[sponsor.name] || sponsor.name;
-                const sponsorValue = sponsor.value > 100 ? sponsor.value / 100 : sponsor.value;
-                
-                const sponsorItem = document.createElement('div');
-                sponsorItem.className = 'sponsor-item';
-                sponsorItem.innerHTML = `
-                    <span class="sponsor-name">${sponsorName}</span>
-                    <span class="sponsor-value">R$ ${sponsorValue.toFixed(2)}</span>
-                    <span class="sponsor-desc">${sponsor.description || ''}</span>
-                `;
+// Mapeia cada patrocinador para o rótulo de incentivo
+const sponsorLabelMap = {
+  'IFOOD':    'Incentivo iFood',
+  'MERCHANT': 'Incentivo da Loja',
+  'EXTERNAL': 'Incentivo da Indústria'
+};
+const sponsorLabel = sponsorLabelMap[sponsor.name] || sponsor.name;
+const sponsorValue = sponsor.value > 100 ? sponsor.value / 100 : sponsor.value;
+const sponsorItem = document.createElement('div');
+sponsorItem.className = 'sponsor-item';
+sponsorItem.innerHTML = `
+  <span class="sponsor-name">${sponsorLabel}</span>
+  <span class="sponsor-value">R$ ${sponsorValue.toFixed(2)}</span>
+  <span class="sponsor-desc">${sponsor.description || ''}</span>
+`;
                 
                 sponsorsContainer.appendChild(sponsorItem);
             });
