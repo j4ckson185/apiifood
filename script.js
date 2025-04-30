@@ -881,11 +881,11 @@ if (order.benefits && Array.isArray(order.benefits) && order.benefits.length > 0
         benefitHeader.innerHTML =
             '<span class="benefit-type">' + (targetMap[benefit.target] || 'Desconto') + '</span>' +
             '<span class="benefit-value">-R$ ' + benefitValue.toFixed(2) + '</span>';
-        if (benefit.campaign && benefit.campaign.name) {
-            benefitHeader.innerHTML +=
-                '<span class="benefit-campaign">' + benefit.campaign.name + '</span>';
-        }
-        benefitItem.appendChild(benefitHeader);
+if (benefit.campaign && benefit.campaign.name) {
+    benefitHeader.innerHTML +=
+        '<span class="benefit-campaign">Cupom do iFood</span>';
+}
+benefitItem.appendChild(benefitHeader);
 
         // Exibe patrocinador de cada cupom
         if (benefit.sponsorshipValues && Array.isArray(benefit.sponsorshipValues)) {
