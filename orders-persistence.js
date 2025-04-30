@@ -358,7 +358,7 @@ window.handleEvent = async function(event) {
                 'READY_TO_PICKUP': 'READY_TO_PICKUP',
                 'RTP': 'READY_TO_PICKUP',
                 'DISPATCHED': 'DISPATCHED',
-                'DDCR': 'DISPATCHED',
+                // 'DDCR': 'DISPATCHED',  // removido para não auto-despachar ao confirmar
                 'DSP': 'DISPATCHED',
                 'CONCLUDED': 'CONCLUDED',
                 'CONC': 'CONCLUDED',
