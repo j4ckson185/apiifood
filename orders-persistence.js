@@ -65,19 +65,21 @@ function loadOrdersFromLocalStorage() {
                     // Adiciona ao cache primeiro
                     ordersCache[order.id] = order;
                     
-                    // Exibe na interface com base no container
-                    if (containerId === 'scheduled-orders' && 
-                        typeof displayScheduledOrder === 'function' && 
-                        isScheduledOrder(order)) {
-                        // Usa a função específica para pedidos agendados
-                        displayScheduledOrder(order);
-                    } else {
-                        // Usa a função padrão para outros pedidos
-                        displayOrder(order);
-                    }
-                    
-                    // Marca como já processado
-                    processedOrderIds.add(order.id);
+// Exibe na interface com base no container
+if (containerId === 'scheduled-orders' &&
+    typeof window.displayScheduledOrder === 'function' &&
+    window.isScheduledOrder(order)) {
+  // Usa a função específica para pedidos agendados
+  window.displayScheduledOrder(order);
+} else if (typeof window.displayOrder === 'function') {
+  // Usa a função padrão para outros pedidos
+  window.displayOrder(order);
+} else {
+  console.error('❌ Função displayOrder não encontrada');
+}
+
+// Marca como já processado
+processedOrderIds.add(order.id);
                 }
             }
         });
