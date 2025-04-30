@@ -6,17 +6,18 @@ const eventosProcessados = new Set(); // Para evitar duplicidade
 
 // netlify/functions/ifood-webhook-events.js
 
+// netlify/functions/ifood-webhook-events.js
+
 exports.handler = async (event) => {
-  console.log('[WEBHOOK-EVENTS] Webhook temporariamente desabilitado – ignorando payload.');
+  // Ignora totalmente qualquer chamada ao webhook
+  console.log('[WEBHOOK-EVENTS] Desabilitado – ignorando payload e retornando lista vazia.');
   return {
     statusCode: 200,
     headers: {
       'Content-Type': 'application/json',
       'Access-Control-Allow-Origin': '*'
     },
-    body: JSON.stringify({
-      success: true,
-      message: 'Webhook desabilitado, usando apenas polling'
-    })
+    // devolve sempre um array vazio de events
+    body: JSON.stringify({ eventos: [] })
   };
 };
