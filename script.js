@@ -852,60 +852,60 @@ if (order.total && order.total.benefits && order.total.benefits > 0) {
     p.innerHTML = `<span>Descontos:</span> <span>-R$ ${order.total.benefits.toFixed(2)}</span>`;
     totalDetails.appendChild(p);
 } else if (order.benefits && Array.isArray(order.benefits) && order.benefits.length > 0) {
-    // Adiciona título da seção de cupons
+    // Título dos cupons
     const benefitsTitle = document.createElement('div');
     benefitsTitle.className = 'benefits-title';
     benefitsTitle.innerHTML = '<i class="fas fa-ticket-alt"></i> Cupons de Desconto Aplicados:';
     totalDetails.appendChild(benefitsTitle);
-    
-    // Cria container para cupons
+
+    // Container de cupons
     const benefitsContainer = document.createElement('div');
     benefitsContainer.className = 'benefits-container';
-    
-    order.benefits.forEach(benefit => {
-        if (!benefit.value) return;
 
-        // Traduz o tipo de alvo do cupom
-        const targetMap = {
-            'CART': 'Desconto no Carrinho',
-            'DELIVERY_FEE': 'Desconto na Taxa de Entrega',
-            'ITEM': 'Desconto no Item'
-        };
-        
-        // Formata o valor do benefício (convertendo de centavos para reais se necessário)
-        const benefitValue = benefit.value > 100 ? benefit.value / 100 : benefit.value;
-        
-        // Cria container para cada cupom
-        const benefitItem = document.createElement('div');
+    order.benefits.forEach(function(benefit) {
+        if (!benefit.value) {
+            return;
+        }
+
+        // Valor formatado
+        var benefitValue = benefit.value > 100 ? benefit.value / 100 : benefit.value;
+
+        // Item de cupom
+        var benefitItem = document.createElement('div');
         benefitItem.className = 'benefit-item';
-        
-// Antes do benefitItem.appendChild(benefitHeader);
-const benefitHeader = document.createElement('div');
-benefitHeader.className = 'benefit-header';
-benefitHeader.innerHTML =
-  '<span class="benefit-type">' + (targetMap[benefit.target] || 'Desconto') + '</span>' +
-  '<span class="benefit-value">-R$ ' + benefitValue.toFixed(2) + '</span>';
-if (benefit.campaign && benefit.campaign.name) {
-  benefitHeader.innerHTML +=
-    '<span class="benefit-campaign">' + benefit.campaign.name + '</span>';
-}
-benefitItem.appendChild(benefitHeader);
-        
-// === Início: exibe patrocinador de cada cupom ===
-if (benefit.sponsorshipValues && Array.isArray(benefit.sponsorshipValues)) {
-  benefit.sponsorshipValues.forEach(sponsor => {
-    if (!sponsor.value) return;
-    const sponsorValue = sponsor.value > 100 ? sponsor.value / 100 : sponsor.value;
-    const p = document.createElement('p');
-    p.className = 'sponsor-info';
-    p.innerHTML =
-      '<strong>Patrocinador:</strong> ' + sponsor.description +
-      ' <strong>- R$ ' + sponsorValue.toFixed(2) + '</strong>';
-    benefitItem.appendChild(p);
-  });
-}
-// === Fim do bloco de patrocinadores ===
-    
+
+        // Cabeçalho do cupom
+        var benefitHeader = document.createElement('div');
+        benefitHeader.className = 'benefit-header';
+        benefitHeader.innerHTML =
+            '<span class="benefit-type">' + (targetMap[benefit.target] || 'Desconto') + '</span>' +
+            '<span class="benefit-value">-R$ ' + benefitValue.toFixed(2) + '</span>';
+        if (benefit.campaign && benefit.campaign.name) {
+            benefitHeader.innerHTML +=
+                '<span class="benefit-campaign">' + benefit.campaign.name + '</span>';
+        }
+        benefitItem.appendChild(benefitHeader);
+
+        // === Início: exibe patrocinador de cada cupom ===
+        if (benefit.sponsorshipValues && Array.isArray(benefit.sponsorshipValues)) {
+            benefit.sponsorshipValues.forEach(function(sponsor) {
+                if (!sponsor.value) {
+                    return;
+                }
+                var sponsorValue = sponsor.value > 100 ? sponsor.value / 100 : sponsor.value;
+                var p = document.createElement('p');
+                p.className = 'sponsor-info';
+                p.innerHTML =
+                    '<strong>Patrocinador:</strong> ' + sponsor.description +
+                    ' <strong>- R$ ' + sponsorValue.toFixed(2) + '</strong>';
+                benefitItem.appendChild(p);
+            });
+        }
+        // === Fim do bloco de patrocinadores ===
+
+        benefitsContainer.appendChild(benefitItem);
+    });
+
     totalDetails.appendChild(benefitsContainer);
 }
             
