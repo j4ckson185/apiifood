@@ -65,19 +65,19 @@ function loadOrdersFromLocalStorage() {
                     // Adiciona ao cache primeiro
                     ordersCache[order.id] = order;
                     
-// Exibe na interface com base no container
-if (containerId === 'scheduled-orders' && 
-    typeof displayScheduledOrder === 'function' && 
-    isScheduledOrder(order)) {
-    // Usa a função específica para pedidos agendados
-    displayScheduledOrder(order);
-} else {
-    // Usa a função padrão para outros pedidos
-    displayOrder(order);
-}
-
-// Marca como já processado
-processedOrderIds.add(order.id);
+                    // Exibe na interface com base no container
+                    if (containerId === 'scheduled-orders' && 
+                        typeof displayScheduledOrder === 'function' && 
+                        isScheduledOrder(order)) {
+                        // Usa a função específica para pedidos agendados
+                        displayScheduledOrder(order);
+                    } else {
+                        // Usa a função padrão para outros pedidos
+                        displayOrder(order);
+                    }
+                    
+                    // Marca como já processado
+                    processedOrderIds.add(order.id);
                 }
             }
         });
@@ -358,7 +358,7 @@ window.handleEvent = async function(event) {
                 'READY_TO_PICKUP': 'READY_TO_PICKUP',
                 'RTP': 'READY_TO_PICKUP',
                 'DISPATCHED': 'DISPATCHED',
-                // 'DDCR': 'DISPATCHED',  // removido para não auto-despachar ao confirmar
+                'DDCR': 'DISPATCHED',
                 'DSP': 'DISPATCHED',
                 'CONCLUDED': 'CONCLUDED',
                 'CONC': 'CONCLUDED',
@@ -378,12 +378,10 @@ window.handleEvent = async function(event) {
                 const currentIndex = statusPriority.indexOf(currentStatus);
                 const incomingIndex = statusPriority.indexOf(mappedStatus);
 
-// DEPOIS
-// Permite confirmação (CFM) mesmo que o cache esteja em DISPATCHED
-if (event.code !== 'CFM' && currentIndex > -1 && incomingIndex > -1 && incomingIndex < currentIndex) {
-    console.log(`⛔ Ignorando regressão de status: ${mappedStatus} < ${currentStatus}`);
-    return;
-}
+                if (currentIndex > -1 && incomingIndex > -1 && incomingIndex < currentIndex) {
+                    console.log(`⛔ Ignorando regressão de status: ${mappedStatus} < ${currentStatus}`);
+                    return;
+                }
 
                 console.log(`=== PROCESSANDO MUDANÇA DE STATUS ===`);
                 console.log(`Timestamp: ${new Date().toLocaleString()}`);
@@ -395,20 +393,24 @@ if (event.code !== 'CFM' && currentIndex > -1 && incomingIndex > -1 && incomingI
                 const existingOrder = document.querySelector(`.order-card[data-order-id="${event.orderId}"]`);
                 const statusNaInterface = existingOrder?.querySelector('.order-status')?.textContent;
 
-if (!existingOrder) {
-    console.log('Pedido ainda não está na interface. Será exibido agora.');
-    const orderDetails = await makeAuthorizedRequest(`/order/v1.0/orders/${event.orderId}`, 'GET');
-    displayOrder(orderDetails);
-    processedOrderIds.add(event.orderId);
-    saveProcessedIds();
-}
+                // Evita que DDCR/DSP atualizem automaticamente a interface
+                const isSensitiveStatus = ['DISPATCHED'].includes(mappedStatus);
 
-if (statusNaInterface !== getStatusText(mappedStatus)) {
-    console.log(`Atualizando status na interface para: ${mappedStatus}`);
-    updateOrderStatus(event.orderId, mappedStatus);
-} else {
-    console.log('Status já está atualizado na interface.');
-}
+                if (isSensitiveStatus) {
+                    console.log(`⚠️ Evento ${event.code} mapeado como ${mappedStatus}, mas não será aplicado automaticamente.`);
+                } else if (!existingOrder) {
+                    console.log('Pedido ainda não está na interface. Será exibido agora.');
+                    // Busca detalhes completos apenas para exibição
+                    const orderDetails = await makeAuthorizedRequest(`/order/v1.0/orders/${event.orderId}`, 'GET');
+                    displayOrder(orderDetails);
+                    processedOrderIds.add(event.orderId);
+                    saveProcessedIds();
+                } else if (statusNaInterface !== getStatusText(mappedStatus)) {
+                    console.log(`Atualizando status na interface para: ${mappedStatus}`);
+                    updateOrderStatus(event.orderId, mappedStatus);
+                } else {
+                    console.log('Status já está atualizado na interface.');
+                }
 
                 console.log('=== FIM DO PROCESSAMENTO ===\n');
             }
