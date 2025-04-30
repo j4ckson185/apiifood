@@ -2519,3 +2519,23 @@ document.addEventListener('DOMContentLoaded', () => {
 window.displayOrder = displayOrder;
 window.state        = state;
 window.CONFIG       = CONFIG;
+
+// ─── No final de script.js, após tudo ────────────────────────
+;(function(){
+  const origFetch = window.fetch.bind(window);
+  window.fetch = function(input, init){
+    const url = typeof input === 'string' ? input : input.url;
+    // Ajuste os paths conforme os seus endpoints de webhook:
+    if (url.includes('/.netlify/functions/ifood-webhook') ||
+        url.includes('/.netlify/functions/ifood-webhook-events')){
+      console.log('🚫 Ignorando webhook:', url);
+      // Retorna uma resposta fake 200 com body vazio ou { events: [] }
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve({ success: true, events: [] })
+      });
+    }
+    return origFetch(input, init);
+  };
+})();
