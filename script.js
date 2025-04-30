@@ -337,6 +337,25 @@ async function unifiedPolling() {
     // 2) Disputas (fallback)
     await pollForNewDisputesOnce();
 
+    // 3) Webhook Netlify
+    try {
+      const res = await fetch('/.netlify/functions/ifood-webhook-events', {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      if (res.ok) {
+        const { eventos } = await res.json();
+        if (eventos?.length) {
+          console.log(`[WEBHOOK] ${eventos.length} eventos recebidos via unifiedPolling`);
+          for (const ev of eventos) {
+            await handleEvent(ev);
+          }
+        }
+      }
+    } catch (err) {
+      console.error('[WEBHOOK] Erro fetch webhook no unifiedPolling:', err);
+    }
+
     // 4) Status da loja
     if (window.currentMerchantId) {
       const status = await fetchStoreStatus(window.currentMerchantId);
@@ -1208,6 +1227,9 @@ async function fetchActiveOrders() {
        
        // Limpa os containers de pedidos
        clearOrdersContainers();
+       
+       // Buscar eventos recentes
+       const events = await makeAuthorizedRequest('/events/v1.0/events:polling', 'GET');
        
        if (events && Array.isArray(events) && events.length > 0) {
            console.log('Eventos recebidos:', events);
