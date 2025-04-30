@@ -883,7 +883,7 @@ if (order.benefits && Array.isArray(order.benefits) && order.benefits.length > 0
             '<span class="benefit-value">-R$ ' + benefitValue.toFixed(2) + '</span>';
 if (benefit.campaign && benefit.campaign.name) {
     benefitHeader.innerHTML +=
-        '<span class="benefit-campaign">Cupom do iFood</span>';
+        '<span class="benefit-campaign">' + benefit.campaign.name + '</span>';
 }
 benefitItem.appendChild(benefitHeader);
 
