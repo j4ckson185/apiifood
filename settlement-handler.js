@@ -57,7 +57,7 @@ function isDelayDispute(dispute) {
 
 // Somente busca uma vez, chamado pelo unifiedPolling()
 async function pollForNewDisputesOnce() {
-    if (!window.state?.accessToken) return;
+    if (!state.accessToken) return;
     try {
         const events = await makeAuthorizedRequest('/events/v1.0/events:polling', 'GET');
         if (Array.isArray(events)) {
