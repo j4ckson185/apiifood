@@ -393,24 +393,20 @@ window.handleEvent = async function(event) {
                 const existingOrder = document.querySelector(`.order-card[data-order-id="${event.orderId}"]`);
                 const statusNaInterface = existingOrder?.querySelector('.order-status')?.textContent;
 
-                // Evita que DDCR/DSP atualizem automaticamente a interface
-                const isSensitiveStatus = ['DISPATCHED'].includes(mappedStatus);
+if (!existingOrder) {
+    console.log('Pedido ainda não está na interface. Será exibido agora.');
+    const orderDetails = await makeAuthorizedRequest(`/order/v1.0/orders/${event.orderId}`, 'GET');
+    displayOrder(orderDetails);
+    processedOrderIds.add(event.orderId);
+    saveProcessedIds();
+}
 
-                if (isSensitiveStatus) {
-                    console.log(`⚠️ Evento ${event.code} mapeado como ${mappedStatus}, mas não será aplicado automaticamente.`);
-                } else if (!existingOrder) {
-                    console.log('Pedido ainda não está na interface. Será exibido agora.');
-                    // Busca detalhes completos apenas para exibição
-                    const orderDetails = await makeAuthorizedRequest(`/order/v1.0/orders/${event.orderId}`, 'GET');
-                    displayOrder(orderDetails);
-                    processedOrderIds.add(event.orderId);
-                    saveProcessedIds();
-                } else if (statusNaInterface !== getStatusText(mappedStatus)) {
-                    console.log(`Atualizando status na interface para: ${mappedStatus}`);
-                    updateOrderStatus(event.orderId, mappedStatus);
-                } else {
-                    console.log('Status já está atualizado na interface.');
-                }
+if (statusNaInterface !== getStatusText(mappedStatus)) {
+    console.log(`Atualizando status na interface para: ${mappedStatus}`);
+    updateOrderStatus(event.orderId, mappedStatus);
+} else {
+    console.log('Status já está atualizado na interface.');
+}
 
                 console.log('=== FIM DO PROCESSAMENTO ===\n');
             }
