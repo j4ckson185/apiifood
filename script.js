@@ -896,38 +896,24 @@ if (order.total && order.total.benefits && order.total.benefits > 0) {
         
         benefitItem.appendChild(benefitHeader);
         
-        // Adiciona detalhes dos patrocinadores
-        if (benefit.sponsorshipValues && Array.isArray(benefit.sponsorshipValues)) {
-            const sponsorsContainer = document.createElement('div');
-            sponsorsContainer.className = 'benefit-sponsors';
-            
-            benefit.sponsorshipValues.forEach(sponsor => {
-                if (!sponsor.value) return;
-                
-// Mapeia cada patrocinador para o rótulo de incentivo
-const sponsorLabelMap = {
-  'IFOOD':    'Incentivo iFood',
-  'MERCHANT': 'Incentivo da Loja',
-  'EXTERNAL': 'Incentivo da Indústria'
-};
-const sponsorLabel = sponsorLabelMap[sponsor.name] || sponsor.name;
-const sponsorValue = sponsor.value > 100 ? sponsor.value / 100 : sponsor.value;
-const sponsorItem = document.createElement('div');
-sponsorItem.className = 'sponsor-item';
-sponsorItem.innerHTML = `
-  <span class="sponsor-name">${sponsorLabel}</span>
-  <span class="sponsor-value">R$ ${sponsorValue.toFixed(2)}</span>
-  <span class="sponsor-desc">${sponsor.description || ''}</span>
-`;
-                
-                sponsorsContainer.appendChild(sponsorItem);
-            });
-            
-            benefitItem.appendChild(sponsorsContainer);
-        }
-        
-        benefitsContainer.appendChild(benefitItem);
+// Exibe patrocinador de cada cupom
+if (benefit.sponsorshipValues && Array.isArray(benefit.sponsorshipValues)) {
+    benefit.sponsorshipValues.forEach(sponsor => {
+        if (!sponsor.value) return;
+        // API já fornece description: "Incentivo do iFood" ou "Incentivo da Loja"
+        const sponsorValue = sponsor.value > 100
+            ? sponsor.value / 100
+            : sponsor.value;
+        const sponsorParagraph = document.createElement('p');
+        sponsorParagraph.className = 'sponsor-info';
+        sponsorParagraph.innerHTML = `
+            <strong>Patrocinador:</strong>
+            <span>${sponsor.description}</span>
+            <strong>- R$ ${sponsorValue.toFixed(2)}</strong>
+        `;
+        benefitItem.appendChild(sponsorParagraph);
     });
+}
     
     totalDetails.appendChild(benefitsContainer);
 }
