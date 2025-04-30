@@ -1197,58 +1197,23 @@ const actions = {
    }
 }
 
-// Função para buscar pedidos ativos usando eventos
+// Função para buscar pedidos ativos usando unifiedPolling
 async function fetchActiveOrders() {
-   try {
-       console.log('Buscando pedidos ativos via eventos...');
-       showToast('Buscando pedidos ativos...', 'info');
-       
-       // Precisamos declarar esta variável, estava sendo usada sem declaração
-       const successfulOrders = [];
-       
-       // Limpa os containers de pedidos
-       clearOrdersContainers();
-       
-       if (events && Array.isArray(events) && events.length > 0) {
-           console.log('Eventos recebidos:', events);
-           
-           // Filtra eventos relacionados a pedidos - aceitamos todos os tipos de eventos
-           const orderEvents = events.filter(event => event.orderId);
-           
-           if (orderEvents.length > 0) {
-               // Conjunto para rastrear pedidos já processados nesta busca
-               const processedInThisFetch = new Set();
-               
-               for (const event of orderEvents) {
-                   // Evita processar o mesmo pedido múltiplas vezes nesta busca
-                   if (!processedInThisFetch.has(event.orderId)) {
-                       processedInThisFetch.add(event.orderId);
-                       
-                       try {
-                           console.log(`Buscando detalhes do pedido ${event.orderId}`);
-                           const orderDetails = await makeAuthorizedRequest(`/order/v1.0/orders/${event.orderId}`, 'GET');
-                           console.log(`Detalhes recebidos para pedido ${event.orderId}:`, orderDetails);
-                           
-                           // Verifica se o pedido já existe na interface
-                           const existingOrder = document.querySelector(`.order-card[data-order-id="${orderDetails.id}"]`);
-                           if (!existingOrder) {
-                               displayOrder(orderDetails);
-                               successfulOrders.push(orderDetails);
-                               
-                               // Adiciona aos pedidos processados para evitar processamento futuro
-                               if (!processedOrderIds.has(event.orderId)) {
-                                   processedOrderIds.add(event.orderId);
-                                   saveProcessedIds();
-                               }
-                           } else {
-                               console.log(`Pedido ${orderDetails.id} já está na interface, ignorando`);
-                           }
-                       } catch (orderError) {
-                           console.error(`Erro ao buscar detalhes do pedido ${event.orderId}:`, orderError);
-                       }
-                   }
-               }
-               
+    try {
+        console.log('Buscando pedidos ativos via unifiedPolling inicial...');
+        showToast('Buscando pedidos ativos...', 'info');
+
+        // Limpa os containers de pedidos antes de exibir os novos
+        clearOrdersContainers();
+
+        // Executa um ciclo completo de polling unificado para puxar e exibir todos os pedidos atuais
+        await unifiedPolling();
+
+    } catch (err) {
+        console.error('Erro ao buscar pedidos ativos:', err);
+    }
+}
+
                // Fazer acknowledgment dos eventos processados
                if (events.length > 0) {
                    try {
