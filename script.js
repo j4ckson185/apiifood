@@ -879,18 +879,16 @@ if (order.total && order.total.benefits && order.total.benefits > 0) {
         const benefitItem = document.createElement('div');
         benefitItem.className = 'benefit-item';
         
-// Cabeçalho do cupom (string concatenation)
+// Antes do benefitItem.appendChild(benefitHeader);
 const benefitHeader = document.createElement('div');
 benefitHeader.className = 'benefit-header';
 benefitHeader.innerHTML =
   '<span class="benefit-type">' + (targetMap[benefit.target] || 'Desconto') + '</span>' +
   '<span class="benefit-value">-R$ ' + benefitValue.toFixed(2) + '</span>';
-
 if (benefit.campaign && benefit.campaign.name) {
-    benefitHeader.innerHTML +=
-      '<span class="benefit-campaign">' + benefit.campaign.name + '</span>';
+  benefitHeader.innerHTML +=
+    '<span class="benefit-campaign">' + benefit.campaign.name + '</span>';
 }
-
 benefitItem.appendChild(benefitHeader);
         
 // === Início: exibe patrocinador de cada cupom ===
@@ -2511,3 +2509,8 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }, 2000); // Delay para garantir que outros scripts foram carregados
 });
+
+// expõe para os outros módulos
+window.displayOrder = displayOrder;
+window.state        = state;
+window.CONFIG       = CONFIG;
