@@ -2131,11 +2131,14 @@ async function initialize() {
         // Atualiza status da loja
         await updateStoreStatus();
        
-        // Carrega pedidos ativos iniciais
-        await fetchActiveOrders();
-       
-        // Inicia polling de eventos
-        startPolling();
+    // Carrega pedidos ativos iniciais (desativado — agora o unifiedPolling faz tudo)
+    // await fetchActiveOrders();
+    
+    // Executa um ciclo imediato de unifiedPolling para já trazer os pedidos
+    unifiedPolling();
+    
+    // Inicia polling de eventos a cada 30s
+    startPolling();
     } catch (error) {
         console.error('Erro na inicialização:', error);
         showToast('Erro ao inicializar aplicação', 'error');
