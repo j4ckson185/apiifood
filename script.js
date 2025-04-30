@@ -2135,7 +2135,7 @@ async function initialize() {
     // await fetchActiveOrders();
     
     // Executa um ciclo imediato de unifiedPolling para já trazer os pedidos
-    unifiedPolling();
+    // unifiedPolling();
     
     // Inicia polling de eventos a cada 30s
     startPolling();
