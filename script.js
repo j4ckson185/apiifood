@@ -312,32 +312,27 @@ function saveProcessedIds() {
     localStorage.setItem('processedOrderIds', JSON.stringify([...processedOrderIds]));
 }
 
-// ----------------------------------------------
-// Polling unificado: eventos, disputas, status, pedidos
-// ----------------------------------------------
 async function unifiedPolling() {
   if (!state.isPolling || !state.accessToken) return;
 
   console.log(`🔄 Polling unificado em ${new Date().toISOString()}`);
 
   try {
-    // 1) Eventos iFood API
+    // 1) iFood API (proxy) — só uma vez
     const events = await makeAuthorizedRequest('/events/v1.0/events:polling', 'GET');
     if (Array.isArray(events) && events.length) {
-      for (const e of events) {
-        await handleEvent(e);
-      }
+      for (const e of events) await handleEvent(e);
       await makeAuthorizedRequest(
-        '/events/v1.0/events/acknowledgment',
+        '/events/v1.0/events:acknowledgment',
         'POST',
         events.map(ev => ({ id: ev.id }))
       );
     }
 
-    // 2) Disputas (fallback)
-    await pollForNewDisputesOnce();
+    // 2) ► Fallback de disputas removido, para não repetir o proxy
+    // await pollForNewDisputesOnce();
 
-    // 3) Webhook Netlify
+    // 3) Webhook Netlify — preservado
     try {
       const res = await fetch('/.netlify/functions/ifood-webhook-events', {
         method: 'GET',
@@ -345,11 +340,9 @@ async function unifiedPolling() {
       });
       if (res.ok) {
         const { eventos } = await res.json();
-        if (eventos?.length) {
+        if (Array.isArray(eventos) && eventos.length) {
           console.log(`[WEBHOOK] ${eventos.length} eventos recebidos via unifiedPolling`);
-          for (const ev of eventos) {
-            await handleEvent(ev);
-          }
+          for (const ev of eventos) await handleEvent(ev);
         }
       }
     } catch (err) {
@@ -363,11 +356,9 @@ async function unifiedPolling() {
     }
 
     // 5) Disputas expiradas
-    if (typeof checkExpiredDisputes === 'function') {
-      checkExpiredDisputes();
-    }
+    if (typeof checkExpiredDisputes === 'function') checkExpiredDisputes();
 
-    // 6) Atualiza todos os pedidos a cada 3 ciclos (~90 s)
+    // 6) Atualiza pedidos a cada 3 ciclos (~90s)
     state.pollingCounter = (state.pollingCounter || 0) + 1;
     if (state.pollingCounter >= 3) {
       await updateAllVisibleOrders();
