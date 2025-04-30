@@ -848,6 +848,13 @@ addChangeForField(orderElement, order);
             
 // === Início: exibe cada benefício ou cupom com patrocinador ===
 if (order.benefits && Array.isArray(order.benefits) && order.benefits.length > 0) {
+    // Mapeamento dos tipos de desconto (garante targetMap disponível)
+    const targetMap = {
+        'CART':         'Desconto no Carrinho',
+        'DELIVERY_FEE': 'Desconto na Taxa de Entrega',
+        'ITEM':         'Desconto no Item'
+    };
+
     // Título dos cupons
     const benefitsTitle = document.createElement('div');
     benefitsTitle.className = 'benefits-title';
@@ -859,11 +866,9 @@ if (order.benefits && Array.isArray(order.benefits) && order.benefits.length > 0
     benefitsContainer.className = 'benefits-container';
 
     order.benefits.forEach(function(benefit) {
-        if (!benefit.value) {
-            return;
-        }
+        if (!benefit.value) return;
 
-        // Valor do benefício
+        // Valor formatado
         const benefitValue = benefit.value > 100 ? benefit.value / 100 : benefit.value;
 
         // Item de cupom
@@ -882,12 +887,10 @@ if (order.benefits && Array.isArray(order.benefits) && order.benefits.length > 0
         }
         benefitItem.appendChild(benefitHeader);
 
-        // === Início: exibe patrocinador de cada cupom ===
+        // Exibe patrocinador de cada cupom
         if (benefit.sponsorshipValues && Array.isArray(benefit.sponsorshipValues)) {
             benefit.sponsorshipValues.forEach(function(sponsor) {
-                if (!sponsor.value) {
-                    return;
-                }
+                if (!sponsor.value) return;
                 const sponsorValue = sponsor.value > 100 ? sponsor.value / 100 : sponsor.value;
                 const p = document.createElement('p');
                 p.className = 'sponsor-info';
@@ -897,7 +900,6 @@ if (order.benefits && Array.isArray(order.benefits) && order.benefits.length > 0
                 benefitItem.appendChild(p);
             });
         }
-        // === Fim do bloco de patrocinadores ===
 
         benefitsContainer.appendChild(benefitItem);
     });
@@ -905,7 +907,7 @@ if (order.benefits && Array.isArray(order.benefits) && order.benefits.length > 0
     totalDetails.appendChild(benefitsContainer);
 
 } else if (order.total && order.total.benefits && order.total.benefits > 0) {
-    // Fallback: exibe só o total quando não há array de benefits
+    // Fallback: caso não haja array de benefits
     const p = document.createElement('p');
     p.innerHTML = '<span>Descontos:</span> <span>-R$ ' + order.total.benefits.toFixed(2) + '</span>';
     totalDetails.appendChild(p);
