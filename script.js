@@ -2275,12 +2275,12 @@ window.initialize = async function() {
     await originalInitialize();
     
     // Inicia polling de eventos do webhook
-    webhookIntegration.start();           // <-- método correto
+    // webhookIntegration.start();      // <- comentado: polling de webhook desativado
     
     console.log('[WEBHOOK-CLIENT] Webhook integrado com sucesso!');
     
     // Exibe status após 2 segundos (dá tempo para primeira verificação)
-    setTimeout(() => {
+    // setTimeout(() => webhookIntegration.status(), 2000);
       webhookIntegration.status();
     }, 2000);
   } catch (error) {
