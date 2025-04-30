@@ -901,24 +901,28 @@ if (order.total && order.total.benefits && order.total.benefits > 0) {
             const sponsorsContainer = document.createElement('div');
             sponsorsContainer.className = 'benefit-sponsors';
             
+            // Mapa de rótulos oficiais da API para “Incentivo …”
+            const sponsorLabelMap = {
+              'IFOOD':    'Incentivo iFood',
+              'MERCHANT': 'Incentivo da Loja',
+              'EXTERNAL': 'Incentivo da Indústria'
+            };
+
             benefit.sponsorshipValues.forEach(sponsor => {
                 if (!sponsor.value) return;
                 
-// Mapeia cada patrocinador para o rótulo de incentivo
-const sponsorLabelMap = {
-  'IFOOD':    'Incentivo iFood',
-  'MERCHANT': 'Incentivo da Loja',
-  'EXTERNAL': 'Incentivo da Indústria'
-};
-const sponsorLabel = sponsorLabelMap[sponsor.name] || sponsor.name;
-const sponsorValue = sponsor.value > 100 ? sponsor.value / 100 : sponsor.value;
-const sponsorItem = document.createElement('div');
-sponsorItem.className = 'sponsor-item';
-sponsorItem.innerHTML = `
-  <span class="sponsor-name">${sponsorLabel}</span>
-  <span class="sponsor-value">R$ ${sponsorValue.toFixed(2)}</span>
-  <span class="sponsor-desc">${sponsor.description || ''}</span>
-`;
+                const sponsorLabel = sponsorLabelMap[sponsor.name] || sponsor.name;
+                const sponsorValue = sponsor.value > 100 
+                  ? sponsor.value / 100 
+                  : sponsor.value;
+                
+                const sponsorItem = document.createElement('div');
+                sponsorItem.className = 'sponsor-item';
+                sponsorItem.innerHTML = `
+                  <span class="sponsor-name">${sponsorLabel}</span>
+                  <span class="sponsor-value">R$ ${sponsorValue.toFixed(2)}</span>
+                  <span class="sponsor-desc">${sponsor.description || ''}</span>
+                `;
                 
                 sponsorsContainer.appendChild(sponsorItem);
             });
@@ -930,40 +934,40 @@ sponsorItem.innerHTML = `
     });
     
     totalDetails.appendChild(benefitsContainer);
-}
-            
-            const totalElement = orderElement.querySelector('.order-total');
-            totalElement.appendChild(totalDetails);
-        }
-    } else {
-        // Tenta calcular o total a partir dos itens
-        let calculatedTotal = 0;
-        if (order.items && Array.isArray(order.items)) {
-            calculatedTotal = order.items.reduce((sum, item) => {
-                return sum + (item.totalPrice || (item.price * item.quantity) || 0);
-            }, 0);
-        }
-        totalAmount.textContent = `R$ ${calculatedTotal.toFixed(2)}`;
-    }
 
-    // Adiciona horário do pedido
-    if (order.createdAt) {
-        const createdAtDiv = document.createElement('div');
-        createdAtDiv.className = 'order-created-at';
-        
-        const createdAtTitle = document.createElement('h3');
-        createdAtTitle.textContent = 'Horário do Pedido';
-        createdAtDiv.appendChild(createdAtTitle);
-        
-        const createdAtText = document.createElement('p');
-        const createdDate = new Date(order.createdAt);
-        createdAtText.textContent = createdDate.toLocaleString('pt-BR');
-        createdAtDiv.appendChild(createdAtText);
-        
-        // Insere após o total
-        const totalElement = orderElement.querySelector('.order-total');
-        totalElement.parentNode.insertBefore(createdAtDiv, totalElement.nextSibling);
+    // **Aqui já termina o bloco de benefits — depois, anexa tudo ao totalElement**
+    const totalElement = orderElement.querySelector('.order-total');
+    totalElement.appendChild(totalDetails);
+
+} else {
+    // Tenta calcular o total a partir dos itens
+    let calculatedTotal = 0;
+    if (order.items && Array.isArray(order.items)) {
+        calculatedTotal = order.items.reduce((sum, item) => {
+            return sum + (item.totalPrice || (item.price * item.quantity) || 0);
+        }, 0);
     }
+    totalAmount.textContent = `R$ ${calculatedTotal.toFixed(2)}`;
+}
+
+// Adiciona horário do pedido
+if (order.createdAt) {
+    const createdAtDiv = document.createElement('div');
+    createdAtDiv.className = 'order-created-at';
+    
+    const createdAtTitle = document.createElement('h3');
+    createdAtTitle.textContent = 'Horário do Pedido';
+    createdAtDiv.appendChild(createdAtTitle);
+    
+    const createdAtText = document.createElement('p');
+    const createdDate = new Date(order.createdAt);
+    createdAtText.textContent = createdDate.toLocaleString('pt-BR');
+    createdAtDiv.appendChild(createdAtText);
+    
+    // Insere após o total
+    const totalElement = orderElement.querySelector('.order-total');
+    totalElement.parentNode.insertBefore(createdAtDiv, totalElement.nextSibling);
+}
 
     // Adiciona botões de ação
     const actionsContainer = orderElement.querySelector('.order-actions');
