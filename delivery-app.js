@@ -1562,6 +1562,239 @@ function sincronizarPedidosEntreAdminEEntregador() {
     console.log('✅ Sincronização concluída');
 }
 
+// Ferramentas de debug para o sistema de entregadores
+// Adicione estas funções ao final do arquivo delivery-app.js
+
+// Função para verificar o estado completo do sistema no console
+window.debugSistemaEntregadores = function() {
+  console.group('🔍 DEBUG: Sistema de Entregadores');
+  
+  // Verifica usuário logado
+  console.log('👤 Usuário logado:', sistemaEntregadores.usuarioLogado);
+  
+  // Verifica o localStorage
+  console.log('💾 Keys no localStorage:', Object.keys(localStorage));
+  
+  // Verifica pedidos atribuídos
+  console.log('📋 Pedidos atribuídos por entregador:');
+  Object.keys(sistemaEntregadores.pedidosAtribuidos || {}).forEach(entregadorId => {
+    const pedidos = sistemaEntregadores.pedidosAtribuidos[entregadorId];
+    console.log(`- ${entregadorId}: ${pedidos?.length || 0} pedidos`, pedidos);
+    
+    // Verifica se existe o formato individual também
+    const rawIndividual = localStorage.getItem(`pedidos_${entregadorId}`);
+    if (rawIndividual) {
+      try {
+        const pedidosIndividual = JSON.parse(rawIndividual);
+        console.log(`  Formato individual: ${pedidosIndividual?.length || 0} pedidos`, pedidosIndividual);
+        
+        // Verifica se há diferença entre os dois formatos
+        if (JSON.stringify(pedidos) !== JSON.stringify(pedidosIndividual)) {
+          console.warn('⚠️ ATENÇÃO: Formatos não sincronizados!');
+        }
+      } catch (error) {
+        console.error(`  Erro ao parsear pedidos_${entregadorId}:`, error);
+      }
+    } else {
+      console.warn(`⚠️ Formato individual não encontrado para ${entregadorId}`);
+    }
+  });
+  
+  // Verifica cache de pedidos
+  const totalPedidosCache = Object.keys(sistemaEntregadores.pedidosCache || {}).length;
+  console.log(`🗃️ Cache de pedidos: ${totalPedidosCache} pedidos`);
+  
+  // Verifica estado dos pedidos
+  const totalEstadosPedidos = Object.keys(sistemaEntregadores.estadoPedidos || {}).length;
+  console.log(`📊 Estados de pedidos: ${totalEstadosPedidos} pedidos`);
+  
+  console.groupEnd();
+  
+  return {
+    usuarioLogado: sistemaEntregadores.usuarioLogado,
+    pedidosAtribuidos: sistemaEntregadores.pedidosAtribuidos,
+    pedidosCache: sistemaEntregadores.pedidosCache,
+    estadoPedidos: sistemaEntregadores.estadoPedidos
+  };
+};
+
+// Função para limpar todos os dados do sistema
+window.limparSistemaEntregadores = function() {
+  if (confirm('⚠️ ATENÇÃO: Esta ação irá limpar todos os dados do sistema de entregadores. Continuar?')) {
+    // Limpa o objeto em memória
+    sistemaEntregadores = {
+      usuarioLogado: sistemaEntregadores.usuarioLogado, // Mantém usuário logado
+      pedidosAtribuidos: {},
+      pedidosCache: {},
+      estadoPedidos: {}
+    };
+    
+    // Limpa localStorage
+    Object.keys(localStorage).forEach(key => {
+      if (key === 'sistemaEntregadores' || key.startsWith('pedidos_')) {
+        localStorage.removeItem(key);
+      }
+    });
+    
+    // Salva objeto limpo
+    localStorage.setItem('sistemaEntregadores', JSON.stringify(sistemaEntregadores));
+    
+    console.log('🧹 Sistema de entregadores limpo com sucesso');
+    
+    // Recarrega a interface se for um entregador
+    if (sistemaEntregadores.usuarioLogado && sistemaEntregadores.usuarioLogado.id !== 'admin') {
+      carregarPedidosEntregador();
+    }
+    
+    return true;
+  }
+  return false;
+};
+
+// Função para forçar a sincronização entre formatos
+window.forcarSincronizacao = function() {
+  sincronizarPedidosEntreAdminEEntregador();
+  
+  // Recarrega a interface se for um entregador
+  if (sistemaEntregadores.usuarioLogado && sistemaEntregadores.usuarioLogado.id !== 'admin') {
+    carregarPedidosEntregador();
+  }
+  
+  return 'Sincronização forçada concluída!';
+};
+
+// Função para atribuir um pedido teste
+window.criarPedidoTeste = function(entregadorId) {
+  if (!entregadorId) {
+    if (sistemaEntregadores.usuarioLogado && sistemaEntregadores.usuarioLogado.id !== 'admin') {
+      entregadorId = sistemaEntregadores.usuarioLogado.id;
+    } else {
+      alert('Especifique o ID do entregador');
+      return false;
+    }
+  }
+  
+  const pedidoId = 'teste-' + Math.floor(Math.random() * 1000000);
+  
+  // Inicializa arrays se necessário
+  if (!sistemaEntregadores.pedidosAtribuidos[entregadorId]) {
+    sistemaEntregadores.pedidosAtribuidos[entregadorId] = [];
+  }
+  
+  // Adiciona o pedido
+  sistemaEntregadores.pedidosAtribuidos[entregadorId].push(pedidoId);
+  
+  // Cria o pedido no cache
+  sistemaEntregadores.pedidosCache[pedidoId] = {
+    id: pedidoId,
+    displayId: pedidoId.substring(0, 6),
+    customer: {
+      name: 'Cliente Teste',
+      phone: '(11) 99999-9999'
+    },
+    total: {
+      orderAmount: 59.90,
+      subTotal: 49.90,
+      deliveryFee: 10.00
+    },
+    items: [
+      {
+        name: 'Pedido de Teste',
+        quantity: 1,
+        price: 49.90
+      }
+    ],
+    delivery: {
+      deliveryAddress: {
+        streetName: 'Rua de Teste',
+        streetNumber: '123',
+        neighborhood: 'Bairro Teste',
+        city: 'Cidade Teste',
+        state: 'ST'
+      }
+    }
+  };
+  
+  // Define estado
+  sistemaEntregadores.estadoPedidos[pedidoId] = 'atribuido';
+  
+  // Salva nos dois formatos
+  localStorage.setItem('sistemaEntregadores', JSON.stringify(sistemaEntregadores));
+  localStorage.setItem(`pedidos_${entregadorId}`, JSON.stringify(sistemaEntregadores.pedidosAtribuidos[entregadorId]));
+  
+  console.log(`✅ Pedido teste ${pedidoId} criado para ${entregadorId}`);
+  
+  // Recarrega a interface se for um entregador
+  if (sistemaEntregadores.usuarioLogado && sistemaEntregadores.usuarioLogado.id === entregadorId) {
+    carregarPedidosEntregador();
+  }
+  
+  return pedidoId;
+};
+
+// Botão de debug na interface do entregador
+function adicionarBotaoDebug() {
+  // Verifica se já existe
+  if (document.getElementById('debug-btn')) return;
+  
+  // Cria o botão
+  const btn = document.createElement('button');
+  btn.id = 'debug-btn';
+  btn.innerHTML = '🐞 Debug';
+  btn.style.position = 'fixed';
+  btn.style.bottom = '10px';
+  btn.style.right = '10px';
+  btn.style.zIndex = '9999';
+  btn.style.padding = '10px';
+  btn.style.background = '#333';
+  btn.style.color = 'white';
+  btn.style.border = 'none';
+  btn.style.borderRadius = '5px';
+  btn.style.cursor = 'pointer';
+  
+  // Adiciona evento
+  btn.addEventListener('click', () => {
+    const actions = [
+      'Verificar sistema (no console)',
+      'Forçar sincronização',
+      'Criar pedido teste',
+      'Limpar todo o sistema'
+    ];
+    
+    const action = prompt(`Escolha uma ação de debug:\n${actions.map((a, i) => `${i+1}. ${a}`).join('\n')}`);
+    
+    switch (action) {
+      case '1':
+        window.debugSistemaEntregadores();
+        break;
+      case '2':
+        window.forcarSincronizacao();
+        break;
+      case '3':
+        window.criarPedidoTeste();
+        break;
+      case '4':
+        window.limparSistemaEntregadores();
+        break;
+      default:
+        alert('Ação inválida ou cancelada');
+    }
+  });
+  
+  // Adiciona ao body
+  document.body.appendChild(btn);
+}
+
+// Adiciona o botão quando a interface do entregador é exibida
+const originalExibirTelaEntregador = exibirTelaEntregador;
+window.exibirTelaEntregador = function() {
+  originalExibirTelaEntregador();
+  
+  // Adiciona botão de debug com delay para garantir que o DOM esteja pronto
+  setTimeout(adicionarBotaoDebug, 1000);
+};
+
+// Não espera polling, já exibe logo os pedidos
 window.addEventListener('focus', () => {
   if (sistemaEntregadores.usuarioEntregadorLogado) {
     carregarPedidosEntregador();
