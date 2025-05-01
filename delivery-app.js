@@ -1560,6 +1560,8 @@ function sincronizarPedidosEntreAdminEEntregador() {
     }
     
     console.log('✅ Sincronização concluída');
+    // Atualiza a interface com os novos pedidos atribuídos
+    carregarPedidosEntregador();
 }
 
 // Ferramentas de debug para o sistema de entregadores
