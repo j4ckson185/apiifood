@@ -391,10 +391,13 @@ function modificarInterfaceAdmin() {
     console.log('✅ Interface admin modificada com sucesso');
 }
 
-// Função para adicionar botão de logout
 function adicionarBotaoLogout() {
+    // Se já existe, não cria de novo
+    if (document.getElementById('logout-button')) return;
+
     // Cria botão de logout
     const logoutButton = document.createElement('button');
+    logoutButton.id = 'logout-button';           // atribui um id para o check
     logoutButton.textContent = 'Sair';
     logoutButton.className = 'logout-button';
     logoutButton.style.background = '#6c757d';
@@ -949,7 +952,7 @@ function exibirTelaEntregador() {
                 </div>
                 <div class="entregador-info">
                     <span>${sistemaEntregadores.usuarioLogado.nome}</span>
-                    <button class="logout-btn" id="btn-logout">Sair</button>
+                 <!-- logout será adicionado dinamicamente -->
                 </div>
             </div>
         </header>
@@ -982,18 +985,22 @@ function exibirTelaEntregador() {
     console.log('✅ Interface de entregador exibida com sucesso');
 }
 
-// Carregar pedidos do entregador atual
 function carregarPedidosEntregador() {
+    // 1) Se ninguém estiver logado, sai sem erro
+    if (!sistemaEntregadores.usuarioLogado) {
+        console.warn('Nenhum usuário logado – pulando carregamento de pedidos');
+        return;
+    }
+
     const entregadorId = sistemaEntregadores.usuarioLogado.id;
     const pedidosContainer = document.getElementById('pedidos-container');
-    
     if (!pedidosContainer) return;
     
-    // Obter pedidos atribuídos a este entregador
-    const pedidosIds = sistemaEntregadores.pedidosAtribuidos[entregadorId] || [];
+    // 2) Lê a lista que o admin gravou na sessão
+    const raw = sessionStorage.getItem(`pedidos_${entregadorId}`);
+    const pedidosIds = raw ? JSON.parse(raw) : [];
     
     if (pedidosIds.length === 0) {
-        // Exibir estado vazio
         pedidosContainer.innerHTML = `
             <div class="empty-state">
                 <i class="fas fa-inbox"></i>
@@ -1004,63 +1011,44 @@ function carregarPedidosEntregador() {
         return;
     }
     
-    // Monta o grid de pedidos
-    let pedidosHTML = `<h2>Seus Pedidos (${pedidosIds.length})</h2>
-                      <div class="pedidos-grid">`;
+    // 3) Monta o grid de pedidos normalmente…
+    let pedidosHTML = `
+        <h2>Seus Pedidos (${pedidosIds.length})</h2>
+        <div class="pedidos-grid">`;
     
-    // Adiciona cada pedido
     pedidosIds.forEach(pedidoId => {
         const pedido = sistemaEntregadores.pedidosCache[pedidoId];
         if (!pedido) return;
-        
         const estado = sistemaEntregadores.estadoPedidos[pedidoId] || 'atribuido';
-        let statusText = '';
-        let statusClass = '';
-        
+        let statusText = '', statusClass = '';
         switch (estado) {
             case 'atribuido':
-                statusText = 'Atribuído';
-                statusClass = 'status-atribuido';
-                break;
+                statusText = 'Atribuído'; statusClass = 'status-atribuido'; break;
             case 'aceito':
-                statusText = 'Aceito';
-                statusClass = 'status-aceito';
-                break;
+                statusText = 'Aceito';    statusClass = 'status-aceito';    break;
             case 'despachado':
-                statusText = 'A Caminho';
-                statusClass = 'status-despachado';
-                break;
+                statusText = 'A Caminho'; statusClass = 'status-despachado'; break;
             case 'finalizado':
-                statusText = 'Finalizado';
-                statusClass = 'status-finalizado';
-                break;
+                statusText = 'Finalizado';statusClass = 'status-finalizado';break;
         }
-        
-        // Determina quais botões mostrar com base no estado
         let botoesHTML = '';
-        
         if (estado === 'atribuido') {
-            botoesHTML = `
-                <button class="action-btn btn-aceitar" onclick="aceitarPedido('${pedidoId}')">
-                    <i class="fas fa-check"></i> Aceitar
-                </button>`;
+            botoesHTML = `<button class="action-btn btn-aceitar" onclick="aceitarPedido('${pedidoId}')">
+                              <i class="fas fa-check"></i> Aceitar
+                          </button>`;
         } else if (estado === 'aceito') {
-            botoesHTML = `
-                <button class="action-btn btn-despachar" onclick="despacharPedido('${pedidoId}')">
-                    <i class="fas fa-shipping-fast"></i> Despachar
-                </button>`;
+            botoesHTML = `<button class="action-btn btn-despachar" onclick="despacharPedido('${pedidoId}')">
+                              <i class="fas fa-shipping-fast"></i> Despachar
+                          </button>`;
         } else if (estado === 'despachado') {
-            botoesHTML = `
-                <button class="action-btn btn-finalizar" onclick="finalizarPedido('${pedidoId}')">
-                    <i class="fas fa-flag-checkered"></i> Finalizar
-                </button>`;
+            botoesHTML = `<button class="action-btn btn-finalizar" onclick="finalizarPedido('${pedidoId}')">
+                              <i class="fas fa-flag-checkered"></i> Finalizar
+                          </button>`;
         } else {
-            botoesHTML = `
-                <button class="action-btn" disabled style="background-color: #e9ecef; color: #868e96;">
-                    <i class="fas fa-check-circle"></i> Concluído
-                </button>`;
+            botoesHTML = `<button class="action-btn" disabled style="background-color: #e9ecef; color: #868e96;">
+                              <i class="fas fa-check-circle"></i> Concluído
+                          </button>`;
         }
-        
         pedidosHTML += `
             <div class="pedido-card" data-pedido-id="${pedidoId}">
                 <div class="pedido-header">
@@ -1072,24 +1060,21 @@ function carregarPedidosEntregador() {
                         <h4>Cliente</h4>
                         <p>${pedido.customer?.name || 'Cliente'}</p>
                     </div>
-                    
                     <div class="pedido-info-row">
                         <h4>Total</h4>
-                        <p>${pedido.total?.orderAmount ? 
-                              `R$ ${pedido.total.orderAmount.toFixed(2)}` : 
-                              pedido.total || 'R$ 0,00'}</p>
+                        <p>${pedido.total?.orderAmount ?
+                            `R$ ${pedido.total.orderAmount.toFixed(2)}` :
+                            pedido.total || 'R$ 0,00'}</p>
                     </div>
-                    
                     <div class="pedido-actions">
-                        <button class="action-btn" style="background-color: #6c757d; color: white;" 
+                        <button class="action-btn" style="background-color: #6c757d; color: white;"
                                 onclick="verDetalhesPedido('${pedidoId}')">
                             <i class="fas fa-eye"></i> Ver Detalhes
                         </button>
                         ${botoesHTML}
                     </div>
                 </div>
-            </div>
-        `;
+            </div>`;
     });
     
     pedidosHTML += '</div>';
