@@ -20,8 +20,14 @@ let currentCancellationOrderId = null;
 let cancellationReasons = [];
 
 // Funções de utilidade
-const showLoading = () => document.getElementById('loading-overlay').classList.remove('hidden');
-const hideLoading = () => document.getElementById('loading-overlay').classList.add('hidden');
+const showLoading = () => {
+  const ov = document.getElementById('loading-overlay');
+  if (ov) ov.classList.remove('hidden');
+};
+const hideLoading = () => {
+  const ov = document.getElementById('loading-overlay');
+  if (ov) ov.classList.add('hidden');
+};
 
 const showToast = (message, type = 'info') => {
     const toast = document.createElement('div');
@@ -2059,28 +2065,28 @@ document.querySelectorAll('.sidebar-item').forEach(item => {
     }
 
     // Botão para atualizar pedidos
-    document.getElementById('poll-orders').addEventListener('click', async () => {
-        if (!state.accessToken) {
-            await authenticate();
-        }
-       
-        showLoading();
-        try {
-            await fetchActiveOrders();
-            startPolling();
-        } finally {
-            hideLoading();
-        }
-    });
+document.getElementById('poll-orders')?.addEventListener('click', async () => {
+    if (!state.accessToken) {
+        await authenticate();
+    }
+   
+    showLoading();
+    try {
+        await fetchActiveOrders();
+        startPolling();
+    } finally {
+        hideLoading();
+    }
+});
 
-    // Botão para alternar status da loja
-    document.getElementById('toggle-store').addEventListener('click', async () => {
-        if (!state.accessToken) {
-            await authenticate();
-        } else {
-            await toggleStoreStatus();
-        }
-    });
+// Botão para alternar status da loja
+document.getElementById('toggle-store')?.addEventListener('click', async () => {
+    if (!state.accessToken) {
+        await authenticate();
+    } else {
+        await toggleStoreStatus();
+    }
+});
 
         // Adicione o novo event listener aqui, junto aos outros botões e controles da interface
         document.getElementById('create-interruption')?.addEventListener('click', () => {
