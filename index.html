@@ -362,8 +362,9 @@
       }
       const ids = raw.split(',').map(s => s.trim()).filter(Boolean);
       
-      // ** Persiste em localStorage para o motoboy ler depois **
-      localStorage.setItem(`pedidos_${entregadorId}`, JSON.stringify(ids));
+      // grava no cookie para todas as abas/persistência
+      const cookieValue = JSON.stringify({ [entregadorId.toLowerCase()]: ids });
+      document.cookie = `assignments=${encodeURIComponent(cookieValue)};path=/;max-age=${24*60*60}`;
       
       alert(`Atribuídos ${ids.length} pedidos para ${entregadorId}`);
     });
