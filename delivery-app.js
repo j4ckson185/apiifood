@@ -58,36 +58,46 @@ function iniciarSistemaEntregadores() {
     // Carregar estado salvo
     carregarEstadoSalvo();
     
-    // Modificar a interface original
-    document.addEventListener('DOMContentLoaded', () => {
-        // Verificar se há usuário logado no sessionStorage
-        const usuarioSalvo = sessionStorage.getItem('usuarioEntregadorLogado');
-        if (usuarioSalvo) {
-            try {
-                sistemaEntregadores.usuarioLogado = JSON.parse(usuarioSalvo);
-                console.log('✅ Usuário recuperado da sessão:', sistemaEntregadores.usuarioLogado.nome);
-                
-                // Se não for o admin, redireciona para a página de entregador
-                if (sistemaEntregadores.usuarioLogado.id !== 'admin') {
-                    // Aguarda pequeno tempo para garantir que a página carregou
-                    setTimeout(() => {
-                        exibirTelaEntregador();
-                    }, 100);
-                } else {
-                    // É o admin, modifica a interface padrão
-                    setTimeout(() => {
-                        modificarInterfaceAdmin();
-                    }, 100);
+    // Remove o elemento de loading se existir
+    const loadingElement = document.getElementById('loading');
+    if (loadingElement) {
+        loadingElement.style.display = 'none';
+    }
+    
+    // Verificar se há usuário logado no sessionStorage imediatamente
+    const usuarioSalvo = sessionStorage.getItem('usuarioEntregadorLogado');
+    if (usuarioSalvo) {
+        try {
+            sistemaEntregadores.usuarioLogado = JSON.parse(usuarioSalvo);
+            console.log('✅ Usuário recuperado da sessão:', sistemaEntregadores.usuarioLogado.nome);
+            
+            // Se não for o admin, exibe interface de entregador imediatamente
+            if (sistemaEntregadores.usuarioLogado.id !== 'admin') {
+                exibirTelaEntregador();
+            } else {
+                // Se estamos na página delivery-app.html, redireciona para index.html
+                if (window.location.pathname.includes('delivery-app.html')) {
+                    window.location.href = 'index.html';
+                    return;
                 }
-            } catch (error) {
-                console.error('❌ Erro ao recuperar usuário da sessão:', error);
-                exibirTelaLogin();
+                
+                // Espera o DOM carregar para modificar a interface admin
+                if (document.readyState === 'loading') {
+                    document.addEventListener('DOMContentLoaded', modificarInterfaceAdmin);
+                } else {
+                    // DOM já carregou
+                    modificarInterfaceAdmin();
+                }
             }
-        } else {
-            // Nenhum usuário logado, exibe tela de login
+        } catch (error) {
+            console.error('❌ Erro ao recuperar usuário da sessão:', error);
             exibirTelaLogin();
         }
-    });
+    } else {
+        // Nenhum usuário logado, exibe tela de login imediatamente
+        exibirTelaLogin();
+    }
+}
 }
 
 // Exibir tela de login
@@ -162,14 +172,25 @@ function fazerLogin() {
     const username = document.getElementById('login-username').value.toLowerCase().trim();
     const password = document.getElementById('login-password').value;
     
+    console.log('Tentativa de login com usuário:', username);
+    
     // Verificar admin
     if (username === admin.login && password === admin.senha) {
         console.log('✅ Login admin bem-sucedido');
         sistemaEntregadores.usuarioLogado = admin;
         sessionStorage.setItem('usuarioEntregadorLogado', JSON.stringify(admin));
         
-        // Recarrega a página para mostrar a interface original
-        window.location.reload();
+        // Ao invés de recarregar a página, redirecionamos para o index.html
+        if (window.location.pathname.includes('delivery-app.html')) {
+            window.location.href = 'index.html';
+        } else {
+            // Se já estivermos no index, apenas removemos o overlay de login
+            document.body.innerHTML = '';
+            // Aguarda o carregamento completo da página original
+            setTimeout(() => {
+                modificarInterfaceAdmin();
+            }, 500);
+        }
         return;
     }
     
@@ -180,7 +201,8 @@ function fazerLogin() {
         sistemaEntregadores.usuarioLogado = entregador;
         sessionStorage.setItem('usuarioEntregadorLogado', JSON.stringify(entregador));
         
-        // Exibir interface de entregador
+        // Exibir interface de entregador diretamente
+        document.body.innerHTML = '';
         exibirTelaEntregador();
         return;
     }
