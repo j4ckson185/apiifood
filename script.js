@@ -375,12 +375,14 @@ if (typeof pollForNewDisputesOnce === 'function') {
       checkExpiredDisputes();
     }
 
-    // 6) Atualiza todos os pedidos a cada 3 ciclos (~90 s)
-    state.pollingCounter = (state.pollingCounter || 0) + 1;
-    if (state.pollingCounter >= 3) {
-      await updateAllVisibleOrders();
-      state.pollingCounter = 0;
-    }
+// 6) Atualiza todos os pedidos a cada 3 ciclos (~90 s)
+state.pollingCounter = (state.pollingCounter || 0) + 1;
+if (state.pollingCounter >= 3) {
+  if (typeof updateAllVisibleOrders === 'function') {
+    await updateAllVisibleOrders();
+  }
+  state.pollingCounter = 0;
+}
 
   } catch (err) {
     console.error('❌ Erro no polling unificado:', err);
