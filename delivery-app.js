@@ -31,6 +31,27 @@ function getAssignmentsCookie() {
   }
 }
 
+// CORREÇÃO 7: Nova função para salvar o estado de forma síncrona
+// e garantir que os pedidos estejam disponíveis em ambos os formatos
+function salvarEstado() {
+    try {
+        // Salva o estado completo
+        localStorage.setItem('sistemaEntregadores', JSON.stringify(sistemaEntregadores));
+        
+        // Salva também os pedidos de cada entregador individualmente para garantir compatibilidade
+        Object.keys(sistemaEntregadores.pedidosAtribuidos).forEach(entregadorId => {
+            const pedidos = sistemaEntregadores.pedidosAtribuidos[entregadorId];
+            if (Array.isArray(pedidos)) {
+                localStorage.setItem(`pedidos_${entregadorId}`, JSON.stringify(pedidos));
+            }
+        });
+        
+        console.log('✅ Estado do sistema de entregadores salvo');
+    } catch (error) {
+        console.error('❌ Erro ao salvar estado do sistema de entregadores:', error);
+    }
+}
+
 // Carregar estado salvo se existir
 function carregarEstadoSalvo() {
     try {
@@ -51,19 +72,12 @@ function carregarEstadoSalvo() {
     }
 }
 
-// Salvar estado atual
-function salvarEstado() {
-    try {
-        localStorage.setItem('sistemaEntregadores', JSON.stringify(sistemaEntregadores));
-        console.log('✅ Estado do sistema de entregadores salvo');
-    } catch (error) {
-        console.error('❌ Erro ao salvar estado do sistema de entregadores:', error);
-    }
-}
-
-// Inicialização do sistema
+// Modificar a função iniciarSistemaEntregadores para incluir sincronização
 function iniciarSistemaEntregadores() {
     console.log('🚚 Iniciando sistema de entregadores...');
+    
+    // Sincroniza pedidos entre admin e entregador antes de carregar o estado
+    sincronizarPedidosEntreAdminEEntregador();
     
     // Carregar estado salvo
     carregarEstadoSalvo();
@@ -547,17 +561,19 @@ function atribuirEntregador(orderId, orderCard) {
     
     // Adiciona o pedido à lista do entregador
     sistemaEntregadores.pedidosAtribuidos[entregadorId].push(orderId);
-        // Adicione esta linha para salvar também no formato esperado pela interface do entregador
+    
+    // CORREÇÃO 1: Garante que estamos salvando o cache de pedidos corretamente
+    sistemaEntregadores.pedidosCache[orderId] = pedidoCompleto;
+
+    // CORREÇÃO 2: Salva em dois formatos para garantir compatibilidade
+    // Formato 1: Usando a chave pedidos_${entregadorId}
     localStorage.setItem(`pedidos_${entregadorId}`, JSON.stringify(sistemaEntregadores.pedidosAtribuidos[entregadorId]));
     
-    // Salva o pedido no cache
-    sistemaEntregadores.pedidosCache[orderId] = pedidoCompleto;
+    // Formato 2: Usando a chave sistemaEntregadores
+    localStorage.setItem('sistemaEntregadores', JSON.stringify(sistemaEntregadores));
     
     // Atualiza o estado do pedido
     sistemaEntregadores.estadoPedidos[orderId] = 'atribuido';
-    
-    // Salva o estado
-    salvarEstado();
     
     // Atualiza o botão
     adicionarBotaoAtribuir(orderCard);
@@ -567,7 +583,7 @@ function atribuirEntregador(orderId, orderCard) {
     showToast(`Pedido atribuído para ${entregadorNome}`, 'success');
 }
 
-// Exibir interface para entregador
+// Modificar a função exibirTelaEntregador para forçar sincronização antes de carregar pedidos
 function exibirTelaEntregador() {
     console.log('🚚 Exibindo tela para entregador:', sistemaEntregadores.usuarioLogado.nome);
     
@@ -583,8 +599,8 @@ function exibirTelaEntregador() {
         loginScreen.style.display = 'none';
     }
     
- // Container para a aplicação sem limpar nada do DOM
-const container = document.getElementById('app-container') || document.body;
+    // Container para a aplicação sem limpar nada do DOM
+    const container = document.getElementById('app-container') || document.body;
 
 // Estilos globais
     
@@ -997,53 +1013,55 @@ const container = document.getElementById('app-container') || document.body;
 }
 
 function carregarPedidosEntregador() {
-    // ==== DEBUG MOTOBOY ====
+    // Logs para debug
     console.log('[DEBUG Motoboy] sistemaEntregadores.usuarioLogado =', sistemaEntregadores.usuarioLogado);
     console.log('[DEBUG Motoboy] keys em localStorage:', Object.keys(localStorage));
 
     const entregadorId = sistemaEntregadores.usuarioLogado.id.toLowerCase();
     console.log('[DEBUG Motoboy] entregadorId usado:', entregadorId);
 
-    // Primeiro tenta buscar do formato usado pela página do admin
+    // Array para armazenar IDs de pedidos
     let pedidosIds = [];
     
-    // Verifica se há pedidos no objeto sistemaEntregadores
-    if (sistemaEntregadores.pedidosAtribuidos && sistemaEntregadores.pedidosAtribuidos[entregadorId]) {
-        pedidosIds = sistemaEntregadores.pedidosAtribuidos[entregadorId];
-        console.log('[DEBUG Motoboy] Pedidos encontrados em sistemaEntregadores:', pedidosIds);
-    }
-    
-    // Se não encontrou, tenta o formato direto no localStorage
-    if (pedidosIds.length === 0) {
-        const raw = localStorage.getItem(`pedidos_${entregadorId}`);
-        console.log('[DEBUG Motoboy] raw de pedidos_'+entregadorId+':', raw);
-        
-        if (raw) {
-            pedidosIds = JSON.parse(raw);
-            console.log('[DEBUG Motoboy] Pedidos encontrados no localStorage:', pedidosIds);
-            
-            // Atualiza também o objeto em memória para manter consistência
-            if (!sistemaEntregadores.pedidosAtribuidos) {
-                sistemaEntregadores.pedidosAtribuidos = {};
+    // CORREÇÃO 3: Prioridade de fontes de dados
+    // 1. Primeiro, tenta obter do localStorage em formato array direto
+    const rawPedidos = localStorage.getItem(`pedidos_${entregadorId}`);
+    if (rawPedidos) {
+        try {
+            console.log('[DEBUG Motoboy] raw de pedidos_'+entregadorId+':', rawPedidos);
+            const parsedPedidos = JSON.parse(rawPedidos);
+            if (Array.isArray(parsedPedidos)) {
+                pedidosIds = parsedPedidos;
+                console.log('[DEBUG Motoboy] Pedidos encontrados no localStorage:', pedidosIds);
             }
-            sistemaEntregadores.pedidosAtribuidos[entregadorId] = pedidosIds;
+        } catch (error) {
+            console.error('[DEBUG Motoboy] Erro ao parsear pedidos do localStorage:', error);
         }
     }
     
-    // Tenta buscar também na chave geral de sistema
+    // 2. Se não encontrou nada, tenta obter do objeto sistemaEntregadores no memory
+    if (pedidosIds.length === 0) {
+        if (sistemaEntregadores.pedidosAtribuidos && sistemaEntregadores.pedidosAtribuidos[entregadorId]) {
+            pedidosIds = sistemaEntregadores.pedidosAtribuidos[entregadorId];
+            console.log('[DEBUG Motoboy] Pedidos encontrados em sistemaEntregadores (memory):', pedidosIds);
+        }
+    }
+    
+    // 3. Se ainda não encontrou, tenta obter do sistemaEntregadores no localStorage
     if (pedidosIds.length === 0) {
         const rawSystem = localStorage.getItem('sistemaEntregadores');
-        console.log('[DEBUG Motoboy] sistemaEntregadores em localStorage:', rawSystem);
-        
         if (rawSystem) {
             try {
                 const sistema = JSON.parse(rawSystem);
-                if (sistema.pedidosAtribuidos && sistema.pedidosAtribuidos[entregadorId]) {
+                if (sistema && sistema.pedidosAtribuidos && sistema.pedidosAtribuidos[entregadorId]) {
                     pedidosIds = sistema.pedidosAtribuidos[entregadorId];
-                    console.log('[DEBUG Motoboy] Pedidos encontrados na chave sistemaEntregadores:', pedidosIds);
+                    console.log('[DEBUG Motoboy] Pedidos encontrados em sistemaEntregadores (localStorage):', pedidosIds);
                     
-                    // Sincroniza com o local específico para futuras consultas
+                    // CORREÇÃO 4: Sincroniza de volta para o formato específico
                     localStorage.setItem(`pedidos_${entregadorId}`, JSON.stringify(pedidosIds));
+                    
+                    // CORREÇÃO 5: Atualiza também o objeto em memória
+                    sistemaEntregadores.pedidosAtribuidos[entregadorId] = pedidosIds;
                 }
             } catch (error) {
                 console.error('[DEBUG Motoboy] Erro ao parsear sistemaEntregadores:', error);
@@ -1059,6 +1077,7 @@ function carregarPedidosEntregador() {
         return;
     }
 
+    // Se não há pedidos, exibe mensagem apropriada
     if (pedidosIds.length === 0) {
         pedidosContainer.innerHTML = `
             <div class="empty-state">
@@ -1070,8 +1089,25 @@ function carregarPedidosEntregador() {
         return;
     }
 
-    // NOVO: Verifique e gere pedidos fictícios para qualquer ID que não esteja no cache
+    // CORREÇÃO 6: Verifica e gera pedidos se necessário, mas prioriza dados reais
     pedidosIds.forEach(pedidoId => {
+        // Se o pedido não estiver no cache, tenta recuperá-lo de sistemaEntregadores no localStorage
+        if (!sistemaEntregadores.pedidosCache[pedidoId]) {
+            const rawSystem = localStorage.getItem('sistemaEntregadores');
+            if (rawSystem) {
+                try {
+                    const sistema = JSON.parse(rawSystem);
+                    if (sistema && sistema.pedidosCache && sistema.pedidosCache[pedidoId]) {
+                        sistemaEntregadores.pedidosCache[pedidoId] = sistema.pedidosCache[pedidoId];
+                        console.log(`[DEBUG Motoboy] Recuperado pedido ${pedidoId} do cache do sistema`);
+                    }
+                } catch (error) {
+                    console.error('[DEBUG Motoboy] Erro ao recuperar pedido do cache:', error);
+                }
+            }
+        }
+        
+        // Se ainda não encontrou o pedido, cria um fictício
         if (!sistemaEntregadores.pedidosCache[pedidoId]) {
             console.log('[DEBUG Motoboy] Criando pedido fictício para:', pedidoId);
             
@@ -1126,7 +1162,7 @@ function carregarPedidosEntregador() {
         }
     });
 
-    // 3) Monta o grid de pedidos
+    // Monta o grid de pedidos
     let pedidosHTML = `
         <h2>Seus Pedidos (${pedidosIds.length})</h2>
         <div class="pedidos-grid">`;
@@ -1396,6 +1432,134 @@ function mostrarToast(mensagem, tipo = 'info') {
     setTimeout(() => {
         toast.remove();
     }, 3000);
+}
+
+// Adicionar ao arquivo delivery-app.js
+// Esta função garante que os pedidos atribuídos por admins sejam corretamente
+// sincronizados e visíveis na interface do entregador
+
+// Função para sincronizar pedidos entre admin e entregador
+function sincronizarPedidosEntreAdminEEntregador() {
+    console.log('🔄 Sincronizando pedidos entre admin e entregador...');
+    
+    // 1. Verificar todas as atribuições no formato sistemaEntregadores
+    let sistemaStorage = localStorage.getItem('sistemaEntregadores');
+    let sistema = null;
+    
+    if (sistemaStorage) {
+        try {
+            sistema = JSON.parse(sistemaStorage);
+            
+            // Verificar se tem pedidosAtribuidos
+            if (sistema && sistema.pedidosAtribuidos) {
+                // Percorrer cada entregador
+                Object.keys(sistema.pedidosAtribuidos).forEach(entregadorId => {
+                    const pedidos = sistema.pedidosAtribuidos[entregadorId];
+                    
+                    if (Array.isArray(pedidos) && pedidos.length > 0) {
+                        // Salva esses pedidos no formato específico esperado pelo entregador
+                        localStorage.setItem(`pedidos_${entregadorId}`, JSON.stringify(pedidos));
+                        console.log(`✅ Sincronizados ${pedidos.length} pedidos para ${entregadorId} no formato específico`);
+                        
+                        // Garante que cada pedido exista no cache
+                        pedidos.forEach(pedidoId => {
+                            if (!sistema.pedidosCache || !sistema.pedidosCache[pedidoId]) {
+                                // Se o pedido não existe no cache, cria um pedido básico
+                                if (!sistema.pedidosCache) sistema.pedidosCache = {};
+                                
+                                sistema.pedidosCache[pedidoId] = {
+                                    id: pedidoId,
+                                    displayId: pedidoId.substring(0, 6),
+                                    customer: {
+                                        name: `Cliente do pedido ${pedidoId}`
+                                    },
+                                    total: 'Verificando...'
+                                };
+                                
+                                console.log(`🔄 Criado pedido básico no cache para ${pedidoId}`);
+                            }
+                            
+                            // Garante que o pedido tenha um estado
+                            if (!sistema.estadoPedidos) sistema.estadoPedidos = {};
+                            if (!sistema.estadoPedidos[pedidoId]) {
+                                sistema.estadoPedidos[pedidoId] = 'atribuido';
+                                console.log(`🔄 Definido estado inicial para ${pedidoId}`);
+                            }
+                        });
+                        
+                        // Atualiza o sistema no localStorage com os novos caches/estados
+                        localStorage.setItem('sistemaEntregadores', JSON.stringify(sistema));
+                    }
+                });
+            }
+        } catch (error) {
+            console.error('❌ Erro ao sincronizar pedidos:', error);
+        }
+    }
+    
+    // 2. Verificar todos os pedidos_* no localStorage para garantir que estejam no sistema
+    Object.keys(localStorage).forEach(key => {
+        if (key.startsWith('pedidos_')) {
+            const entregadorId = key.replace('pedidos_', '');
+            
+            try {
+                const pedidos = JSON.parse(localStorage.getItem(key));
+                
+                if (Array.isArray(pedidos) && pedidos.length > 0) {
+                    // Garantir que esses pedidos estejam no sistema também
+                    if (!sistema) {
+                        sistema = {
+                            pedidosAtribuidos: {},
+                            pedidosCache: {},
+                            estadoPedidos: {}
+                        };
+                    }
+                    
+                    // Atualiza pedidosAtribuidos
+                    sistema.pedidosAtribuidos[entregadorId] = pedidos;
+                    
+                    // Garante que cada pedido exista no cache
+                    pedidos.forEach(pedidoId => {
+                        if (!sistema.pedidosCache[pedidoId]) {
+                            sistema.pedidosCache[pedidoId] = {
+                                id: pedidoId,
+                                displayId: pedidoId.substring(0, 6),
+                                customer: {
+                                    name: `Cliente do pedido ${pedidoId}`
+                                },
+                                total: 'Verificando...'
+                            };
+                        }
+                        
+                        // Garante que o pedido tenha um estado
+                        if (!sistema.estadoPedidos[pedidoId]) {
+                            sistema.estadoPedidos[pedidoId] = 'atribuido';
+                        }
+                    });
+                    
+                    // Atualiza o sistema no localStorage
+                    localStorage.setItem('sistemaEntregadores', JSON.stringify(sistema));
+                    console.log(`✅ Sincronizados ${pedidos.length} pedidos de ${entregadorId} para o sistema`);
+                }
+            } catch (error) {
+                console.error(`❌ Erro ao sincronizar pedidos_${entregadorId}:`, error);
+            }
+        }
+    });
+    
+    // 3. Atualiza o objeto sistemaEntregadores em memória se estivermos logados
+    if (sistemaEntregadores) {
+        const sistemaAtualizado = JSON.parse(localStorage.getItem('sistemaEntregadores') || '{}');
+        
+        // Atualiza com os dados do localStorage
+        sistemaEntregadores.pedidosAtribuidos = sistemaAtualizado.pedidosAtribuidos || sistemaEntregadores.pedidosAtribuidos || {};
+        sistemaEntregadores.pedidosCache = sistemaAtualizado.pedidosCache || sistemaEntregadores.pedidosCache || {};
+        sistemaEntregadores.estadoPedidos = sistemaAtualizado.estadoPedidos || sistemaEntregadores.estadoPedidos || {};
+        
+        console.log('✅ Sistema em memória sincronizado com localStorage');
+    }
+    
+    console.log('✅ Sincronização concluída');
 }
 
 window.addEventListener('focus', () => {
