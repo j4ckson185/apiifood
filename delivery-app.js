@@ -223,7 +223,10 @@ function fazerLogin() {
     }
     
     // Verificar entregadores
-    const entregador = entregadores.find(e => e.login === username && e.senha === password);
+        const entregador = entregadores.find(e =>
+        e.login.toLowerCase() === username &&
+        e.senha === password
+    );
     if (entregador) {
         console.log('✅ Login entregador bem-sucedido:', entregador.nome);
         sistemaEntregadores.usuarioLogado = entregador;
@@ -973,12 +976,17 @@ function exibirTelaEntregador() {
     
     container.appendChild(entregadorInterface);
     
-    // Adicionar eventos
-    document.getElementById('btn-logout').addEventListener('click', fazerLogout);
-    
+    // Adicionar logout de forma segura / idempotente
+    const logoutBtn = document.getElementById('btn-logout');
+    if (logoutBtn) {
+        logoutBtn.addEventListener('click', fazerLogout);
+    } else {
+        adicionarBotaoLogout();
+    }
+
     // Carregar pedidos do entregador
     carregarPedidosEntregador();
-    
+
     // Iniciar polling para verificar novos pedidos
     setInterval(carregarPedidosEntregador, 10000);
     
