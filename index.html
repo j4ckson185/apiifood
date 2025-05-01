@@ -322,5 +322,56 @@
     <link rel="stylesheet" href="order-extensions.css">
     <script src="scheduled-order-modal.js"></script>
     <script src="takeout-orders.js"></script>
+
+    <!-- 1) traz a lógica de admin/modificarInterface de delivery-app.js -->
+<script src="delivery-app.js"></script>
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    const usr = sessionStorage.getItem('usuarioEntregadorLogado');
+    if (!usr) {
+      // sem login, volta ao app de login
+      return window.location.href = 'delivery-app.html';
+    }
+    const u = JSON.parse(usr);
+    if (u.id !== 'admin') {
+      // motoboy “não admin” não vê este painel, segue normal
+      return;
+    }
+
+    // **remove** o antigo status-container + toggle
+    const sc = document.querySelector('.status-container');
+    if (sc) sc.remove();
+
+    // **cria** seu painel de atribuição de pedidos
+    const header = document.querySelector('header .header-content');
+    const panel = document.createElement('div');
+    panel.className = 'entregadores-panel';
+    panel.innerHTML = `
+      <label style="margin-right:8px;font-weight:500">Entregador:</label>
+      <select id="admin-entregador-select">
+        <option value="">-- Selecionar --</option>
+        <option value="boaz">Boaz</option>
+        <option value="rafael">Rafael Judson</option>
+        <option value="gabriel">Gabriel Andrade</option>
+        <option value="narlison">Narlison</option>
+      </select>
+      <label style="margin:0 8px;font-weight:500">Pedidos (IDs separados por vírgula):</label>
+      <input id="admin-pedidos-input" type="text" placeholder="e.g. 12345, 67890" style="padding:4px;border:1px solid #ccc;border-radius:4px">
+      <button id="admin-assign-btn" style="margin-left:8px;padding:4px 8px">Atribuir</button>
+    `;
+    header.appendChild(panel);
+
+    // ao clicar, salva em sessionStorage e recarrega a tela motoboy
+    document.getElementById('admin-assign-btn').addEventListener('click', () => {
+      const eid = document.getElementById('admin-entregador-select').value;
+      const raw = document.getElementById('admin-pedidos-input').value;
+      if (!eid || !raw.trim()) return alert('Escolha entregador e IDs.');
+      const arr = raw.split(',').map(s=>s.trim()).filter(Boolean);
+      sessionStorage.setItem(`pedidos_${eid}`, JSON.stringify(arr));
+      alert(`Enviados ${arr.length} pedidos para ${eid}`);
+    });
+  });
+</script>
+
 </body>
 </html>
