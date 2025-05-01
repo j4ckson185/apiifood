@@ -20,6 +20,17 @@ let sistemaEntregadores = {
 // Debug log
 console.log('🚀 Inicializando sistema de entregadores Cabana Delivery v1.0.2');
 
+// === helper para ler o cookie de assignments ===
+function getAssignmentsCookie() {
+  const match = document.cookie.match(/(?:^|; )assignments=([^;]+)/);
+  if (!match) return {};
+  try {
+    return JSON.parse(decodeURIComponent(match[1]));
+  } catch {
+    return {};
+  }
+}
+
 // Carregar estado salvo se existir
 function carregarEstadoSalvo() {
     try {
@@ -984,18 +995,17 @@ const container = document.getElementById('app-container') || document.body;
 }
 
 function carregarPedidosEntregador() {
-    // 1) Se ninguém estiver logado, aborta sem erro
     if (!sistemaEntregadores.usuarioLogado) return;
 
-    const entregadorId = sistemaEntregadores.usuarioLogado.id;
+    const entregadorId = sistemaEntregadores.usuarioLogado.id.toLowerCase();
     const pedidosContainer = document.getElementById('pedidos-container');
     if (!pedidosContainer) return;
 
-    // 2) Lê exatamente a chave que o admin usou em index.html:
-    //    sessionStorage.setItem(`pedidos_${entregadorId}`, JSON.stringify([...]))
-    // corrigido — vai ler exatamente onde o admin gravou:
-const raw = localStorage.getItem(`pedidos_${entregadorId}`);
-    const pedidosIds = raw ? JSON.parse(raw) : [];
+    // 2) Lê do cookie
+    const assignments = getAssignmentsCookie();
+    const pedidosIds = Array.isArray(assignments[entregadorId])
+      ? assignments[entregadorId]
+      : [];
 
     if (pedidosIds.length === 0) {
         pedidosContainer.innerHTML = `
@@ -1003,8 +1013,7 @@ const raw = localStorage.getItem(`pedidos_${entregadorId}`);
                 <i class="fas fa-inbox"></i>
                 <h3>Nenhum pedido atribuído</h3>
                 <p>Quando você receber um pedido, ele aparecerá aqui.</p>
-            </div>
-        `;
+            </div>`;
         return;
     }
 
@@ -1274,3 +1283,9 @@ function mostrarToast(mensagem, tipo = 'info') {
         toast.remove();
     }, 3000);
 }
+
+window.addEventListener('focus', () => {
+  if (sistemaEntregadores.usuarioEntregadorLogado) {
+    carregarPedidosEntregador();
+  }
+});
