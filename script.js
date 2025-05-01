@@ -497,25 +497,28 @@ function clearProcessedOrders() {
 // Função simplificada para atualizar o status da loja
 async function updateStoreStatus() {
     try {
-        console.log('Atualizando status da loja...');
+        console.log('Atualizando status da loja.');
         const statusElement = document.getElementById('store-status');
-        
-        // Verifica se temos um token válido - se sim, assume que a loja está online
+        if (!statusElement) {
+            console.warn('Elemento #store-status não encontrado. Pulando atualização de status.');
+            return;
+        }
+
         if (state.accessToken) {
             console.log('Token válido encontrado, assumindo loja online');
             statusElement.textContent = 'Online';
             statusElement.className = 'status-badge online';
-            return;
         } else {
             statusElement.textContent = 'Offline';
             statusElement.className = 'status-badge offline';
         }
     } catch (error) {
         console.error('Erro geral ao atualizar status da loja:', error);
-        // Assume online para não interromper a experiência do usuário
         const statusElement = document.getElementById('store-status');
-        statusElement.textContent = 'Online (assumido)';
-        statusElement.className = 'status-badge online';
+        if (statusElement) {
+            statusElement.textContent = 'Online (assumido)';
+            statusElement.className = 'status-badge online';
+        }
     }
 }
 
