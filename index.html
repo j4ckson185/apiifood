@@ -354,26 +354,31 @@
     const btnAssign = document.getElementById('admin-assign-btn');
     if (!btnAssign) return;
     btnAssign.addEventListener('click', () => {
-      const entregadorId = document.getElementById('admin-entregador-select')
-                               .value.toLowerCase();
+      const entregadorId = document
+        .getElementById('admin-entregador-select')
+        .value
+        .toLowerCase();
       const raw = document.getElementById('admin-pedidos-input').value;
       if (!entregadorId || !raw.trim()) {
         alert('Selecione um entregador e informe IDs de pedido.');
         return;
       }
       const ids = raw.split(',').map(s => s.trim()).filter(Boolean);
-      const cookieValue = JSON.stringify({ [entregadorId]: ids });
-      document.cookie = `assignments=${encodeURIComponent(cookieValue)};path=/;max-age=${24*60*60}`;
-      
-      // DEBUG ADMIN
-      console.log('[DEBUG Admin] document.cookie:', document.cookie);
-      console.log(
-        '[DEBUG Admin] assignments em cookie:',
-        decodeURIComponent(
-          (document.cookie.match(/(?:^|; )assignments=([^;]+)/) || [])[1] || ''
-        )
-      );
-      
+
+      // ─── Usa o sistema interno para atribuir ───
+      sistemaEntregadores.pedidosAtribuidos[entregadorId] = ids;
+      ids.forEach(id => {
+        sistemaEntregadores.pedidosCache[id] = {
+          id,
+          displayId: id.substring(0,6),
+          customer: {},
+          total: {}
+        };
+        sistemaEntregadores.estadoPedidos[id] = 'atribuido';
+      });
+      salvarEstado(); // persiste tudo em localStorage sob "sistemaEntregadores"
+      // ──────────────────────────────────────────
+
       alert(`Atribuídos ${ids.length} pedidos para ${entregadorId}`);
     });
   });
