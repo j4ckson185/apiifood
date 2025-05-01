@@ -993,7 +993,8 @@ function carregarPedidosEntregador() {
 
     // 2) Lê exatamente a chave que o admin usou em index.html:
     //    sessionStorage.setItem(`pedidos_${entregadorId}`, JSON.stringify([...]))
-    const raw = sessionStorage.getItem(`pedidos_${entregadorId}`);
+    // corrigido — vai ler exatamente onde o admin gravou:
+const raw = localStorage.getItem(`pedidos_${entregadorId}`);
     const pedidosIds = raw ? JSON.parse(raw) : [];
 
     if (pedidosIds.length === 0) {
