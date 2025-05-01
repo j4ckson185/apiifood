@@ -1559,9 +1559,12 @@ function sincronizarPedidosEntreAdminEEntregador() {
         console.log('✅ Sistema em memória sincronizado com localStorage');
     }
     
-    console.log('✅ Sincronização concluída');
-    // Atualiza a interface com os novos pedidos atribuídos
+   console.log('✅ Sincronização concluída');
+ carregarPedidosEntregador();
+    // Só atualiza a UI se houver um entregador logado
+  if (sistemaEntregadores.usuarioLogado && sistemaEntregadores.usuarioLogado.id) {
     carregarPedidosEntregador();
+  }
 }
 
 // Ferramentas de debug para o sistema de entregadores
