@@ -351,24 +351,28 @@
 <!-- === Script de atribuição de pedidos pelo Admin === -->
 <script>
   document.addEventListener('DOMContentLoaded', () => {
-    // botão que abre o modal de atribuição já existe no seu index.html
     const btnAssign = document.getElementById('admin-assign-btn');
     if (!btnAssign) return;
     btnAssign.addEventListener('click', () => {
-      const entregadorId = document.getElementById('admin-entregador-select').value;
+      const entregadorId = document.getElementById('admin-entregador-select')
+                               .value.toLowerCase();
       const raw = document.getElementById('admin-pedidos-input').value;
       if (!entregadorId || !raw.trim()) {
-        return alert('Selecione um entregador e informe IDs de pedido.');
+        alert('Selecione um entregador e informe IDs de pedido.');
+        return;
       }
       const ids = raw.split(',').map(s => s.trim()).filter(Boolean);
-      
-      // grava no cookie para todas as abas/persistência
-      const cookieValue = JSON.stringify({ [entregadorId.toLowerCase()]: ids });
+      const cookieValue = JSON.stringify({ [entregadorId]: ids });
       document.cookie = `assignments=${encodeURIComponent(cookieValue)};path=/;max-age=${24*60*60}`;
-    console.log('[DEBUG Admin] document.cookie:', document.cookie);
-console.log('[DEBUG Admin] assignments em cookie:', decodeURIComponent(
-  document.cookie.match(/(?:^|; )assignments=([^;]+)/)?.[1] || ''
-));
+      
+      // DEBUG ADMIN
+      console.log('[DEBUG Admin] document.cookie:', document.cookie);
+      console.log(
+        '[DEBUG Admin] assignments em cookie:',
+        decodeURIComponent(
+          (document.cookie.match(/(?:^|; )assignments=([^;]+)/) || [])[1] || ''
+        )
+      );
       
       alert(`Atribuídos ${ids.length} pedidos para ${entregadorId}`);
     });
