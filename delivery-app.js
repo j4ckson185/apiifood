@@ -995,17 +995,24 @@ const container = document.getElementById('app-container') || document.body;
 }
 
 function carregarPedidosEntregador() {
-    if (!sistemaEntregadores.usuarioLogado) return;
+    // ==== DEBUG MOTOBOY ====
+    console.log('[DEBUG Motoboy] sistemaEntregadores.usuarioLogado =', sistemaEntregadores.usuarioLogado);
+    console.log('[DEBUG Motoboy] keys em localStorage:', Object.keys(localStorage));
 
     const entregadorId = sistemaEntregadores.usuarioLogado.id.toLowerCase();
-    const pedidosContainer = document.getElementById('pedidos-container');
-    if (!pedidosContainer) return;
+    console.log('[DEBUG Motoboy] entregadorId usado:', entregadorId);
 
-    // 2) Lê do cookie
-    const assignments = getAssignmentsCookie();
-    const pedidosIds = Array.isArray(assignments[entregadorId])
-      ? assignments[entregadorId]
-      : [];
+    const raw = localStorage.getItem(`pedidos_${entregadorId}`);
+    console.log('[DEBUG Motoboy] raw de pedidos_'+entregadorId+':', raw);
+
+    const pedidosIds = raw ? JSON.parse(raw) : [];
+    console.log('[DEBUG Motoboy] pedidosIds (array):', pedidosIds);
+
+    const pedidosContainer = document.getElementById('pedidos-container');
+    if (!pedidosContainer) {
+        console.warn('[DEBUG Motoboy] #pedidos-container não encontrado');
+        return;
+    }
 
     if (pedidosIds.length === 0) {
         pedidosContainer.innerHTML = `
@@ -1013,7 +1020,8 @@ function carregarPedidosEntregador() {
                 <i class="fas fa-inbox"></i>
                 <h3>Nenhum pedido atribuído</h3>
                 <p>Quando você receber um pedido, ele aparecerá aqui.</p>
-            </div>`;
+            </div>
+        `;
         return;
     }
 
