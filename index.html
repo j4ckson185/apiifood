@@ -365,6 +365,10 @@
       // grava no cookie para todas as abas/persistência
       const cookieValue = JSON.stringify({ [entregadorId.toLowerCase()]: ids });
       document.cookie = `assignments=${encodeURIComponent(cookieValue)};path=/;max-age=${24*60*60}`;
+    console.log('[DEBUG Admin] document.cookie:', document.cookie);
+console.log('[DEBUG Admin] assignments em cookie:', decodeURIComponent(
+  document.cookie.match(/(?:^|; )assignments=([^;]+)/)?.[1] || ''
+));
       
       alert(`Atribuídos ${ids.length} pedidos para ${entregadorId}`);
     });
