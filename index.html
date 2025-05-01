@@ -350,38 +350,83 @@
 
 <!-- === Script de atribuição de pedidos pelo Admin === -->
 <script>
-  document.addEventListener('DOMContentLoaded', () => {
-    const btnAssign = document.getElementById('admin-assign-btn');
-    if (!btnAssign) return;
-    btnAssign.addEventListener('click', () => {
-      const entregadorId = document
-        .getElementById('admin-entregador-select')
-        .value
-        .toLowerCase();
-      const raw = document.getElementById('admin-pedidos-input').value;
-      if (!entregadorId || !raw.trim()) {
-        alert('Selecione um entregador e informe IDs de pedido.');
-        return;
-      }
-      const ids = raw.split(',').map(s => s.trim()).filter(Boolean);
+// Correção do script de atribuição de pedidos no index.html
+document.addEventListener('DOMContentLoaded', () => {
+  const btnAssign = document.getElementById('admin-assign-btn');
+  if (!btnAssign) return;
+  btnAssign.addEventListener('click', () => {
+    const entregadorId = document
+      .getElementById('admin-entregador-select')
+      .value
+      .toLowerCase();
+    const raw = document.getElementById('admin-pedidos-input').value;
+    if (!entregadorId || !raw.trim()) {
+      alert('Selecione um entregador e informe IDs de pedido.');
+      return;
+    }
+    const ids = raw.split(',').map(s => s.trim()).filter(Boolean);
 
-      // ─── Usa o sistema interno para atribuir ───
-      sistemaEntregadores.pedidosAtribuidos[entregadorId] = ids;
-      ids.forEach(id => {
-        sistemaEntregadores.pedidosCache[id] = {
-          id,
-          displayId: id.substring(0,6),
-          customer: {},
-          total: {}
-        };
-        sistemaEntregadores.estadoPedidos[id] = 'atribuido';
-      });
-      salvarEstado(); // persiste tudo em localStorage sob "sistemaEntregadores"
-      // ──────────────────────────────────────────
+    // Verifica se o sistema está inicializado
+    if (!window.sistemaEntregadores) {
+      window.sistemaEntregadores = {
+        pedidosAtribuidos: {},
+        pedidosCache: {},
+        estadoPedidos: {}
+      };
+    }
 
-      alert(`Atribuídos ${ids.length} pedidos para ${entregadorId}`);
+    // Inicializa o array de pedidos para este entregador se necessário
+    if (!sistemaEntregadores.pedidosAtribuidos[entregadorId]) {
+      sistemaEntregadores.pedidosAtribuidos[entregadorId] = [];
+    }
+
+    // Atribui os pedidos
+    sistemaEntregadores.pedidosAtribuidos[entregadorId] = ids;
+
+    // Cria pedidos básicos no cache
+    ids.forEach(id => {
+      sistemaEntregadores.pedidosCache[id] = {
+        id,
+        displayId: id.substring(0,6),
+        customer: {
+          name: `Cliente do pedido ${id}`,
+          phone: '(XX) XXXXX-XXXX'
+        },
+        total: {
+          orderAmount: 50.00,
+          subTotal: 45.00,
+          deliveryFee: 5.00
+        },
+        items: [
+          {
+            name: 'Item do pedido',
+            quantity: 1,
+            price: 45.00
+          }
+        ],
+        delivery: {
+          deliveryAddress: {
+            streetName: 'Endereço de entrega',
+            streetNumber: '123',
+            neighborhood: 'Bairro',
+            city: 'Cidade',
+            state: 'UF'
+          }
+        }
+      };
+      sistemaEntregadores.estadoPedidos[id] = 'atribuido';
     });
+
+    // IMPORTANTE: Salva em DOIS formatos diferentes para garantir compatibilidade
+    // 1. No formato do objeto completo
+    localStorage.setItem('sistemaEntregadores', JSON.stringify(sistemaEntregadores));
+    
+    // 2. No formato específico usado pelo entregador
+    localStorage.setItem(`pedidos_${entregadorId}`, JSON.stringify(ids));
+
+    alert(`Atribuídos ${ids.length} pedidos para ${entregadorId}`);
   });
+});
 </script>
 <!-- === Fim do script de atribuição === -->
 </body>
