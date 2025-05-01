@@ -151,30 +151,23 @@
         </div>
     </div>
     
+    <div id="app-container">
+        <!-- Conteúdo da aplicação será inserido aqui -->
+    </div>
+    
     <script>
-        // Função simples para iniciar o login enquanto carrega o script principal
+        // Ajudas básicas para depuração
+        console.log('Página carregando...');
+        
+        // Mostra o login após carregar a página
         document.addEventListener('DOMContentLoaded', function() {
-            // Esconde o loading e mostra a tela de login
+            console.log('DOM carregado');
             document.getElementById('loading').style.display = 'none';
             document.getElementById('login-screen').style.display = 'block';
-            
-            // Adiciona evento ao botão de login
-            document.getElementById('login-button').addEventListener('click', function() {
-                // Mostra o loading enquanto o script principal carrega
-                document.getElementById('loading').style.display = 'flex';
-                document.getElementById('login-screen').style.display = 'none';
-            });
-            
-            // Adiciona evento para tecla Enter no campo de senha
-            document.getElementById('login-password').addEventListener('keypress', function(e) {
-                if (e.key === 'Enter') {
-                    document.getElementById('login-button').click();
-                }
-            });
         });
     </script>
     
-    <!-- Carrega o script principal após o DOM estar pronto -->
+    <!-- Carrega o script principal no final para não bloquear o carregamento -->
     <script src="delivery-app.js"></script>
 </body>
 </html>
