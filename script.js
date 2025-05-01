@@ -340,8 +340,10 @@ async function unifiedPolling() {
       );
     }
 
-    // 2) Disputas (fallback)
+// 2) Disputas (fallback)
+if (typeof pollForNewDisputesOnce === 'function') {
     await pollForNewDisputesOnce();
+}
 
     // 3) Webhook Netlify
     try {
