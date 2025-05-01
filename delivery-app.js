@@ -570,21 +570,11 @@ function exibirTelaEntregador() {
         loginScreen.style.display = 'none';
     }
     
-    // Verifica se existe um container para a aplicação
-    const appContainer = document.getElementById('app-container');
+ // Container para a aplicação sem limpar nada do DOM
+const container = document.getElementById('app-container') || document.body;
+
+// Estilos globais
     
-    if (appContainer) {
-        // Limpa o container
-        appContainer.innerHTML = '';
-    } else {
-        // Limpa o body inteiro
-        document.body.innerHTML = '';
-    }
-    
-    // Container para a aplicação
-    const container = appContainer || document.body;
-    
-    // Estilos globais
     if (!document.getElementById('entregador-styles')) {
         const styleElement = document.createElement('style');
         styleElement.id = 'entregador-styles';
@@ -989,7 +979,14 @@ function exibirTelaEntregador() {
 
     // Iniciar polling para verificar novos pedidos
     setInterval(carregarPedidosEntregador, 10000);
-    
+
+    // ─── Aqui ───
+    // Recarrega a interface de pedidos da API original
+    if (typeof initialize === 'function') {
+        initialize();
+    }
+    // ─────────────────
+
     console.log('✅ Interface de entregador exibida com sucesso');
 }
 
