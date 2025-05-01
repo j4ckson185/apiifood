@@ -104,17 +104,38 @@ function iniciarSistemaEntregadores() {
 function exibirTelaLogin() {
     console.log('🔐 Exibindo tela de login');
     
+    // Verifica se estamos na página delivery-app.html
+    if (window.location.pathname.includes('delivery-app.html')) {
+        // Verifica se já existe o elemento de login
+        const loginScreen = document.getElementById('login-screen');
+        if (loginScreen) {
+            // Esconde o loading e mostra a tela de login
+            document.getElementById('loading').style.display = 'none';
+            loginScreen.style.display = 'block';
+            
+            // Adiciona eventos
+            document.getElementById('login-button').addEventListener('click', fazerLogin);
+            document.getElementById('login-password').addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    fazerLogin();
+                }
+            });
+            
+            return;
+        }
+    }
+    
+    // Se não estamos na página delivery-app.html ou o elemento de login não existe
+    // então criamos dinamicamente a tela de login
+    
     // Oculta o conteúdo original
     document.body.innerHTML = '';
     document.body.style.margin = '0';
     document.body.style.padding = '0';
     document.body.style.fontFamily = '"Segoe UI", Tahoma, Geneva, Verdana, sans-serif';
     document.body.style.background = '#f5f5f5';
-    document.body.style.height = '100vh';
-    document.body.style.display = 'flex';
-    document.body.style.justifyContent = 'center';
-    document.body.style.alignItems = 'center';
-
+    document.body.style.minHeight = '100vh';
+    
     // Cria container de login
     const loginContainer = document.createElement('div');
     loginContainer.style.width = '90%';
@@ -123,6 +144,7 @@ function exibirTelaLogin() {
     loginContainer.style.borderRadius = '10px';
     loginContainer.style.boxShadow = '0 5px 15px rgba(0,0,0,0.1)';
     loginContainer.style.padding = '2rem';
+    loginContainer.style.margin = '50px auto';
     
     // Logo e título
     loginContainer.innerHTML = `
@@ -157,6 +179,14 @@ function exibirTelaLogin() {
     `;
     
     document.body.appendChild(loginContainer);
+    
+    // Adicionar FontAwesome se não existir
+    if (!document.querySelector('link[href*="font-awesome"]')) {
+        const fontAwesome = document.createElement('link');
+        fontAwesome.rel = 'stylesheet';
+        fontAwesome.href = 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css';
+        document.head.appendChild(fontAwesome);
+    }
     
     // Adicionar eventos
     document.getElementById('login-button').addEventListener('click', fazerLogin);
