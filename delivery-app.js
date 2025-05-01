@@ -1274,6 +1274,3 @@ function mostrarToast(mensagem, tipo = 'info') {
         toast.remove();
     }, 3000);
 }
-
-// Inicia o sistema
-iniciarSistemaEntregadores();
