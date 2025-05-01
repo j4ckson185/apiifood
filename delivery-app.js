@@ -980,13 +980,6 @@ const container = document.getElementById('app-container') || document.body;
     // Iniciar polling para verificar novos pedidos
     setInterval(carregarPedidosEntregador, 10000);
 
-    // ─── Aqui ───
-    // Recarrega a interface de pedidos da API original
-    if (typeof initialize === 'function') {
-        initialize();
-    }
-    // ─────────────────
-
     console.log('✅ Interface de entregador exibida com sucesso');
 }
 
