@@ -182,22 +182,10 @@
     <div id="app-container">
         <!-- Conteúdo da aplicação será inserido aqui -->
     </div>
-    
-    <script>
-        // Ajudas básicas para depuração
-        console.log('Página carregando...');
-        
-        // Mostra o login após carregar a página
-  document.addEventListener('DOMContentLoaded', function() {
-   document.getElementById('loading').style.display = 'none';
-   document.getElementById('login-screen').style.display = 'block';
-   const ld = document.getElementById('loading');
-   const lg = document.getElementById('login-screen');
-   if (ld) ld.style.display = 'none';
-   if (lg) lg.style.display = 'block';
-  });
-</script>
-    
+
     <script src="delivery-app.js"></script>
+<script>
+  document.addEventListener('DOMContentLoaded', iniciarSistemaEntregadores);
+</script>
 </body>
 </html>
