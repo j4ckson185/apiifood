@@ -120,7 +120,7 @@
             display: none;
         }
 
-          /* overlay cobrindo toda a tela */
+  /* overlay cobrindo toda a tela para o script.js */
   #loading-overlay {
     position: fixed;
     top: 0; left: 0; right: 0; bottom: 0;
@@ -130,14 +130,23 @@
     justify-content: center;
     z-index: 9999;
   }
-  /* esconde quando tiver .hidden */
   #loading-overlay.hidden {
     display: none;
+  }
+  .spinner {
+    border: 6px solid #f3f3f3;
+    border-top: 6px solid #3498db;
+    border-radius: 50%;
+    width: 40px; height: 40px;
+    animation: spin 1s linear infinite;
+  }
+  @keyframes spin {
+    0%   { transform: rotate(0); }
+    100% { transform: rotate(360deg); }
   }
     </style>
 </head>
 <body>
-    <!-- Loading overlay (para showLoading/hideLoading em script.js) -->
 <div id="loading-overlay" class="hidden">
   <div class="spinner"></div>
 </div>
@@ -190,7 +199,20 @@
 </script>
     
     <!-- Carrega o script principal no final para não bloquear o carregamento -->
-    <script src="delivery-app.js"></script>
     <script src="script.js"></script>
+    <script src="delivery-app.js"></script>
+      <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const raw = sessionStorage.getItem('usuarioEntregadorLogado');
+      if (!raw) return window.location.href = 'delivery-app.html';
+      sistemaEntregadores.usuarioLogado = JSON.parse(raw);
+      if (sistemaEntregadores.usuarioLogado.id === 'admin') {
+        modificarInterfaceAdmin();
+      } else {
+        exibirTelaEntregador();
+      }
+      if (typeof initialize === 'function') initialize();
+    });
+  </script>
 </body>
 </html>
