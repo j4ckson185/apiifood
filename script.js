@@ -2092,7 +2092,7 @@ document.querySelectorAll('.sidebar-item').forEach(item => {
     });
 
     // Inicialização
-    initialize();
+    // initialize(); // desabilitado para não inicializar duas vezes
 });
 
 async function initialize() {
