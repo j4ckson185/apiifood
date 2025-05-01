@@ -283,7 +283,7 @@ function modificarInterfaceAdmin() {
     // Adiciona botão de logout
     adicionarBotaoLogout();
     
-    // Remove o container de status da loja e adiciona o de entregadores
+    // Modificação: Remove o container de status da loja e adiciona o de entregadores
     const statusContainer = document.querySelector('.status-container');
     if (statusContainer) {
         // Cria o novo elemento para a seção de entregadores
@@ -292,12 +292,16 @@ function modificarInterfaceAdmin() {
         entregadoresSection.style.display = 'flex';
         entregadoresSection.style.alignItems = 'center';
         entregadoresSection.style.gap = '10px';
+        entregadoresSection.style.background = '#f8f9fa';
+        entregadoresSection.style.padding = '8px 15px';
+        entregadoresSection.style.borderRadius = '20px';
         
         // Adiciona o rótulo
         const entregadoresLabel = document.createElement('span');
         entregadoresLabel.className = 'entregadores-label';
         entregadoresLabel.textContent = 'Entregador:';
         entregadoresLabel.style.fontWeight = '500';
+        entregadoresLabel.style.color = '#343a40';
         entregadoresSection.appendChild(entregadoresLabel);
         
         // Cria o dropdown de entregadores
