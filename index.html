@@ -323,5 +323,33 @@
     <script src="scheduled-order-modal.js"></script>
     <script src="takeout-orders.js"></script>
 
+      <!-- === Login + roteamento motoboy/admin === -->
+  <script src="delivery-app.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      // checa se veio do login
+      const raw = sessionStorage.getItem('usuarioEntregadorLogado');
+      if (!raw) {
+        // sem sessão, volta para a tela de login
+        return window.location.href = 'delivery-app.html';
+      }
+      // popula o objeto de sessão
+      sistemaEntregadores.usuarioLogado = JSON.parse(raw);
+      // se for admin, reconfigura interface
+      if (sistemaEntregadores.usuarioLogado.id === 'admin') {
+        modificarInterfaceAdmin();
+      } else {
+        // motoboy normal
+        exibirTelaEntregador();
+      }
+      // inicia carregamento de pedidos, polling etc.
+      if (typeof initialize === 'function') initialize();
+    });
+  </script>
+  <!-- === Fim do login + roteamento === -->
+</body>
+</html>
+
+
 </body>
 </html>
