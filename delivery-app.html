@@ -119,9 +119,28 @@
             text-align: center;
             display: none;
         }
+
+          /* overlay cobrindo toda a tela */
+  #loading-overlay {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(255,255,255,0.8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+  }
+  /* esconde quando tiver .hidden */
+  #loading-overlay.hidden {
+    display: none;
+  }
     </style>
 </head>
 <body>
+    <!-- Loading overlay (para showLoading/hideLoading em script.js) -->
+<div id="loading-overlay" class="hidden">
+  <div class="spinner"></div>
+</div>
     <div id="loading">
         <div class="spinner"></div>
     </div>
