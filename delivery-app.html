@@ -201,18 +201,5 @@
     <!-- Carrega o script principal no final para não bloquear o carregamento -->
     <script src="script.js"></script>
     <script src="delivery-app.js"></script>
-      <script>
-    document.addEventListener('DOMContentLoaded', () => {
-      const raw = sessionStorage.getItem('usuarioEntregadorLogado');
-      if (!raw) return window.location.href = 'delivery-app.html';
-      sistemaEntregadores.usuarioLogado = JSON.parse(raw);
-      if (sistemaEntregadores.usuarioLogado.id === 'admin') {
-        modificarInterfaceAdmin();
-      } else {
-        exibirTelaEntregador();
-      }
-      if (typeof initialize === 'function') initialize();
-    });
-  </script>
 </body>
 </html>
