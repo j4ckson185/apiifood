@@ -98,7 +98,6 @@ function iniciarSistemaEntregadores() {
         exibirTelaLogin();
     }
 }
-}
 
 // Exibir tela de login
 function exibirTelaLogin() {
