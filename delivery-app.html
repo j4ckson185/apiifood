@@ -160,12 +160,15 @@
         console.log('Página carregando...');
         
         // Mostra o login após carregar a página
-        document.addEventListener('DOMContentLoaded', function() {
-            console.log('DOM carregado');
-            document.getElementById('loading').style.display = 'none';
-            document.getElementById('login-screen').style.display = 'block';
-        });
-    </script>
+  document.addEventListener('DOMContentLoaded', function() {
+   document.getElementById('loading').style.display = 'none';
+   document.getElementById('login-screen').style.display = 'block';
+   const ld = document.getElementById('loading');
+   const lg = document.getElementById('login-screen');
+   if (ld) ld.style.display = 'none';
+   if (lg) lg.style.display = 'block';
+  });
+</script>
     
     <!-- Carrega o script principal no final para não bloquear o carregamento -->
     <script src="delivery-app.js"></script>
