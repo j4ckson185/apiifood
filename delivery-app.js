@@ -1,7 +1,3 @@
-// Sistema de Entregadores para PDV iFood
-// Este arquivo adiciona um sistema de login e gerenciamento de entregadores
-// sem modificar os arquivos originais do sistema
-
 // Configuração dos entregadores
 const entregadores = [
     { id: 'boaz', nome: 'Boaz', login: 'boaz', senha: 'boaz123' },
@@ -20,6 +16,9 @@ let sistemaEntregadores = {
     pedidosCache: {},      // Cache de pedidos completos { pedidoId: pedidoCompleto }
     estadoPedidos: {}      // { pedidoId: 'atribuido' | 'aceito' | 'despachado' | 'finalizado' }
 };
+
+// Debug log
+console.log('🚀 Inicializando sistema de entregadores Cabana Delivery v1.0.2');
 
 // Carregar estado salvo se existir
 function carregarEstadoSalvo() {
@@ -270,6 +269,17 @@ function fazerLogin() {
 function modificarInterfaceAdmin() {
     console.log('👑 Modificando interface para admin');
     
+    // Ocultar elementos de loading e login
+    const loadingElement = document.getElementById('loading');
+    if (loadingElement) {
+        loadingElement.style.display = 'none';
+    }
+    
+    const loginScreen = document.getElementById('login-screen');
+    if (loginScreen) {
+        loginScreen.style.display = 'none';
+    }
+    
     // Adiciona botão de logout
     adicionarBotaoLogout();
     
@@ -315,6 +325,8 @@ function modificarInterfaceAdmin() {
         
         // Substitui o container de status
         statusContainer.parentNode.replaceChild(entregadoresSection, statusContainer);
+    } else {
+        console.log('❌ Container de status não encontrado');
     }
     
     // Observar a criação de cards de pedidos para adicionar botão de atribuir
@@ -335,16 +347,44 @@ function modificarInterfaceAdmin() {
     
     // Observa todas as grids de pedidos
     const orderGrids = document.querySelectorAll('.orders-grid');
-    orderGrids.forEach(grid => {
-        observer.observe(grid, { childList: true });
-        
-        // Verifica cards existentes
-        grid.querySelectorAll('.order-card').forEach(card => {
-            if (!card.querySelector('.atribuir-entregador-btn')) {
-                adicionarBotaoAtribuir(card);
-            }
+    if (orderGrids.length > 0) {
+        orderGrids.forEach(grid => {
+            observer.observe(grid, { childList: true });
+            
+            // Verifica cards existentes
+            grid.querySelectorAll('.order-card').forEach(card => {
+                if (!card.querySelector('.atribuir-entregador-btn')) {
+                    adicionarBotaoAtribuir(card);
+                }
+            });
         });
-    });
+        console.log(`✅ Observando ${orderGrids.length} grids de pedidos`);
+    } else {
+        console.log('⚠️ Nenhuma grid de pedidos encontrada para observar');
+        
+        // Talvez a página não tenha carregado completamente ainda
+        // Programamos uma nova tentativa após 1 segundo
+        setTimeout(() => {
+            const retryGrids = document.querySelectorAll('.orders-grid');
+            if (retryGrids.length > 0) {
+                console.log(`✅ Retry: Encontradas ${retryGrids.length} grids de pedidos`);
+                retryGrids.forEach(grid => {
+                    observer.observe(grid, { childList: true });
+                    
+                    // Verifica cards existentes
+                    grid.querySelectorAll('.order-card').forEach(card => {
+                        if (!card.querySelector('.atribuir-entregador-btn')) {
+                            adicionarBotaoAtribuir(card);
+                        }
+                    });
+                });
+            } else {
+                console.log('❌ Retry: Nenhuma grid de pedidos encontrada mesmo após espera');
+            }
+        }, 1000);
+    }
+    
+    console.log('✅ Interface admin modificada com sucesso');
 }
 
 // Função para adicionar botão de logout
@@ -375,9 +415,19 @@ function adicionarBotaoLogout() {
 // Função para fazer logout
 function fazerLogout() {
     console.log('👋 Fazendo logout');
+    
+    // Limpa dados de usuário
     sistemaEntregadores.usuarioLogado = null;
     sessionStorage.removeItem('usuarioEntregadorLogado');
-    exibirTelaLogin();
+    
+    // Verifica se estamos na página do sistema ou na página principal
+    if (window.location.pathname.includes('delivery-app.html')) {
+        // Estamos na página do sistema - apenas exibe tela de login
+        exibirTelaLogin();
+    } else {
+        // Estamos na página principal - redireciona para a página do sistema
+        window.location.href = 'delivery-app.html';
+    }
 }
 
 // Adicionar botão de atribuir entregador ao card de pedido
@@ -498,359 +548,395 @@ function atribuirEntregador(orderId, orderCard) {
 function exibirTelaEntregador() {
     console.log('🚚 Exibindo tela para entregador:', sistemaEntregadores.usuarioLogado.nome);
     
-    // Oculta o conteúdo original
-    document.body.innerHTML = '';
+    // Oculta o carregando se estiver visível
+    const loadingElement = document.getElementById('loading');
+    if (loadingElement) {
+        loadingElement.style.display = 'none';
+    }
+    
+    // Oculta a tela de login se estiver visível
+    const loginScreen = document.getElementById('login-screen');
+    if (loginScreen) {
+        loginScreen.style.display = 'none';
+    }
+    
+    // Verifica se existe um container para a aplicação
+    const appContainer = document.getElementById('app-container');
+    
+    if (appContainer) {
+        // Limpa o container
+        appContainer.innerHTML = '';
+    } else {
+        // Limpa o body inteiro
+        document.body.innerHTML = '';
+    }
+    
+    // Container para a aplicação
+    const container = appContainer || document.body;
     
     // Estilos globais
-    const styleElement = document.createElement('style');
-    styleElement.textContent = `
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: #f5f5f5;
-            color: #333;
-        }
-        
-        header {
-            background-color: #ea1d2c;
-            color: white;
-            padding: 1rem;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            position: sticky;
-            top: 0;
-            z-index: 100;
-        }
-        
-        .header-content {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            max-width: 1200px;
-            margin: 0 auto;
-        }
-        
-        .app-title {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            font-size: 1.2rem;
-            font-weight: 600;
-        }
-        
-        .entregador-info {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-        
-        .logout-btn {
-            background: rgba(255,255,255,0.2);
-            border: none;
-            color: white;
-            padding: 6px 12px;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 14px;
-        }
-        
-        .logout-btn:hover {
-            background: rgba(255,255,255,0.3);
-        }
-        
-        main {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 1rem;
-        }
-        
-        .status-banner {
-            background-color: #e8f5e9;
-            color: #2e7d32;
-            padding: 1rem;
-            border-radius: 8px;
-            margin-bottom: 1rem;
-            text-align: center;
-            font-weight: 500;
-        }
-        
-        .empty-state {
-            text-align: center;
-            padding: 3rem 1rem;
-            background-color: white;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-            margin: 2rem 0;
-        }
-        
-        .empty-state i {
-            font-size: 3rem;
-            color: #ccc;
-            margin-bottom: 1rem;
-            display: block;
-        }
-        
-        .empty-state h3 {
-            font-size: 1.5rem;
-            margin-bottom: 0.5rem;
-            color: #333;
-        }
-        
-        .empty-state p {
-            color: #666;
-            max-width: 400px;
-            margin: 0 auto;
-        }
-        
-        .pedidos-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-            gap: 1rem;
-            margin-top: 1rem;
-        }
-        
-        .pedido-card {
-            background-color: white;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            overflow: hidden;
-            transition: transform 0.2s;
-        }
-        
-        .pedido-card:hover {
-            transform: translateY(-4px);
-            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
-        }
-        
-        .pedido-header {
-            padding: 1rem;
-            background-color: #f8f9fa;
-            border-bottom: 1px solid #eee;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        
-        .pedido-id {
-            font-weight: 600;
-            font-size: 1.1rem;
-        }
-        
-        .pedido-status {
-            padding: 4px 8px;
-            border-radius: 20px;
-            font-size: 0.8rem;
-            font-weight: 600;
-            background-color: #f8f9fa;
-        }
-        
-        .status-atribuido {
-            background-color: #e8f5e9;
-            color: #2e7d32;
-        }
-        
-        .status-aceito {
-            background-color: #e3f2fd;
-            color: #1565c0;
-        }
-        
-        .status-despachado {
-            background-color: #fff3e0;
-            color: #e65100;
-        }
-        
-        .status-finalizado {
-            background-color: #e8eaf6;
-            color: #3949ab;
-        }
-        
-        .pedido-body {
-            padding: 1rem;
-        }
-        
-        .pedido-info-row {
-            margin-bottom: 0.8rem;
-        }
-        
-        .pedido-info-row h4 {
-            font-size: 0.9rem;
-            color: #666;
-            margin-bottom: 0.3rem;
-        }
-        
-        .pedido-info-row p {
-            color: #333;
-        }
-        
-        .pedido-actions {
-            display: flex;
-            gap: 0.5rem;
-            margin-top: 1rem;
-        }
-        
-        .action-btn {
-            flex: 1;
-            padding: 0.7rem;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            font-weight: 600;
-            font-size: 0.9rem;
-            transition: all 0.2s;
-        }
-        
-        .btn-aceitar {
-            background-color: #007bff;
-            color: white;
-        }
-        
-        .btn-aceitar:hover {
-            background-color: #0069d9;
-        }
-        
-        .btn-despachar {
-            background-color: #fd7e14;
-            color: white;
-        }
-        
-        .btn-despachar:hover {
-            background-color: #e8710a;
-        }
-        
-        .btn-finalizar {
-            background-color: #28a745;
-            color: white;
-        }
-        
-        .btn-finalizar:hover {
-            background-color: #218838;
-        }
-        
-        .toast-container {
-            position: fixed;
-            bottom: 20px;
-            right: 20px;
-            z-index: 1000;
-        }
-        
-        .toast {
-            background-color: white;
-            color: #333;
-            padding: 1rem 1.5rem;
-            margin: 0.5rem;
-            border-radius: 6px;
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-            animation: slideIn 0.3s ease;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-        
-        .toast.success {
-            border-left: 4px solid #28a745;
-        }
-        
-        .toast.error {
-            border-left: 4px solid #dc3545;
-        }
-        
-        .toast.info {
-            border-left: 4px solid #17a2b8;
-        }
-        
-        .toast.warning {
-            border-left: 4px solid #ffc107;
-        }
-        
-        @keyframes slideIn {
-            from { transform: translateX(100%); opacity: 0; }
-            to { transform: translateX(0); opacity: 1; }
-        }
-        
-        /* Modal de detalhes do pedido */
-        .modal-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0, 0, 0, 0.6);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            z-index: 1000;
-        }
-        
-        .modal-content {
-            background-color: white;
-            border-radius: 8px;
-            width: 90%;
-            max-width: 600px;
-            max-height: 90vh;
-            overflow-y: auto;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
-        }
-        
-        .modal-header {
-            padding: 1rem;
-            background-color: #ea1d2c;
-            color: white;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        
-        .modal-title {
-            font-size: 1.2rem;
-            font-weight: 600;
-        }
-        
-        .modal-close {
-            background: none;
-            border: none;
-            color: white;
-            font-size: 1.5rem;
-            cursor: pointer;
-        }
-        
-        .modal-body {
-            padding: 1.5rem;
-        }
-        
-        .modal-section {
-            margin-bottom: 1.5rem;
-            padding-bottom: 1.5rem;
-            border-bottom: 1px solid #eee;
-        }
-        
-        .modal-section:last-child {
-            border-bottom: none;
-            padding-bottom: 0;
-            margin-bottom: 0;
-        }
-        
-        .modal-section h3 {
-            font-size: 1.1rem;
-            margin-bottom: 1rem;
-            color: #333;
-        }
-        
-        .modal-footer {
-            padding: 1rem;
-            display: flex;
-            justify-content: flex-end;
-            gap: 1rem;
-            border-top: 1px solid #eee;
-        }
-    `;
-    document.head.appendChild(styleElement);
+    if (!document.getElementById('entregador-styles')) {
+        const styleElement = document.createElement('style');
+        styleElement.id = 'entregador-styles';
+        styleElement.textContent = `
+            * {
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+            }
+            
+            body {
+                font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                background-color: #f5f5f5;
+                color: #333;
+            }
+            
+            header {
+                background-color: #ea1d2c;
+                color: white;
+                padding: 1rem;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+                position: sticky;
+                top: 0;
+                z-index: 100;
+            }
+            
+            .header-content {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                max-width: 1200px;
+                margin: 0 auto;
+            }
+            
+            .app-title {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                font-size: 1.2rem;
+                font-weight: 600;
+            }
+            
+            .entregador-info {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+            }
+            
+            .logout-btn {
+                background: rgba(255,255,255,0.2);
+                border: none;
+                color: white;
+                padding: 6px 12px;
+                border-radius: 4px;
+                cursor: pointer;
+                font-size: 14px;
+            }
+            
+            .logout-btn:hover {
+                background: rgba(255,255,255,0.3);
+            }
+            
+            main {
+                max-width: 1200px;
+                margin: 0 auto;
+                padding: 1rem;
+            }
+            
+            .status-banner {
+                background-color: #e8f5e9;
+                color: #2e7d32;
+                padding: 1rem;
+                border-radius: 8px;
+                margin-bottom: 1rem;
+                text-align: center;
+                font-weight: 500;
+            }
+            
+            .empty-state {
+                text-align: center;
+                padding: 3rem 1rem;
+                background-color: white;
+                border-radius: 8px;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+                margin: 2rem 0;
+            }
+            
+            .empty-state i {
+                font-size: 3rem;
+                color: #ccc;
+                margin-bottom: 1rem;
+                display: block;
+            }
+            
+            .empty-state h3 {
+                font-size: 1.5rem;
+                margin-bottom: 0.5rem;
+                color: #333;
+            }
+            
+            .empty-state p {
+                color: #666;
+                max-width: 400px;
+                margin: 0 auto;
+            }
+            
+            .pedidos-grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+                gap: 1rem;
+                margin-top: 1rem;
+            }
+            
+            .pedido-card {
+                background-color: white;
+                border-radius: 8px;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+                overflow: hidden;
+                transition: transform 0.2s;
+            }
+            
+            .pedido-card:hover {
+                transform: translateY(-4px);
+                box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+            }
+            
+            .pedido-header {
+                padding: 1rem;
+                background-color: #f8f9fa;
+                border-bottom: 1px solid #eee;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+            }
+            
+            .pedido-id {
+                font-weight: 600;
+                font-size: 1.1rem;
+            }
+            
+            .pedido-status {
+                padding: 4px 8px;
+                border-radius: 20px;
+                font-size: 0.8rem;
+                font-weight: 600;
+                background-color: #f8f9fa;
+            }
+            
+            .status-atribuido {
+                background-color: #e8f5e9;
+                color: #2e7d32;
+            }
+            
+            .status-aceito {
+                background-color: #e3f2fd;
+                color: #1565c0;
+            }
+            
+            .status-despachado {
+                background-color: #fff3e0;
+                color: #e65100;
+            }
+            
+            .status-finalizado {
+                background-color: #e8eaf6;
+                color: #3949ab;
+            }
+            
+            .pedido-body {
+                padding: 1rem;
+            }
+            
+            .pedido-info-row {
+                margin-bottom: 0.8rem;
+            }
+            
+            .pedido-info-row h4 {
+                font-size: 0.9rem;
+                color: #666;
+                margin-bottom: 0.3rem;
+            }
+            
+            .pedido-info-row p {
+                color: #333;
+            }
+            
+            .pedido-actions {
+                display: flex;
+                gap: 0.5rem;
+                margin-top: 1rem;
+            }
+            
+            .action-btn {
+                flex: 1;
+                padding: 0.7rem;
+                border: none;
+                border-radius: 6px;
+                cursor: pointer;
+                font-weight: 600;
+                font-size: 0.9rem;
+                transition: all 0.2s;
+            }
+            
+            .btn-aceitar {
+                background-color: #007bff;
+                color: white;
+            }
+            
+            .btn-aceitar:hover {
+                background-color: #0069d9;
+            }
+            
+            .btn-despachar {
+                background-color: #fd7e14;
+                color: white;
+            }
+            
+            .btn-despachar:hover {
+                background-color: #e8710a;
+            }
+            
+            .btn-finalizar {
+                background-color: #28a745;
+                color: white;
+            }
+            
+            .btn-finalizar:hover {
+                background-color: #218838;
+            }
+            
+            .toast-container {
+                position: fixed;
+                bottom: 20px;
+                right: 20px;
+                z-index: 1000;
+            }
+            
+            .toast {
+                background-color: white;
+                color: #333;
+                padding: 1rem 1.5rem;
+                margin: 0.5rem;
+                border-radius: 6px;
+                box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+                animation: slideIn 0.3s ease;
+                display: flex;
+                align-items: center;
+                gap: 10px;
+            }
+            
+            .toast.success {
+                border-left: 4px solid #28a745;
+            }
+            
+            .toast.error {
+                border-left: 4px solid #dc3545;
+            }
+            
+            .toast.info {
+                border-left: 4px solid #17a2b8;
+            }
+            
+            .toast.warning {
+                border-left: 4px solid #ffc107;
+            }
+            
+            @keyframes slideIn {
+                from { transform: translateX(100%); opacity: 0; }
+                to { transform: translateX(0); opacity: 1; }
+            }
+            
+            /* Modal de detalhes do pedido */
+            .modal-overlay {
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background-color: rgba(0, 0, 0, 0.6);
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                z-index: 1000;
+            }
+            
+            .modal-content {
+                background-color: white;
+                border-radius: 8px;
+                width: 90%;
+                max-width: 600px;
+                max-height: 90vh;
+                overflow-y: auto;
+                box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+            }
+            
+            .modal-header {
+                padding: 1rem;
+                background-color: #ea1d2c;
+                color: white;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+            }
+            
+            .modal-title {
+                font-size: 1.2rem;
+                font-weight: 600;
+            }
+            
+            .modal-close {
+                background: none;
+                border: none;
+                color: white;
+                font-size: 1.5rem;
+                cursor: pointer;
+            }
+            
+            .modal-body {
+                padding: 1.5rem;
+            }
+            
+            .modal-section {
+                margin-bottom: 1.5rem;
+                padding-bottom: 1.5rem;
+                border-bottom: 1px solid #eee;
+            }
+            
+            .modal-section:last-child {
+                border-bottom: none;
+                padding-bottom: 0;
+                margin-bottom: 0;
+            }
+            
+            .modal-section h3 {
+                font-size: 1.1rem;
+                margin-bottom: 1rem;
+                color: #333;
+            }
+            
+            .modal-footer {
+                padding: 1rem;
+                display: flex;
+                justify-content: flex-end;
+                gap: 1rem;
+                border-top: 1px solid #eee;
+            }
+        `;
+        document.head.appendChild(styleElement);
+    }
+    
+    // Adicionar FontAwesome se não existir
+    if (!document.querySelector('link[href*="font-awesome"]')) {
+        const fontAwesome = document.createElement('link');
+        fontAwesome.rel = 'stylesheet';
+        fontAwesome.href = 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css';
+        document.head.appendChild(fontAwesome);
+    }
     
     // Criar estrutura básica
-    document.body.innerHTML = `
+    const entregadorInterface = document.createElement('div');
+    entregadorInterface.className = 'entregador-interface';
+    entregadorInterface.innerHTML = `
         <header>
             <div class="header-content">
                 <div class="app-title">
@@ -878,13 +964,7 @@ function exibirTelaEntregador() {
         </main>
     `;
     
-    // Adicionar FontAwesome se não existir
-    if (!document.querySelector('link[href*="font-awesome"]')) {
-        const fontAwesome = document.createElement('link');
-        fontAwesome.rel = 'stylesheet';
-        fontAwesome.href = 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css';
-        document.head.appendChild(fontAwesome);
-    }
+    container.appendChild(entregadorInterface);
     
     // Adicionar eventos
     document.getElementById('btn-logout').addEventListener('click', fazerLogout);
@@ -894,6 +974,8 @@ function exibirTelaEntregador() {
     
     // Iniciar polling para verificar novos pedidos
     setInterval(carregarPedidosEntregador, 10000);
+    
+    console.log('✅ Interface de entregador exibida com sucesso');
 }
 
 // Carregar pedidos do entregador atual
