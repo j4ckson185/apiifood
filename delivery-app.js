@@ -994,20 +994,18 @@ function exibirTelaEntregador() {
 }
 
 function carregarPedidosEntregador() {
-    // 1) Se ninguém estiver logado, sai sem erro
-    if (!sistemaEntregadores.usuarioLogado) {
-        console.warn('Nenhum usuário logado – pulando carregamento de pedidos');
-        return;
-    }
+    // 1) Se ninguém estiver logado, aborta sem erro
+    if (!sistemaEntregadores.usuarioLogado) return;
 
     const entregadorId = sistemaEntregadores.usuarioLogado.id;
     const pedidosContainer = document.getElementById('pedidos-container');
     if (!pedidosContainer) return;
-    
-    // 2) Lê a lista que o admin gravou na sessão
+
+    // 2) Lê exatamente a chave que o admin usou em index.html:
+    //    sessionStorage.setItem(`pedidos_${entregadorId}`, JSON.stringify([...]))
     const raw = sessionStorage.getItem(`pedidos_${entregadorId}`);
     const pedidosIds = raw ? JSON.parse(raw) : [];
-    
+
     if (pedidosIds.length === 0) {
         pedidosContainer.innerHTML = `
             <div class="empty-state">
@@ -1018,45 +1016,62 @@ function carregarPedidosEntregador() {
         `;
         return;
     }
-    
-    // 3) Monta o grid de pedidos normalmente…
+
+    // 3) Monta o grid de pedidos
     let pedidosHTML = `
         <h2>Seus Pedidos (${pedidosIds.length})</h2>
         <div class="pedidos-grid">`;
-    
+
     pedidosIds.forEach(pedidoId => {
         const pedido = sistemaEntregadores.pedidosCache[pedidoId];
         if (!pedido) return;
+
         const estado = sistemaEntregadores.estadoPedidos[pedidoId] || 'atribuido';
-        let statusText = '', statusClass = '';
+        let statusText = '';
+        let statusClass = '';
+
         switch (estado) {
             case 'atribuido':
-                statusText = 'Atribuído'; statusClass = 'status-atribuido'; break;
+                statusText = 'Atribuído';
+                statusClass = 'status-atribuido';
+                break;
             case 'aceito':
-                statusText = 'Aceito';    statusClass = 'status-aceito';    break;
+                statusText = 'Aceito';
+                statusClass = 'status-aceito';
+                break;
             case 'despachado':
-                statusText = 'A Caminho'; statusClass = 'status-despachado'; break;
+                statusText = 'A Caminho';
+                statusClass = 'status-despachado';
+                break;
             case 'finalizado':
-                statusText = 'Finalizado';statusClass = 'status-finalizado';break;
+                statusText = 'Finalizado';
+                statusClass = 'status-finalizado';
+                break;
         }
+
         let botoesHTML = '';
         if (estado === 'atribuido') {
-            botoesHTML = `<button class="action-btn btn-aceitar" onclick="aceitarPedido('${pedidoId}')">
-                              <i class="fas fa-check"></i> Aceitar
-                          </button>`;
+            botoesHTML = `
+                <button class="action-btn btn-aceitar" onclick="aceitarPedido('${pedidoId}')">
+                    <i class="fas fa-check"></i> Aceitar
+                </button>`;
         } else if (estado === 'aceito') {
-            botoesHTML = `<button class="action-btn btn-despachar" onclick="despacharPedido('${pedidoId}')">
-                              <i class="fas fa-shipping-fast"></i> Despachar
-                          </button>`;
+            botoesHTML = `
+                <button class="action-btn btn-despachar" onclick="despacharPedido('${pedidoId}')">
+                    <i class="fas fa-shipping-fast"></i> Despachar
+                </button>`;
         } else if (estado === 'despachado') {
-            botoesHTML = `<button class="action-btn btn-finalizar" onclick="finalizarPedido('${pedidoId}')">
-                              <i class="fas fa-flag-checkered"></i> Finalizar
-                          </button>`;
+            botoesHTML = `
+                <button class="action-btn btn-finalizar" onclick="finalizarPedido('${pedidoId}')">
+                    <i class="fas fa-flag-checkered"></i> Finalizar
+                </button>`;
         } else {
-            botoesHTML = `<button class="action-btn" disabled style="background-color: #e9ecef; color: #868e96;">
-                              <i class="fas fa-check-circle"></i> Concluído
-                          </button>`;
+            botoesHTML = `
+                <button class="action-btn" disabled style="background-color: #e9ecef; color: #868e96;">
+                    <i class="fas fa-check-circle"></i> Concluído
+                </button>`;
         }
+
         pedidosHTML += `
             <div class="pedido-card" data-pedido-id="${pedidoId}">
                 <div class="pedido-header">
@@ -1070,9 +1085,9 @@ function carregarPedidosEntregador() {
                     </div>
                     <div class="pedido-info-row">
                         <h4>Total</h4>
-                        <p>${pedido.total?.orderAmount ?
-                            `R$ ${pedido.total.orderAmount.toFixed(2)}` :
-                            pedido.total || 'R$ 0,00'}</p>
+                        <p>${pedido.total?.orderAmount
+                            ? `R$ ${pedido.total.orderAmount.toFixed(2)}`
+                            : pedido.total || 'R$ 0,00'}</p>
                     </div>
                     <div class="pedido-actions">
                         <button class="action-btn" style="background-color: #6c757d; color: white;"
@@ -1084,7 +1099,7 @@ function carregarPedidosEntregador() {
                 </div>
             </div>`;
     });
-    
+
     pedidosHTML += '</div>';
     pedidosContainer.innerHTML = pedidosHTML;
 }
