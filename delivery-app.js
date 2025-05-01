@@ -547,6 +547,8 @@ function atribuirEntregador(orderId, orderCard) {
     
     // Adiciona o pedido à lista do entregador
     sistemaEntregadores.pedidosAtribuidos[entregadorId].push(orderId);
+        // Adicione esta linha para salvar também no formato esperado pela interface do entregador
+    localStorage.setItem(`pedidos_${entregadorId}`, JSON.stringify(sistemaEntregadores.pedidosAtribuidos[entregadorId]));
     
     // Salva o pedido no cache
     sistemaEntregadores.pedidosCache[orderId] = pedidoCompleto;
@@ -1002,11 +1004,54 @@ function carregarPedidosEntregador() {
     const entregadorId = sistemaEntregadores.usuarioLogado.id.toLowerCase();
     console.log('[DEBUG Motoboy] entregadorId usado:', entregadorId);
 
-    const raw = localStorage.getItem(`pedidos_${entregadorId}`);
-    console.log('[DEBUG Motoboy] raw de pedidos_'+entregadorId+':', raw);
+    // Primeiro tenta buscar do formato usado pela página do admin
+    let pedidosIds = [];
+    
+    // Verifica se há pedidos no objeto sistemaEntregadores
+    if (sistemaEntregadores.pedidosAtribuidos && sistemaEntregadores.pedidosAtribuidos[entregadorId]) {
+        pedidosIds = sistemaEntregadores.pedidosAtribuidos[entregadorId];
+        console.log('[DEBUG Motoboy] Pedidos encontrados em sistemaEntregadores:', pedidosIds);
+    }
+    
+    // Se não encontrou, tenta o formato direto no localStorage
+    if (pedidosIds.length === 0) {
+        const raw = localStorage.getItem(`pedidos_${entregadorId}`);
+        console.log('[DEBUG Motoboy] raw de pedidos_'+entregadorId+':', raw);
+        
+        if (raw) {
+            pedidosIds = JSON.parse(raw);
+            console.log('[DEBUG Motoboy] Pedidos encontrados no localStorage:', pedidosIds);
+            
+            // Atualiza também o objeto em memória para manter consistência
+            if (!sistemaEntregadores.pedidosAtribuidos) {
+                sistemaEntregadores.pedidosAtribuidos = {};
+            }
+            sistemaEntregadores.pedidosAtribuidos[entregadorId] = pedidosIds;
+        }
+    }
+    
+    // Tenta buscar também na chave geral de sistema
+    if (pedidosIds.length === 0) {
+        const rawSystem = localStorage.getItem('sistemaEntregadores');
+        console.log('[DEBUG Motoboy] sistemaEntregadores em localStorage:', rawSystem);
+        
+        if (rawSystem) {
+            try {
+                const sistema = JSON.parse(rawSystem);
+                if (sistema.pedidosAtribuidos && sistema.pedidosAtribuidos[entregadorId]) {
+                    pedidosIds = sistema.pedidosAtribuidos[entregadorId];
+                    console.log('[DEBUG Motoboy] Pedidos encontrados na chave sistemaEntregadores:', pedidosIds);
+                    
+                    // Sincroniza com o local específico para futuras consultas
+                    localStorage.setItem(`pedidos_${entregadorId}`, JSON.stringify(pedidosIds));
+                }
+            } catch (error) {
+                console.error('[DEBUG Motoboy] Erro ao parsear sistemaEntregadores:', error);
+            }
+        }
+    }
 
-    const pedidosIds = raw ? JSON.parse(raw) : [];
-    console.log('[DEBUG Motoboy] pedidosIds (array):', pedidosIds);
+    console.log('[DEBUG Motoboy] pedidosIds final (array):', pedidosIds);
 
     const pedidosContainer = document.getElementById('pedidos-container');
     if (!pedidosContainer) {
@@ -1032,7 +1077,10 @@ function carregarPedidosEntregador() {
 
     pedidosIds.forEach(pedidoId => {
         const pedido = sistemaEntregadores.pedidosCache[pedidoId];
-        if (!pedido) return;
+        if (!pedido) {
+            console.warn('[DEBUG Motoboy] Pedido não encontrado no cache:', pedidoId);
+            return;
+        }
 
         const estado = sistemaEntregadores.estadoPedidos[pedidoId] || 'atribuido';
         let statusText = '';
@@ -1110,6 +1158,8 @@ function carregarPedidosEntregador() {
 
     pedidosHTML += '</div>';
     pedidosContainer.innerHTML = pedidosHTML;
+    
+    console.log('[DEBUG Motoboy] Interface de pedidos atualizada com sucesso');
 }
 
 // Funções para atualizar o estado do pedido
