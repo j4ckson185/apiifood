@@ -1016,6 +1016,12 @@ function exibirTelaEntregador() {
 }
 
 function carregarPedidosEntregador() {
+console.group('🛠️ DEBUG MOTOBOY - carregarPedidosEntregador');
+console.log('Usuário logado:', sistemaEntregadores.usuarioLogado);
+console.log('Keys no localStorage:', Object.keys(localStorage));
+console.log('Cache interno:', sistemaEntregadores.pedidosCache);
+console.groupEnd();
+
     // Logs para debug
     console.log('[DEBUG Motoboy] sistemaEntregadores.usuarioLogado =', sistemaEntregadores.usuarioLogado);
     console.log('[DEBUG Motoboy] keys em localStorage:', Object.keys(localStorage));
@@ -1443,7 +1449,13 @@ function mostrarToast(mensagem, tipo = 'info') {
 
 // Função para sincronizar pedidos entre admin e entregador
 function sincronizarPedidosEntreAdminEEntregador() {
-    console.log('🔄 Sincronizando pedidos entre admin e entregador...');
+    console.group('🛠️ DEBUG MOTOBOY - Início Sincronização');
+console.log('🔄 Iniciando sincronização');
+// Raw do localStorage
+console.log('Raw sistemaEntregadores:', localStorage.getItem('sistemaEntregadores'));
+console.log(`Raw pedidos_${sistemaEntregadores.usuarioLogado?.id}:`,
+            localStorage.getItem(`pedidos_${sistemaEntregadores.usuarioLogado?.id}`));
+console.groupEnd();
     
     // 1. Verificar todas as atribuições no formato sistemaEntregadores
     let sistemaStorage = localStorage.getItem('sistemaEntregadores');
@@ -1465,21 +1477,29 @@ function sincronizarPedidosEntreAdminEEntregador() {
                         console.log(`✅ Sincronizados ${pedidos.length} pedidos para ${entregadorId} no formato específico`);
                         
                         // Garante que cada pedido exista no cache
-                        pedidos.forEach(pedidoId => {
-                            if (!sistema.pedidosCache || !sistema.pedidosCache[pedidoId]) {
-                                // Se o pedido não existe no cache, cria um pedido básico
-                                if (!sistema.pedidosCache) sistema.pedidosCache = {};
-                                
-                                sistema.pedidosCache[pedidoId] = {
-                                    id: pedidoId,
-                                    displayId: pedidoId.substring(0, 6),
-                                    customer: {
-                                        name: `Cliente do pedido ${pedidoId}`
-                                    },
-                                    total: 'Verificando...'
-                                };
-                                
-                                console.log(`🔄 Criado pedido básico no cache para ${pedidoId}`);
+                        // Verifica chaves de cache disponíveis
+console.log('🗃️ Chaves em sistemaEntregadores.pedidosCache:',
+            Object.keys(sistemaEntregadores.pedidosCache));
+ pedidos.forEach(pedidoId => {
+    // <- aqui, imediatamente após o forEach abrir, cole isto:
+    if (sistemaEntregadores.pedidosCache[pedidoId]) {
+        console.log(
+          `✅ Pedido ${pedidoId} encontrado no cache:`,
+          sistemaEntregadores.pedidosCache[pedidoId]
+        );
+    } else {
+        console.warn(`❌ Pedido ${pedidoId} NÃO encontrado no cache.`);
+    }
+
+    if (!sistema.pedidosCache[pedidoId]) {
+        sistema.pedidosCache[pedidoId] = {
+            id: pedidoId,
+            displayId: pedidoId.substring(0, 6),
+            customer: { name: `Cliente do pedido ${pedidoId}` },
+            total: 'Verificando...'
+        };
+    }                               
+                           console.log(`🔄 Criado pedido básico no cache para ${pedidoId}`);
                             }
                             
                             // Garante que o pedido tenha um estado
