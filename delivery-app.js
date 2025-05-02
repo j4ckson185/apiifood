@@ -77,7 +77,7 @@ function iniciarSistemaEntregadores() {
     console.log('🚚 Iniciando sistema de entregadores...');
     
     // Sincroniza pedidos entre admin e entregador antes de carregar o estado
-    sincronizarPedidosEntreAdminEEntregador();
+    // sincronizarPedidosEntreAdminEEntregador();
     
     // Carregar estado salvo
     carregarEstadoSalvo();
@@ -97,7 +97,10 @@ function iniciarSistemaEntregadores() {
             
             // Se não for o admin, exibe interface de entregador imediatamente
             if (sistemaEntregadores.usuarioLogado.id !== 'admin') {
-                exibirTelaEntregador();
+            // 1) Sincroniza dados agora que sabemos quem está logado
+            sincronizarPedidosEntreAdminEEntregador();
+            // 2) Exibe a UI e aí sim carrega os pedidos sem erros
+            exibirTelaEntregador();
             } else {
                 // Se estamos na página delivery-app.html, redireciona para index.html
                 if (window.location.pathname.includes('delivery-app.html')) {
@@ -1559,12 +1562,7 @@ function sincronizarPedidosEntreAdminEEntregador() {
         console.log('✅ Sistema em memória sincronizado com localStorage');
     }
     
-   console.log('✅ Sincronização concluída');
- carregarPedidosEntregador();
-    // Só atualiza a UI se houver um entregador logado
-  if (sistemaEntregadores.usuarioLogado && sistemaEntregadores.usuarioLogado.id) {
-    carregarPedidosEntregador();
-  }
+    console.log('✅ Sincronização concluída');
 }
 
 // Ferramentas de debug para o sistema de entregadores
