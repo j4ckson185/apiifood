@@ -395,11 +395,15 @@ ids.forEach(id => {
 });
 
 // IMPORTANTE: Salva em DOIS formatos diferentes para garantir compatibilidade
-// 1. No formato do objeto completo
 localStorage.setItem('sistemaEntregadores', JSON.stringify(sistemaEntregadores));
-
-// 2. No formato específico usado pelo entregador
 localStorage.setItem(`pedidos_${entregadorId}`, JSON.stringify(ids));
+
+// 🔍 Logs robustos para verificar o que foi salvo
+console.group('🛠️ DEBUG ADMIN - Atribuição de Pedidos');
+console.log('Usuario:', entregadorId);
+console.log('sistemaEntregadores completo:', sistemaEntregadores);
+console.log(`pedidos_${entregadorId}:`, ids);
+console.groupEnd();
 
     alert(`Atribuídos ${ids.length} pedidos para ${entregadorId}`);
   });
