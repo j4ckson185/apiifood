@@ -1016,245 +1016,75 @@ function exibirTelaEntregador() {
 }
 
 function carregarPedidosEntregador() {
-    // Logs para debug
-    console.log('[DEBUG Motoboy] sistemaEntregadores.usuarioLogado =', sistemaEntregadores.usuarioLogado);
-    console.log('[DEBUG Motoboy] keys em localStorage:', Object.keys(localStorage));
+  const entregadorId = sistemaEntregadores.usuarioLogado.id.toLowerCase();
+  const atribuidos = sistemaEntregadores.pedidosAtribuidos[entregadorId] || [];
 
-    const entregadorId = sistemaEntregadores.usuarioLogado.id.toLowerCase();
-    console.log('[DEBUG Motoboy] entregadorId usado:', entregadorId);
+  // Limpa as quatro grades de pedidos
+  ['preparation', 'dispatched', 'completed', 'cancelled'].forEach(tab => {
+    const grid = document.getElementById(`${tab}-orders`);
+    if (grid) grid.innerHTML = '';
+  });
 
-    // Array para armazenar IDs de pedidos
-    let pedidosIds = [];
-    
-    // CORREÇÃO 3: Prioridade de fontes de dados
-    // 1. Primeiro, tenta obter do localStorage em formato array direto
-    const rawPedidos = localStorage.getItem(`pedidos_${entregadorId}`);
-    if (rawPedidos) {
-        try {
-            console.log('[DEBUG Motoboy] raw de pedidos_'+entregadorId+':', rawPedidos);
-            const parsedPedidos = JSON.parse(rawPedidos);
-            if (Array.isArray(parsedPedidos)) {
-                pedidosIds = parsedPedidos;
-                console.log('[DEBUG Motoboy] Pedidos encontrados no localStorage:', pedidosIds);
-            }
-        } catch (error) {
-            console.error('[DEBUG Motoboy] Erro ao parsear pedidos do localStorage:', error);
-        }
+  // Se não há pedidos, mostra estado vazio
+  const pedidosContainer = document.getElementById('pedidos-container');
+  if (!atribuidos.length) {
+    if (pedidosContainer) {
+      pedidosContainer.innerHTML = `
+        <div class="empty-state">
+          <i class="fas fa-inbox"></i>
+          <h3>Nenhum pedido atribuído</h3>
+          <p>Quando você receber um pedido, ele aparecerá aqui.</p>
+        </div>`;
     }
-    
-    // 2. Se não encontrou nada, tenta obter do objeto sistemaEntregadores no memory
-    if (pedidosIds.length === 0) {
-        if (sistemaEntregadores.pedidosAtribuidos && sistemaEntregadores.pedidosAtribuidos[entregadorId]) {
-            pedidosIds = sistemaEntregadores.pedidosAtribuidos[entregadorId];
-            console.log('[DEBUG Motoboy] Pedidos encontrados em sistemaEntregadores (memory):', pedidosIds);
-        }
-    }
-    
-    // 3. Se ainda não encontrou, tenta obter do sistemaEntregadores no localStorage
-    if (pedidosIds.length === 0) {
-        const rawSystem = localStorage.getItem('sistemaEntregadores');
-        if (rawSystem) {
-            try {
-                const sistema = JSON.parse(rawSystem);
-                if (sistema && sistema.pedidosAtribuidos && sistema.pedidosAtribuidos[entregadorId]) {
-                    pedidosIds = sistema.pedidosAtribuidos[entregadorId];
-                    console.log('[DEBUG Motoboy] Pedidos encontrados em sistemaEntregadores (localStorage):', pedidosIds);
-                    
-                    // CORREÇÃO 4: Sincroniza de volta para o formato específico
-                    localStorage.setItem(`pedidos_${entregadorId}`, JSON.stringify(pedidosIds));
-                    
-                    // CORREÇÃO 5: Atualiza também o objeto em memória
-                    sistemaEntregadores.pedidosAtribuidos[entregadorId] = pedidosIds;
-                }
-            } catch (error) {
-                console.error('[DEBUG Motoboy] Erro ao parsear sistemaEntregadores:', error);
-            }
-        }
+    return;
+  }
+
+  // Para cada ID atribuído, cria o card usando o objeto real em pedidosCache
+  atribuidos.forEach(id => {
+    const pedido = sistemaEntregadores.pedidosCache[id];
+    if (!pedido) {
+      console.warn(`Pedido ${id} não encontrado no cache`);
+      return;
     }
 
-    console.log('[DEBUG Motoboy] pedidosIds final (array):', pedidosIds);
+    // Monta o card
+    const card = document.createElement('div');
+    card.className = 'pedido-card';
+    card.dataset.pedidoId = id;
 
-    const pedidosContainer = document.getElementById('pedidos-container');
-    if (!pedidosContainer) {
-        console.warn('[DEBUG Motoboy] #pedidos-container não encontrado');
-        return;
-    }
+    // Cabeçalho
+    const displayId = pedido.displayId || id.substring(0,6);
+    card.innerHTML = `
+      <div class="pedido-header">
+        <div class="pedido-id">#${displayId}</div>
+        <div class="pedido-status">${(pedido.status || '').toUpperCase()}</div>
+      </div>
+      <div class="pedido-body">
+        <div class="pedido-info-row">
+          <h4>Cliente</h4>
+          <p>${pedido.customer?.name || ''}</p>
+        </div>
+        <div class="pedido-info-row">
+          <h4>Total</h4>
+          <p>${
+            pedido.total && pedido.total.orderAmount != null
+              ? `R$ ${pedido.total.orderAmount.toFixed(2).replace('.', ',')}`
+              : 'R$ 0,00'
+          }</p>
+        </div>
+        <div class="pedido-actions">
+          <button class="action-btn btn-detalhes" onclick="verDetalhesPedido('${id}')">
+            <i class="fas fa-eye"></i> Detalhes
+          </button>
+        </div>
+      </div>`;
 
-    // Se não há pedidos, exibe mensagem apropriada
-    if (pedidosIds.length === 0) {
-        pedidosContainer.innerHTML = `
-            <div class="empty-state">
-                <i class="fas fa-inbox"></i>
-                <h3>Nenhum pedido atribuído</h3>
-                <p>Quando você receber um pedido, ele aparecerá aqui.</p>
-            </div>
-        `;
-        return;
-    }
+    // Insere no grid de “Em Preparo” (ou ajuste conforme status)
+    const container = document.getElementById('preparation-orders');
+    if (container) container.appendChild(card);
+  });
 
-    // CORREÇÃO 6: Verifica e gera pedidos se necessário, mas prioriza dados reais
-    pedidosIds.forEach(pedidoId => {
-        // Se o pedido não estiver no cache, tenta recuperá-lo de sistemaEntregadores no localStorage
-        if (!sistemaEntregadores.pedidosCache[pedidoId]) {
-            const rawSystem = localStorage.getItem('sistemaEntregadores');
-            if (rawSystem) {
-                try {
-                    const sistema = JSON.parse(rawSystem);
-                    if (sistema && sistema.pedidosCache && sistema.pedidosCache[pedidoId]) {
-                        sistemaEntregadores.pedidosCache[pedidoId] = sistema.pedidosCache[pedidoId];
-                        console.log(`[DEBUG Motoboy] Recuperado pedido ${pedidoId} do cache do sistema`);
-                    }
-                } catch (error) {
-                    console.error('[DEBUG Motoboy] Erro ao recuperar pedido do cache:', error);
-                }
-            }
-        }
-        
-        // Se ainda não encontrou o pedido, cria um fictício
-        if (!sistemaEntregadores.pedidosCache[pedidoId]) {
-            console.log('[DEBUG Motoboy] Criando pedido fictício para:', pedidoId);
-            
-            // Gera dados para um pedido fictício
-            sistemaEntregadores.pedidosCache[pedidoId] = {
-                id: pedidoId,
-                displayId: pedidoId.substring(0, 6),
-                customer: {
-                    name: 'Cliente ' + Math.floor(Math.random() * 1000),
-                    phone: '(11) 9' + Math.floor(Math.random() * 10000000)
-                },
-                total: {
-                    orderAmount: Math.floor(Math.random() * 10000) / 100, // 0-100 reais
-                    subTotal: Math.floor(Math.random() * 8000) / 100,
-                    deliveryFee: Math.floor(Math.random() * 2000) / 100
-                },
-                items: [
-                    {
-                        name: 'Hambúrguer Especial',
-                        quantity: 1,
-                        price: 28.90
-                    },
-                    {
-                        name: 'Batata Frita',
-                        quantity: 1,
-                        price: 12.90
-                    },
-                    {
-                        name: 'Refrigerante',
-                        quantity: 1,
-                        price: 6.90
-                    }
-                ],
-                delivery: {
-                    deliveryAddress: {
-                        streetName: 'Rua Exemplo',
-                        streetNumber: '123',
-                        neighborhood: 'Centro',
-                        city: 'São Paulo',
-                        state: 'SP'
-                    }
-                }
-            };
-            
-            // Se não houver estado definido, define como 'atribuido'
-            if (!sistemaEntregadores.estadoPedidos[pedidoId]) {
-                sistemaEntregadores.estadoPedidos[pedidoId] = 'atribuido';
-            }
-            
-            // Salva no localStorage para persistência
-            salvarEstado();
-        }
-    });
-
-    // Monta o grid de pedidos
-    let pedidosHTML = `
-        <h2>Seus Pedidos (${pedidosIds.length})</h2>
-        <div class="pedidos-grid">`;
-
-    pedidosIds.forEach(pedidoId => {
-        const pedido = sistemaEntregadores.pedidosCache[pedidoId];
-        if (!pedido) {
-            console.warn('[DEBUG Motoboy] Pedido não encontrado no cache mesmo após criação:', pedidoId);
-            return;
-        }
-
-        const estado = sistemaEntregadores.estadoPedidos[pedidoId] || 'atribuido';
-        let statusText = '';
-        let statusClass = '';
-
-        switch (estado) {
-            case 'atribuido':
-                statusText = 'Atribuído';
-                statusClass = 'status-atribuido';
-                break;
-            case 'aceito':
-                statusText = 'Aceito';
-                statusClass = 'status-aceito';
-                break;
-            case 'despachado':
-                statusText = 'A Caminho';
-                statusClass = 'status-despachado';
-                break;
-            case 'finalizado':
-                statusText = 'Finalizado';
-                statusClass = 'status-finalizado';
-                break;
-        }
-
-        let botoesHTML = '';
-        if (estado === 'atribuido') {
-            botoesHTML = `
-                <button class="action-btn btn-aceitar" onclick="aceitarPedido('${pedidoId}')">
-                    <i class="fas fa-check"></i> Aceitar
-                </button>`;
-        } else if (estado === 'aceito') {
-            botoesHTML = `
-                <button class="action-btn btn-despachar" onclick="despacharPedido('${pedidoId}')">
-                    <i class="fas fa-shipping-fast"></i> Despachar
-                </button>`;
-        } else if (estado === 'despachado') {
-            botoesHTML = `
-                <button class="action-btn btn-finalizar" onclick="finalizarPedido('${pedidoId}')">
-                    <i class="fas fa-flag-checkered"></i> Finalizar
-                </button>`;
-        } else {
-            botoesHTML = `
-                <button class="action-btn" disabled style="background-color: #e9ecef; color: #868e96;">
-                    <i class="fas fa-check-circle"></i> Concluído
-                </button>`;
-        }
-
-        pedidosHTML += `
-            <div class="pedido-card" data-pedido-id="${pedidoId}">
-                <div class="pedido-header">
-                    <div class="pedido-id">#${pedido.displayId || pedidoId.substring(0, 6)}</div>
-                    <div class="pedido-status ${statusClass}">${statusText}</div>
-                </div>
-                <div class="pedido-body">
-                    <div class="pedido-info-row">
-                        <h4>Cliente</h4>
-                        <p>${pedido.customer?.name || 'Cliente'}</p>
-                    </div>
-                    <div class="pedido-info-row">
-                        <h4>Total</h4>
-                        <p>${pedido.total?.orderAmount
-                            ? `R$ ${pedido.total.orderAmount.toFixed(2)}`
-                            : (typeof pedido.total === 'string' ? pedido.total : 'R$ 0,00')}</p>
-                    </div>
-                    <div class="pedido-actions">
-                        <button class="action-btn" style="background-color: #6c757d; color: white;"
-                                onclick="verDetalhesPedido('${pedidoId}')">
-                            <i class="fas fa-eye"></i> Ver Detalhes
-                        </button>
-                        ${botoesHTML}
-                    </div>
-                </div>
-            </div>`;
-    });
-
-    pedidosHTML += '</div>';
-    pedidosContainer.innerHTML = pedidosHTML;
-    
-    console.log('[DEBUG Motoboy] Interface de pedidos atualizada com sucesso');
+  console.log('[DEBUG Motoboy] pedidos atribuídos renderizados:', atribuidos);
 }
 
 // Funções para atualizar o estado do pedido
