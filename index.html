@@ -383,29 +383,39 @@ document.addEventListener('DOMContentLoaded', () => {
     // Atribui os pedidos
     sistemaEntregadores.pedidosAtribuidos[entregadorId] = ids;
 
-// Cria pedidos no cache usando os objetos reais do admin
+// Carrega do localStorage o objeto savedOrders gerado pelo admin
+const saved = JSON.parse(localStorage.getItem('savedOrders') || '{}');
+const allOrders = [
+  ...(saved['preparation-orders']   || []),
+  ...(saved['dispatched-orders']    || []),
+  ...(saved['completed-orders']     || []),
+  ...(saved['scheduled-orders']     || []),
+  ...(saved['cancelled-orders']     || [])
+];
+
+// Atribui cada id usando o objeto real do savedOrders
 ids.forEach(id => {
-  const realOrder = ordersCache[id];
-  if (realOrder) {
-    sistemaEntregadores.pedidosCache[id] = realOrder;
+  const order = allOrders.find(o => o.id === id);
+  if (order) {
+    sistemaEntregadores.pedidosCache[id] = order;
     sistemaEntregadores.estadoPedidos[id] = 'atribuido';
   } else {
-    console.warn(`Pedido ${id} não encontrado no cache de admin`);
+    console.warn(`Pedido ${id} não encontrado em savedOrders`);
   }
 });
 
-// IMPORTANTE: Salva em DOIS formatos diferentes para garantir compatibilidade
+// Persiste nos dois formatos
 localStorage.setItem('sistemaEntregadores', JSON.stringify(sistemaEntregadores));
 localStorage.setItem(`pedidos_${entregadorId}`, JSON.stringify(ids));
 
-// 🔍 Logs robustos para verificar o que foi salvo
+// Logs para conferir exatamente o que foi salvo
 console.group('🛠️ DEBUG ADMIN - Atribuição de Pedidos');
-console.log('Usuario:', entregadorId);
+console.log('Usuário:', entregadorId);
 console.log('sistemaEntregadores completo:', sistemaEntregadores);
 console.log(`pedidos_${entregadorId}:`, ids);
 console.groupEnd();
 
-    alert(`Atribuídos ${ids.length} pedidos para ${entregadorId}`);
+alert(`Atribuídos ${ids.length} pedidos reais para ${entregadorId}`);
   });
 });
 </script>
