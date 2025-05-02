@@ -20,14 +20,8 @@ let currentCancellationOrderId = null;
 let cancellationReasons = [];
 
 // Funções de utilidade
-const showLoading = () => {
-  const ov = document.getElementById('loading-overlay');
-  if (ov) ov.classList.remove('hidden');
-};
-const hideLoading = () => {
-  const ov = document.getElementById('loading-overlay');
-  if (ov) ov.classList.add('hidden');
-};
+const showLoading = () => document.getElementById('loading-overlay').classList.remove('hidden');
+const hideLoading = () => document.getElementById('loading-overlay').classList.add('hidden');
 
 const showToast = (message, type = 'info') => {
     const toast = document.createElement('div');
@@ -340,10 +334,8 @@ async function unifiedPolling() {
       );
     }
 
-// 2) Disputas (fallback)
-if (typeof pollForNewDisputesOnce === 'function') {
+    // 2) Disputas (fallback)
     await pollForNewDisputesOnce();
-}
 
     // 3) Webhook Netlify
     try {
@@ -375,14 +367,12 @@ if (typeof pollForNewDisputesOnce === 'function') {
       checkExpiredDisputes();
     }
 
-// 6) Atualiza todos os pedidos a cada 3 ciclos (~90 s)
-state.pollingCounter = (state.pollingCounter || 0) + 1;
-if (state.pollingCounter >= 3) {
-  if (typeof updateAllVisibleOrders === 'function') {
-    await updateAllVisibleOrders();
-  }
-  state.pollingCounter = 0;
-}
+    // 6) Atualiza todos os pedidos a cada 3 ciclos (~90 s)
+    state.pollingCounter = (state.pollingCounter || 0) + 1;
+    if (state.pollingCounter >= 3) {
+      await updateAllVisibleOrders();
+      state.pollingCounter = 0;
+    }
 
   } catch (err) {
     console.error('❌ Erro no polling unificado:', err);
@@ -507,28 +497,25 @@ function clearProcessedOrders() {
 // Função simplificada para atualizar o status da loja
 async function updateStoreStatus() {
     try {
-        console.log('Atualizando status da loja.');
+        console.log('Atualizando status da loja...');
         const statusElement = document.getElementById('store-status');
-        if (!statusElement) {
-            console.warn('Elemento #store-status não encontrado. Pulando atualização de status.');
-            return;
-        }
-
+        
+        // Verifica se temos um token válido - se sim, assume que a loja está online
         if (state.accessToken) {
             console.log('Token válido encontrado, assumindo loja online');
             statusElement.textContent = 'Online';
             statusElement.className = 'status-badge online';
+            return;
         } else {
             statusElement.textContent = 'Offline';
             statusElement.className = 'status-badge offline';
         }
     } catch (error) {
         console.error('Erro geral ao atualizar status da loja:', error);
+        // Assume online para não interromper a experiência do usuário
         const statusElement = document.getElementById('store-status');
-        if (statusElement) {
-            statusElement.textContent = 'Online (assumido)';
-            statusElement.className = 'status-badge online';
-        }
+        statusElement.textContent = 'Online (assumido)';
+        statusElement.className = 'status-badge online';
     }
 }
 
@@ -2069,28 +2056,28 @@ document.querySelectorAll('.sidebar-item').forEach(item => {
     }
 
     // Botão para atualizar pedidos
-document.getElementById('poll-orders')?.addEventListener('click', async () => {
-    if (!state.accessToken) {
-        await authenticate();
-    }
-   
-    showLoading();
-    try {
-        await fetchActiveOrders();
-        startPolling();
-    } finally {
-        hideLoading();
-    }
-});
+    document.getElementById('poll-orders').addEventListener('click', async () => {
+        if (!state.accessToken) {
+            await authenticate();
+        }
+       
+        showLoading();
+        try {
+            await fetchActiveOrders();
+            startPolling();
+        } finally {
+            hideLoading();
+        }
+    });
 
-// Botão para alternar status da loja
-document.getElementById('toggle-store')?.addEventListener('click', async () => {
-    if (!state.accessToken) {
-        await authenticate();
-    } else {
-        await toggleStoreStatus();
-    }
-});
+    // Botão para alternar status da loja
+    document.getElementById('toggle-store').addEventListener('click', async () => {
+        if (!state.accessToken) {
+            await authenticate();
+        } else {
+            await toggleStoreStatus();
+        }
+    });
 
         // Adicione o novo event listener aqui, junto aos outros botões e controles da interface
         document.getElementById('create-interruption')?.addEventListener('click', () => {
@@ -2102,7 +2089,7 @@ document.getElementById('toggle-store')?.addEventListener('click', async () => {
     });
 
     // Inicialização
-    // initialize(); // desabilitado para não inicializar duas vezes
+    initialize();
 });
 
 async function initialize() {
