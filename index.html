@@ -383,46 +383,23 @@ document.addEventListener('DOMContentLoaded', () => {
     // Atribui os pedidos
     sistemaEntregadores.pedidosAtribuidos[entregadorId] = ids;
 
-    // Cria pedidos básicos no cache
-    ids.forEach(id => {
-      sistemaEntregadores.pedidosCache[id] = {
-        id,
-        displayId: id.substring(0,6),
-        customer: {
-          name: `Cliente do pedido ${id}`,
-          phone: '(XX) XXXXX-XXXX'
-        },
-        total: {
-          orderAmount: 50.00,
-          subTotal: 45.00,
-          deliveryFee: 5.00
-        },
-        items: [
-          {
-            name: 'Item do pedido',
-            quantity: 1,
-            price: 45.00
-          }
-        ],
-        delivery: {
-          deliveryAddress: {
-            streetName: 'Endereço de entrega',
-            streetNumber: '123',
-            neighborhood: 'Bairro',
-            city: 'Cidade',
-            state: 'UF'
-          }
-        }
-      };
-      sistemaEntregadores.estadoPedidos[id] = 'atribuido';
-    });
+// Cria pedidos no cache usando os objetos reais do admin
+ids.forEach(id => {
+  const realOrder = ordersCache[id];
+  if (realOrder) {
+    sistemaEntregadores.pedidosCache[id] = realOrder;
+    sistemaEntregadores.estadoPedidos[id] = 'atribuido';
+  } else {
+    console.warn(`Pedido ${id} não encontrado no cache de admin`);
+  }
+});
 
-    // IMPORTANTE: Salva em DOIS formatos diferentes para garantir compatibilidade
-    // 1. No formato do objeto completo
-    localStorage.setItem('sistemaEntregadores', JSON.stringify(sistemaEntregadores));
-    
-    // 2. No formato específico usado pelo entregador
-    localStorage.setItem(`pedidos_${entregadorId}`, JSON.stringify(ids));
+// IMPORTANTE: Salva em DOIS formatos diferentes para garantir compatibilidade
+// 1. No formato do objeto completo
+localStorage.setItem('sistemaEntregadores', JSON.stringify(sistemaEntregadores));
+
+// 2. No formato específico usado pelo entregador
+localStorage.setItem(`pedidos_${entregadorId}`, JSON.stringify(ids));
 
     alert(`Atribuídos ${ids.length} pedidos para ${entregadorId}`);
   });
