@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Debug LocalStorage</title>
+  <style>body { font-family: Arial, sans-serif; padding: 1rem; } pre { background: #f4f4f4; padding: 1rem; border-radius: 4px; }</style>
+</head>
+<body>
+  <h1>Debug LocalStorage</h1>
+  <p>Este arquivo exibe todo o conteúdo do <code>localStorage</code> em JSON e no console.</p>
+  <pre id="output"></pre>
+  <script>
+    const output = document.getElementById('output');
+    const entries = Object.entries(localStorage).reduce((obj, [key, value]) => {
+      try { obj[key] = JSON.parse(value); }
+      catch { obj[key] = value; }
+      return obj;
+    }, {});
+    console.group('🛠️ DEBUG LocalStorage');
+    console.log(entries);
+    console.groupEnd();
+    output.textContent = JSON.stringify(entries, null, 2);
+  </script>
+</body>
+</html>
