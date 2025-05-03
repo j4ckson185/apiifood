@@ -6,8 +6,9 @@
 // 4. Fallback por polling para disputas
 // 5. Timeout automático
 
-// Módulo para tratamento de eventos HANDSHAKE_SETTLEMENT e histórico de negociações
-// (… comentários …)
+// Garante que exista um resolvedDisputes global para ser lido por updateOrderStatus
+window.resolvedDisputes = window.resolvedDisputes || [];
+var resolvedDisputes = window.resolvedDisputes;
 
 // ─── INÍCIO do IIFE ─────────────────────────────────────────
 ;(function(
@@ -15,9 +16,6 @@
   lastOrderFetchTimestamps,
   MIN_ORDER_FETCH_INTERVAL
 ) {
-
-// Estado para armazenar histórico de disputas resolvidas
-let resolvedDisputes = [];
 
 // Estado para controle do polling de disputas
 let isDisputePollingActive = false;
@@ -997,21 +995,19 @@ document.addEventListener('DOMContentLoaded', () => {
     console.log('✅ Módulo de tratamento de HANDSHAKE_SETTLEMENT inicializado');
 });
 
-// Exporta funções necessárias
-window.handleSettlementEvent = handleSettlementEvent;
-window.showNegotiationSummaryModal = showNegotiationSummaryModal;
-window.closeNegotiationSummaryModal = closeNegotiationSummaryModal;
-window.startDisputePolling = startDisputePolling;
-window.stopDisputePolling = stopDisputePolling;
-window.garantirRestauracaoBotoes = garantirRestauracaoBotoes;
-window.restoreOrderButtons = restoreOrderButtons;
-
-// ← Adicione esta linha para tornar a função visível ao unifiedPolling()
+  // Exponha as funções necessárias
+  window.handleSettlementEvent          = handleSettlementEvent;
+  window.showNegotiationSummaryModal    = showNegotiationSummaryModal;
+  window.closeNegotiationSummaryModal   = closeNegotiationSummaryModal;
+  window.startDisputePolling            = startDisputePolling;
+  window.stopDisputePolling             = stopDisputePolling;
+  window.garantirRestauracaoBotoes      = garantirRestauracaoBotoes;
+  window.restoreOrderButtons            = restoreOrderButtons;
   window.pollForNewDisputesOnce         = pollForNewDisputesOnce;
 
-// ─── FIM do IIFE ────────────────────────────────────────────
 })( 
   window.ordersCache,
   window.lastOrderFetchTimestamps,
   window.MIN_ORDER_FETCH_INTERVAL
 );
+// ─── FIM do IIFE ────────────────────────────────────────────
