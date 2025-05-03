@@ -214,10 +214,11 @@ async function authenticate() {
 
         const data = await response.json();
         
-        if (data.accessToken) {
-            state.accessToken = data.accessToken;
-            showToast('Autenticado com sucesso!', 'success');
-            startPolling();
+if (data.accessToken) {
+  state.accessToken = data.accessToken;
+  showToast('Autenticado com sucesso!', 'success');
+  // polling só no DOMContentLoaded
+}
         } else {
             throw new Error('Token não recebido');
         }
@@ -318,13 +319,6 @@ function saveProcessedIds() {
     localStorage.setItem('processedOrderIds', JSON.stringify([...processedOrderIds]));
 }
 
-// ----------------------------------------------
-// Polling unificado: eventos, disputas, status, pedidos
-// ----------------------------------------------
-
-// Intervalo entre ciclos de unifiedPolling (em ms)
-const UNIFIED_POLLING_INTERVAL = 30_000; // 30 segundos
-
 async function unifiedPolling() {
   // Sai imediatamente se o polling estiver desativado ou sem token
   if (!state.isPolling || !state.accessToken) return;
@@ -396,7 +390,7 @@ async function unifiedPolling() {
     console.error('❌ Erro no polling unificado:', err);
   } finally {
     // Agenda o próximo ciclo
-    setTimeout(unifiedPolling, UNIFIED_POLLING_INTERVAL);
+    pollingTimeoutId = setTimeout(unifiedPolling, UNIFIED_POLLING_INTERVAL);
   }
 }
 
@@ -423,11 +417,9 @@ function startPolling() {
         console.log('🛑 Polling já iniciado — abortando nova inicialização.');
         return;
     }
+    // apenas ativa o flag e dispara um ciclo ÚNICO de unifiedPolling
     state.isPolling = true;
-    unifiedPolling();  // primeira execução imediata
-
-    // salva o ID para possível clearInterval no futuro
-    state.pollingIntervalId = setInterval(unifiedPolling, CONFIG.pollingInterval);
+    unifiedPolling();
 }
 
 // Substitua qualquer uso anterior de pollEvents() por:
@@ -2137,7 +2129,7 @@ async function initialize() {
         await fetchActiveOrders();
        
         // Inicia polling de eventos
-        startPolling();
+        // startPolling();     // <— agora removido, polling só no DOMContentLoaded
     } catch (error) {
         console.error('Erro na inicialização:', error);
         showToast('Erro ao inicializar aplicação', 'error');
