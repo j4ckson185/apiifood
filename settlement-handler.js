@@ -220,29 +220,23 @@ async function handleSettlementEvent(event) {
   try {
     console.log('🔍 Processando evento HANDSHAKE_SETTLEMENT:', event);
 
-    // extrai os campos que você já tinha
-    const disputeId = event.disputeId || event.metadata?.disputeId;
-    const orderId   = event.orderId;
-    // supondo que o merchantId venha direto ou em metadata
-    const merchantId = event.merchantId || event.metadata?.merchantId;
+   // extrai os campos que você já tinha
+   const disputeId = event.disputeId || event.metadata?.disputeId;
+   const orderId   = event.orderId;
+   const merchantId = event.merchantId || event.metadata?.merchantId;
 
-    // validações básicas
-    if (!orderId || !disputeId || !merchantId) {
-      console.error('❌ Evento HANDSHAKE_SETTLEMENT inválido (falta orderId, disputeId ou merchantId):', event);
-      return;
-    }
+   // validações básicas
+   if (!orderId || !disputeId || !merchantId) {
+     console.error('❌ Evento HANDSHAKE_SETTLEMENT inválido (falta orderId, disputeId ou merchantId):', event);
+     return;
+   }
 
-    // ─── GARANTE QUE EXISTE UM CACHE PARA ESTE merchantId ─────────
-    if (!ordersCache[merchantId]) {
-      ordersCache[merchantId]             = {};                                // cria o objeto de cache
-      lastOrderFetchTimestamps[merchantId] = lastOrderFetchTimestamps[merchantId] || 0;
-    }
-
-    // ─── AGORA POSSO USAR ordersCache[merchantId][orderId] SEM ERRO ───
-    ordersCache[merchantId][orderId] = {
-      disputeId,
-      // ... qualquer outro dado de settlement que você precise guardar ...
-    };
+   // ── CACHE “FLAT” POR orderId ───────────────────────
+   lastOrderFetchTimestamps[orderId] = lastOrderFetchTimestamps[orderId] || 0;
+   ordersCache[orderId] = {
+     disputeId,
+     // ... qualquer outro dado de settlement que você queira guardar ...
+   };
 
     // … resto da sua lógica original continua exatamente igual …
         
