@@ -19,6 +19,12 @@ let state = {
 let currentCancellationOrderId = null;
 let cancellationReasons = [];
 
+// -------------------------------------------------
+// Aqui definimos o ID do timer e o intervalo padrão
+// -------------------------------------------------
+let pollingTimeoutId = null;
+const UNIFIED_POLLING_INTERVAL = CONFIG.pollingInterval;
+
 // Funções de utilidade
 const showLoading = () => document.getElementById('loading-overlay').classList.remove('hidden');
 const hideLoading = () => document.getElementById('loading-overlay').classList.add('hidden');
@@ -315,7 +321,12 @@ function saveProcessedIds() {
 // ----------------------------------------------
 // Polling unificado: eventos, disputas, status, pedidos
 // ----------------------------------------------
+
+// Intervalo entre ciclos de unifiedPolling (em ms)
+const UNIFIED_POLLING_INTERVAL = 30_000; // 30 segundos
+
 async function unifiedPolling() {
+  // Sai imediatamente se o polling estiver desativado ou sem token
   if (!state.isPolling || !state.accessToken) return;
 
   console.log(`🔄 Polling unificado em ${new Date().toISOString()}`);
@@ -367,7 +378,7 @@ async function unifiedPolling() {
       checkExpiredDisputes();
     }
 
-// 6) Atualiza todos os pedidos a cada 3 ciclos (~90 s)
+    // 6) Atualiza todos os pedidos a cada 3 ciclos (~90 s)
     state.pollingCounter = (state.pollingCounter || 0) + 1;
     if (state.pollingCounter >= 3) {
       await updateAllVisibleOrders();
@@ -383,8 +394,29 @@ async function unifiedPolling() {
 
   } catch (err) {
     console.error('❌ Erro no polling unificado:', err);
+  } finally {
+    // Agenda o próximo ciclo
+    setTimeout(unifiedPolling, UNIFIED_POLLING_INTERVAL);
   }
 }
+
+// -------------------------------------------------
+// Page Visibility API: pausa/retoma o polling
+// -------------------------------------------------
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) {
+    console.log('⏸️ Aba em segundo plano: pausando polling');
+    state.isPolling = false;
+    if (pollingTimeoutId) {
+      clearTimeout(pollingTimeoutId);
+      pollingTimeoutId = null;
+    }
+  } else {
+    console.log('▶️ Aba em foco: retomando polling');
+    state.isPolling = true;
+    unifiedPolling();
+  }
+});
 
 function startPolling() {
     if (state.isPolling) {
@@ -1927,7 +1959,7 @@ function addChangeForField(orderElement, order) {
 
 // Event Listeners
 document.addEventListener('DOMContentLoaded', () => {
-    // Event listeners do cancelamento
+    // 1) Modal de cancelamento
     const cancelModal = document.getElementById('cancellation-modal');
     if (cancelModal) {
         cancelModal.classList.add('hidden');
@@ -1936,43 +1968,36 @@ document.addEventListener('DOMContentLoaded', () => {
         console.log("Modal escondido na inicialização do DOMContentLoaded");
     }
    
-    // Corrigir os listeners do modal de cancelamento
+    // 2) Corrigir listeners do modal de cancelamento
     const confirmButton = document.getElementById('confirm-cancellation');
     if (confirmButton) {
         const newConfirmButton = confirmButton.cloneNode(true);
         confirmButton.parentNode.replaceChild(newConfirmButton, confirmButton);
-       
-        newConfirmButton.addEventListener('click', function() {
+        newConfirmButton.addEventListener('click', () => {
             console.log("Botão confirmar cancelamento clicado");
             confirmCancellation();
         });
     }
-   
     const cancelButton = document.getElementById('cancel-cancellation');
     if (cancelButton) {
         const newCancelButton = cancelButton.cloneNode(true);
         cancelButton.parentNode.replaceChild(newCancelButton, cancelButton);
-       
-        newCancelButton.addEventListener('click', function() {
+        newCancelButton.addEventListener('click', () => {
             console.log("Botão cancelar cancelamento clicado");
             closeCancellationModal();
         });
     }
-   
     const closeModalX = document.querySelector('.close-modal');
     if (closeModalX) {
         const newCloseModalX = closeModalX.cloneNode(true);
         closeModalX.parentNode.replaceChild(newCloseModalX, closeModalX);
-       
-        newCloseModalX.addEventListener('click', function() {
+        newCloseModalX.addEventListener('click', () => {
             console.log("Botão X para fechar o modal clicado");
             closeCancellationModal();
         });
     }
-   
-    // Adicionar evento para fechar o modal ao clicar no fundo
     if (cancelModal) {
-        cancelModal.addEventListener('click', function(event) {
+        cancelModal.addEventListener('click', event => {
             if (event.target === cancelModal) {
                 console.log("Clique fora do modal detectado, fechando modal");
                 closeCancellationModal();
@@ -1980,81 +2005,61 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Event listeners dos horários
+    // 3) Horários de funcionamento
     document.getElementById('edit-hours')?.addEventListener('click', showEditModal);
-    
     document.getElementById('save-hours')?.addEventListener('click', saveOpeningHours);
-    
     document.getElementById('cancel-hours')?.addEventListener('click', () => {
         document.getElementById('hours-modal').classList.remove('show');
     });
-    
     document.querySelector('#hours-modal .close-modal')?.addEventListener('click', () => {
         document.getElementById('hours-modal').classList.remove('show');
     });
-    
-    document.getElementById('hours-modal')?.addEventListener('click', (e) => {
+    document.getElementById('hours-modal')?.addEventListener('click', e => {
         if (e.target.id === 'hours-modal') {
             e.target.classList.remove('show');
         }
     });
 
-    // Adicione este evento no bloco document.addEventListener('DOMContentLoaded', () => { ... });
-document.getElementById('clear-orders')?.addEventListener('click', clearAllOrders);
+    // 4) Limpar pedidos
+    document.getElementById('clear-orders')?.addEventListener('click', clearAllOrders);
 
-    // Event listeners de paginação
+    // 5) Paginação de lojas
     document.getElementById('prev-page')?.addEventListener('click', () => {
-        if (currentPage > 1) {
-            fetchStores(currentPage - 1);
-        }
+        if (currentPage > 1) fetchStores(currentPage - 1);
     });
-
     document.getElementById('next-page')?.addEventListener('click', () => {
         fetchStores(currentPage + 1);
     });
 
-    // Event listener da nova aba de lojas
+    // 6) Navegação lateral
     document.querySelector('.sidebar-item[data-target="stores"]')?.addEventListener('click', () => {
         switchMainTab('stores');
         fetchStores(1);
     });
-
-// Eventos para navegação entre seções principais
-document.querySelectorAll('.sidebar-item').forEach(item => {
-    item.addEventListener('click', () => {
-        const targetSection = item.getAttribute('data-target');
-        if (targetSection) {
-            // Se estiver mudando para uma seção diferente de 'stores', pare o polling de status
-            if (targetSection !== 'stores') {
+    document.querySelectorAll('.sidebar-item').forEach(item => {
+        item.addEventListener('click', () => {
+            const targetSection = item.getAttribute('data-target');
+            if (targetSection && targetSection !== 'stores') {
+                // você pode remover essa linha se não quiser parar nada
                 stopStatusPolling();
             }
-            
-            switchMainTab(targetSection);
-        }
+            if (targetSection) switchMainTab(targetSection);
+        });
     });
-});
-   
-    // Eventos para navegação entre tabs de pedidos
+
+    // 7) Tabs de pedidos, filtros e busca
     document.querySelectorAll('.tab-item').forEach(tab => {
         tab.addEventListener('click', () => {
             const targetTab = tab.getAttribute('data-tab');
-            if (targetTab) {
-                switchOrderTab(targetTab);
-            }
+            if (targetTab) switchOrderTab(targetTab);
         });
     });
-   
-    // Eventos para filtros
     document.querySelectorAll('.filter-button').forEach(button => {
         button.addEventListener('click', () => {
             const filter = button.getAttribute('data-filter');
-            if (filter) {
-                applyFilter(filter);
-            }
+            if (filter) applyFilter(filter);
         });
     });
-   
-    // Evento para busca
     const searchInput = document.getElementById('search-orders');
     if (searchInput) {
         searchInput.addEventListener('input', () => {
@@ -2062,22 +2067,23 @@ document.querySelectorAll('.sidebar-item').forEach(item => {
         });
     }
 
-    // Botão para atualizar pedidos
+    // 8) Botão “Atualizar pedidos” – removemos o startPolling() isolado
     document.getElementById('poll-orders').addEventListener('click', async () => {
         if (!state.accessToken) {
             await authenticate();
         }
-       
         showLoading();
         try {
             await fetchActiveOrders();
-            startPolling();
+            //startPolling();        // << REMOVIDO
+            state.isPolling = true; // garante que o unifiedPolling vai rodar
+            unifiedPolling();       // dispara imediatamente um ciclo
         } finally {
             hideLoading();
         }
     });
 
-    // Botão para alternar status da loja
+    // 9) Alternar status da loja
     document.getElementById('toggle-store').addEventListener('click', async () => {
         if (!state.accessToken) {
             await authenticate();
@@ -2086,8 +2092,8 @@ document.querySelectorAll('.sidebar-item').forEach(item => {
         }
     });
 
-        // Adicione o novo event listener aqui, junto aos outros botões e controles da interface
-        document.getElementById('create-interruption')?.addEventListener('click', () => {
+    // 10) Interrupção manual
+    document.getElementById('create-interruption')?.addEventListener('click', () => {
         if (currentMerchantIdForInterruption) {
             openCreateInterruptionModal();
         } else {
@@ -2095,8 +2101,17 @@ document.querySelectorAll('.sidebar-item').forEach(item => {
         }
     });
 
-    // Inicialização
+    // --- Inicialização da app ---
     initialize();
+
+    // --- AQUI: dispara o polling unificado pela primeira vez ---
+    state.isPolling = true;
+    unifiedPolling();
+
+    // --- REMOVA ou COMENTE todo e qualquer:
+    //      startDisputePolling();
+    //      setInterval(..., ...) que chame updateAllVisibleOrders / checkForCompletedOrders / pollForNewDisputesOnce isoladamente
+    // --- essas rotinas agora são todas orquestradas por unifiedPolling()
 });
 
 async function initialize() {
