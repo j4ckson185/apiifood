@@ -319,8 +319,9 @@ function saveProcessedIds() {
     localStorage.setItem('processedOrderIds', JSON.stringify([...processedOrderIds]));
 }
 
+// ─── O seu unifiedPolling SEM auto-agendamento ─────────────────
 async function unifiedPolling() {
-  // Sai imediatamente se o polling estiver desativado ou sem token
+  // Sai se o polling estiver desativado ou sem token
   if (!state.isPolling || !state.accessToken) return;
 
   console.log(`🔄 Polling unificado em ${new Date().toISOString()}`);
@@ -344,17 +345,12 @@ async function unifiedPolling() {
 
     // 3) Webhook Netlify
     try {
-      const res = await fetch('/.netlify/functions/ifood-webhook-events', {
-        method: 'GET',
-        headers: { 'Content-Type': 'application/json' }
-      });
+      const res = await fetch('/.netlify/functions/ifood-webhook-events', { method: 'GET' });
       if (res.ok) {
         const { eventos } = await res.json();
         if (eventos?.length) {
           console.log(`[WEBHOOK] ${eventos.length} eventos recebidos via unifiedPolling`);
-          for (const ev of eventos) {
-            await handleEvent(ev);
-          }
+          for (const ev of eventos) await handleEvent(ev);
         }
       }
     } catch (err) {
@@ -379,7 +375,7 @@ async function unifiedPolling() {
       state.pollingCounter = 0;
     }
 
-    // 7) A cada 4 ciclos (~2 min), executa a verificação de pedidos concluídos
+    // 7) A cada 4 ciclos (~2 min), verifica pedidos concluídos
     state.completedCheckCounter = (state.completedCheckCounter || 0) + 1;
     if (state.completedCheckCounter >= 4) {
       await checkForCompletedOrders();
@@ -388,19 +384,19 @@ async function unifiedPolling() {
 
   } catch (err) {
     console.error('❌ Erro no polling unificado:', err);
-  } finally {
-    // Agenda o próximo ciclo
-    pollingTimeoutId = setTimeout(unifiedPolling, UNIFIED_POLLING_INTERVAL);
   }
+  // **nenhum** setTimeout aqui!
 }
 
-// ─── Controle de polling aprimorado ────────────────────────────
+// ─── Controle de polling aprimorado ───────────────────────────
+let pollingTimeoutId = null;
 let lastPoll = 0;
 
-// dispara o unifiedPolling e atualiza timestamp
+// dispara o unifiedPolling e agenda o próximo ciclo
 async function doUnifiedPolling() {
   lastPoll = Date.now();
   await unifiedPolling();
+  scheduleNextPoll(UNIFIED_POLLING_INTERVAL);
 }
 
 // agenda o próximo polling após “delay” ms
@@ -409,36 +405,39 @@ function scheduleNextPoll(delay) {
   pollingTimeoutId = setTimeout(doUnifiedPolling, delay);
 }
 
+// pausa qualquer agendamento
 function stopPolling() {
   console.log('⏸️ Aba em segundo plano: pausando polling');
   state.isPolling = false;
   clearTimeout(pollingTimeoutId);
 }
 
+// retoma o polling: ou dispara AGORA (se já passou o intervalo) ou agenda só o restante
 function startPolling() {
   if (state.isPolling) return;
   console.log('▶️ Aba em foco: retomando polling');
   state.isPolling = true;
 
-  const since = Date.now() - lastPoll;
-  if (since >= UNIFIED_POLLING_INTERVAL) {
-    // Se já passou do intervalo, faz um poll imediato
-    doUnifiedPolling().then(() => {
-      scheduleNextPoll(UNIFIED_POLLING_INTERVAL);
-    });
+  const elapsed = Date.now() - lastPoll;
+  if (elapsed >= UNIFIED_POLLING_INTERVAL) {
+    // já atrasou: poll imediato
+    doUnifiedPolling();
   } else {
-    // Senão, agenda só o restante
-    scheduleNextPoll(UNIFIED_POLLING_INTERVAL - since);
+    // aguarda só o restante
+    scheduleNextPoll(UNIFIED_POLLING_INTERVAL - elapsed);
   }
 }
 
-// ─── Page Visibility API: pausa/retoma o polling ─────────────────
+// Page Visibility API: pausa/retoma
 document.addEventListener('visibilitychange', () => {
-  if (document.hidden) {
-    stopPolling();
-  } else {
-    startPolling();
-  }
+  document.hidden ? stopPolling() : startPolling();
+});
+
+// ─── Inicialização (ex.: em DOMContentLoaded) ─────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  state.isPolling = true;
+  lastPoll = Date.now();
+  doUnifiedPolling();
 });
 
 async function handleEvent(event) {
