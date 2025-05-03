@@ -1964,34 +1964,34 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   // 2) Corrigir listeners do modal de cancelamento
-  const confirmButton = document.getElementById('confirm-cancellation');
-  if (confirmButton) {
-    const newConfirmButton = confirmButton.cloneNode(true);
-    confirmButton.parentNode.replaceChild(newConfirmButton, confirmButton);
-    newConfirmButton.addEventListener('click', () => {
+  const confirmBtn = document.getElementById('confirm-cancellation');
+  if (confirmBtn && typeof confirmCancellation === 'function') {
+    const newConfirmBtn = confirmBtn.cloneNode(true);
+    confirmBtn.parentNode.replaceChild(newConfirmBtn, confirmBtn);
+    newConfirmBtn.addEventListener('click', () => {
       console.log("Botão confirmar cancelamento clicado");
       confirmCancellation();
     });
   }
-  const cancelButtonX = document.getElementById('cancel-cancellation');
-  if (cancelButtonX) {
-    const newCancelButton = cancelButtonX.cloneNode(true);
-    cancelButtonX.parentNode.replaceChild(newCancelButton, cancelButtonX);
-    newCancelButton.addEventListener('click', () => {
+  const cancelBtnModal = document.getElementById('cancel-cancellation');
+  if (cancelBtnModal && typeof closeCancellationModal === 'function') {
+    const newCancelBtn = cancelBtnModal.cloneNode(true);
+    cancelBtnModal.parentNode.replaceChild(newCancelBtn, cancelBtnModal);
+    newCancelBtn.addEventListener('click', () => {
       console.log("Botão cancelar cancelamento clicado");
       closeCancellationModal();
     });
   }
-  const closeModalX = document.querySelector('.close-modal');
-  if (closeModalX) {
-    const newCloseModalX = closeModalX.cloneNode(true);
-    closeModalX.parentNode.replaceChild(newCloseModalX, closeModalX);
-    newCloseModalX.addEventListener('click', () => {
+  const closeModalX = document.querySelector('#cancellation-modal .close-modal');
+  if (closeModalX && typeof closeCancellationModal === 'function') {
+    const newCloseX = closeModalX.cloneNode(true);
+    closeModalX.parentNode.replaceChild(newCloseX, closeModalX);
+    newCloseX.addEventListener('click', () => {
       console.log("Botão X para fechar o modal clicado");
       closeCancellationModal();
     });
   }
-  if (cancelModal) {
+  if (cancelModal && typeof closeCancellationModal === 'function') {
     cancelModal.addEventListener('click', event => {
       if (event.target === cancelModal) {
         console.log("Clique fora do modal detectado, fechando modal");
@@ -2001,137 +2001,182 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   // 3) Horários de funcionamento
-  document.getElementById('edit-hours')?.addEventListener('click', showEditModal);
-  document.getElementById('save-hours')?.addEventListener('click', saveOpeningHours);
-  document.getElementById('cancel-hours')?.addEventListener('click', () => {
-    document.getElementById('hours-modal').classList.remove('show');
-  });
-  document.querySelector('#hours-modal .close-modal')?.addEventListener('click', () => {
-    document.getElementById('hours-modal').classList.remove('show');
-  });
-  document.getElementById('hours-modal')?.addEventListener('click', e => {
-    if (e.target.id === 'hours-modal') {
-      e.target.classList.remove('show');
-    }
-  });
+  const editHoursBtn = document.getElementById('edit-hours');
+  if (editHoursBtn && typeof showEditModal === 'function') {
+    editHoursBtn.addEventListener('click', showEditModal);
+  }
+  const saveHoursBtn = document.getElementById('save-hours');
+  if (saveHoursBtn && typeof saveOpeningHours === 'function') {
+    saveHoursBtn.addEventListener('click', saveOpeningHours);
+  }
+  const cancelHoursBtn = document.getElementById('cancel-hours');
+  if (cancelHoursBtn) {
+    cancelHoursBtn.addEventListener('click', () => {
+      const hoursModal = document.getElementById('hours-modal');
+      if (hoursModal) hoursModal.classList.remove('show');
+    });
+  }
+  const closeHoursX = document.querySelector('#hours-modal .close-modal');
+  if (closeHoursX) {
+    closeHoursX.addEventListener('click', () => {
+      const hoursModal = document.getElementById('hours-modal');
+      if (hoursModal) hoursModal.classList.remove('show');
+    });
+  }
+  const hoursModal = document.getElementById('hours-modal');
+  if (hoursModal) {
+    hoursModal.addEventListener('click', e => {
+      if (e.target === hoursModal) {
+        hoursModal.classList.remove('show');
+      }
+    });
+  }
 
   // 4) Limpar pedidos
-  document.getElementById('clear-orders')?.addEventListener('click', clearAllOrders);
+  const clearOrdersBtn = document.getElementById('clear-orders');
+  if (clearOrdersBtn && typeof clearAllOrders === 'function') {
+    clearOrdersBtn.addEventListener('click', clearAllOrders);
+  }
 
   // 5) Paginação de lojas
-  document.getElementById('prev-page')?.addEventListener('click', () => {
-    if (currentPage > 1) fetchStores(currentPage - 1);
-  });
-  document.getElementById('next-page')?.addEventListener('click', () => {
-    fetchStores(currentPage + 1);
-  });
+  const prevPageBtn = document.getElementById('prev-page');
+  if (prevPageBtn && typeof fetchStores === 'function') {
+    prevPageBtn.addEventListener('click', () => {
+      if (currentPage > 1) fetchStores(currentPage - 1);
+    });
+  }
+  const nextPageBtn = document.getElementById('next-page');
+  if (nextPageBtn && typeof fetchStores === 'function') {
+    nextPageBtn.addEventListener('click', () => {
+      fetchStores(currentPage + 1);
+    });
+  }
 
   // 6) Navegação lateral
-  document.querySelector('.sidebar-item[data-target="stores"]')?.addEventListener('click', () => {
-    switchMainTab('stores');
-    fetchStores(1);
-  });
+  const storesSidebar = document.querySelector('.sidebar-item[data-target="stores"]');
+  if (storesSidebar) {
+    storesSidebar.addEventListener('click', () => {
+      if (typeof switchMainTab === 'function') switchMainTab('stores');
+      if (typeof fetchStores === 'function') fetchStores(1);
+    });
+  }
   document.querySelectorAll('.sidebar-item').forEach(item => {
     item.addEventListener('click', () => {
-      const targetSection = item.getAttribute('data-target');
-      if (targetSection && targetSection !== 'stores') {
+      const target = item.getAttribute('data-target');
+      if (target && target !== 'stores' && typeof stopStatusPolling === 'function') {
         stopStatusPolling();
       }
-      if (targetSection) switchMainTab(targetSection);
+      if (target && typeof switchMainTab === 'function') {
+        switchMainTab(target);
+      }
     });
   });
 
   // 7) Tabs de pedidos, filtros e busca
   document.querySelectorAll('.tab-item').forEach(tab => {
-    tab.addEventListener('click', () => {
-      const targetTab = tab.getAttribute('data-tab');
-      if (targetTab) switchOrderTab(targetTab);
-    });
+    const targetTab = tab.getAttribute('data-tab');
+    if (targetTab && typeof switchOrderTab === 'function') {
+      tab.addEventListener('click', () => switchOrderTab(targetTab));
+    }
   });
-  document.querySelectorAll('.filter-button').forEach(button => {
-    button.addEventListener('click', () => {
-      const filter = button.getAttribute('data-filter');
-      if (filter) applyFilter(filter);
-    });
+  document.querySelectorAll('.filter-button').forEach(btn => {
+    const filter = btn.getAttribute('data-filter');
+    if (filter && typeof applyFilter === 'function') {
+      btn.addEventListener('click', () => applyFilter(filter));
+    }
   });
   const searchInput = document.getElementById('search-orders');
-  if (searchInput) {
-    searchInput.addEventListener('input', () => {
-      searchOrders(searchInput.value);
+  if (searchInput && typeof searchOrders === 'function') {
+    searchInput.addEventListener('input', () => searchOrders(searchInput.value));
+  }
+
+  // 8) Botão “Atualizar pedidos”
+  const pollOrdersBtn = document.getElementById('poll-orders');
+  if (pollOrdersBtn) {
+    pollOrdersBtn.addEventListener('click', async () => {
+      if (!state.accessToken && typeof authenticate === 'function') {
+        await authenticate();
+      }
+      if (typeof showLoading === 'function') showLoading();
+      try {
+        if (typeof fetchActiveOrders === 'function') {
+          await fetchActiveOrders();
+        }
+        state.isPolling = true;
+        if (typeof unifiedPolling === 'function') unifiedPolling();
+      } finally {
+        if (typeof hideLoading === 'function') hideLoading();
+      }
     });
   }
 
-  // 8) Botão “Atualizar pedidos” (mantém o unifiedPolling)
-  document.getElementById('poll-orders')?.addEventListener('click', async () => {
-    if (!state.accessToken) {
-      await authenticate();
-    }
-    showLoading();
-    try {
-      await fetchActiveOrders();   // opcional, você pode até remover se quiser
-      state.isPolling = true;
-      unifiedPolling();
-    } finally {
-      hideLoading();
-    }
-  });
-
   // 9) Alternar status da loja
-  document.getElementById('toggle-store')?.addEventListener('click', async () => {
-    if (!state.accessToken) {
-      await authenticate();
-    } else {
-      await toggleStoreStatus();
-    }
-  });
+  const toggleStoreBtn = document.getElementById('toggle-store');
+  if (toggleStoreBtn) {
+    toggleStoreBtn.addEventListener('click', async () => {
+      if (!state.accessToken && typeof authenticate === 'function') {
+        await authenticate();
+      } else if (typeof toggleStoreStatus === 'function') {
+        await toggleStoreStatus();
+      }
+    });
+  }
 
   // 10) Interrupção manual
-  document.getElementById('create-interruption')?.addEventListener('click', () => {
-    if (currentMerchantIdForInterruption) {
-      openCreateInterruptionModal();
-    } else {
-      showToast('Selecione uma loja primeiro', 'warning');
-    }
-  });
+  const createInterruptionBtn = document.getElementById('create-interruption');
+  if (createInterruptionBtn) {
+    createInterruptionBtn.addEventListener('click', () => {
+      if (currentMerchantIdForInterruption && typeof openCreateInterruptionModal === 'function') {
+        openCreateInterruptionModal();
+      } else {
+        showToast?.('Selecione uma loja primeiro', 'warning');
+      }
+    });
+  }
 
   // --- Inicialização da app (auth + UI) ---
-  await initialize();
+  if (typeof initialize === 'function') {
+    await initialize();
+  } else {
+    console.warn('initialize() não definida');
+  }
 
   // --- Dispara o polling unificado pela primeira vez ---
   state.isPolling = true;
-  unifiedPolling();
+  if (typeof unifiedPolling === 'function') {
+    unifiedPolling();
+  }
 
-  // --- Correção de pedidos de retirada já exibidos (antes da próxima carga) ---
-  console.log('🔄 Adicionando verificação adicional para pedidos de retirada com status READY_TO_PICKUP');
+  // --- Correção de pedidos de retirada existentes ---
+  console.log('🔄 Verificando pedidos existentes para retirada READY_TO_PICKUP');
   setTimeout(() => {
-    const cards = document.querySelectorAll('.order-card');
-    console.log(`Verificando ${cards.length} pedidos existentes para corrigir botões...`);
-    cards.forEach(card => {
+    document.querySelectorAll('.order-card').forEach(card => {
       const orderId = card.getAttribute('data-order-id');
       if (!orderId) return;
       const order = ordersCache[orderId];
       if (!order) return;
-      const isTakeout = isOrderTakeout(order);
+      const isTakeout = typeof isOrderTakeout === 'function' && isOrderTakeout(order);
       const isReady = ['READY_TO_PICKUP','RTP'].includes(order.status)
         || card.classList.contains('status-ready_to_pickup');
       if (isTakeout && isReady) {
-        console.log(`🔧 Corrigindo botões para pedido existente para retirada ${orderId}`);
-        const actionsContainer = card.querySelector('.order-actions');
-        if (!actionsContainer) return;
-        actionsContainer.innerHTML = '';
+        console.log(`🔧 Corrigindo botões para pedido existente ${orderId}`);
+        const actions = card.querySelector('.order-actions');
+        if (!actions) return;
+        actions.innerHTML = '';
         const statusDiv = document.createElement('div');
         statusDiv.className = 'status-message';
         statusDiv.textContent = 'Aguardando Retirada';
-        actionsContainer.appendChild(statusDiv);
-        const cancelBtn = document.createElement('button');
-        cancelBtn.className = 'action-button cancel';
-        cancelBtn.textContent = 'Cancelar';
-        cancelBtn.onclick = () => handleOrderAction(orderId, 'requestCancellation');
-        actionsContainer.appendChild(cancelBtn);
+        actions.appendChild(statusDiv);
+        const btn = document.createElement('button');
+        btn.className = 'action-button cancel';
+        btn.textContent = 'Cancelar';
+        btn.onclick = () => handleOrderAction?.(orderId, 'requestCancellation');
+        actions.appendChild(btn);
       }
     });
   }, 2000);
-});
+
+}); // fim do DOMContentLoaded
 
 // ─── FUNÇÃO initialize (sem fetchActiveOrders no boot) ─────────
 async function initialize() {
@@ -2143,15 +2188,15 @@ async function initialize() {
       cancelModal.setAttribute('hidden', 'true');
       console.log("Modal escondido na inicialização");
     }
-    showLoading();
-    await authenticate();
-    await updateStoreStatus();
-    // fetchActiveOrders();  <-- removido do boot
+    if (typeof showLoading === 'function') showLoading();
+    if (typeof authenticate === 'function') await authenticate();
+    if (typeof updateStoreStatus === 'function') await updateStoreStatus();
+    // fetchActiveOrders() removido do boot
   } catch (error) {
     console.error('Erro na inicialização:', error);
-    showToast('Erro ao inicializar aplicação', 'error');
+    if (typeof showToast === 'function') showToast('Erro ao inicializar aplicação', 'error');
   } finally {
-    hideLoading();
+    if (typeof hideLoading === 'function') hideLoading();
   }
 }
 
@@ -2162,7 +2207,7 @@ window.addEventListener('load', () => {
     cancelModal.classList.add('hidden');
     cancelModal.style.display = 'none';
     cancelModal.setAttribute('hidden', 'true');
-    console.log("Modal escondido no evento de carregamento da janela");
+    console.log("Modal escondido no evento load");
   }
 });
 
@@ -2180,13 +2225,13 @@ const webhookIntegration = (() => {
       if (!res.ok) throw new Error(res.statusText);
       const { eventos } = await res.json();
       if (eventos?.length) {
-        console.log(`[WEBHOOK] ${eventos.length} eventos recebidos`, eventos);
+        console.log(`[WEBHOOK] ${eventos.length} eventos`, eventos);
         totalEvents += eventos.length;
         for (const ev of eventos) {
           try { await handleEvent(ev); console.log(`[WEBHOOK] Evento ${ev.id} processado`); }
-          catch(err){ console.error(`[WEBHOOK] Falha em ${ev.id}:`, err); }
+          catch (err) { console.error(`[WEBHOOK] Falha em ${ev.id}:`, err); }
         }
-        showToast(`${eventos.length} eventos via webhook`, 'info');
+        if (typeof showToast === 'function') showToast(`${eventos.length} eventos via webhook`, 'info');
       }
     } catch (err) {
       console.error('[WEBHOOK] Erro no polling:', err);
@@ -2194,8 +2239,17 @@ const webhookIntegration = (() => {
   }
 
   return {
-    start() { if (!isPolling) { isPolling = true; totalEvents = 0; console.log('[WEBHOOK] Iniciando polling'); pollWebhookEvents(); } },
-    stop()  { isPolling = false; console.log(`[WEBHOOK] Polling parado. Total eventos: ${totalEvents}`); },
+    start() {
+      if (!isPolling) {
+        isPolling = true; totalEvents = 0;
+        console.log('[WEBHOOK] Iniciando polling');
+        pollWebhookEvents();
+      }
+    },
+    stop() {
+      isPolling = false;
+      console.log(`[WEBHOOK] Polling parado. Total eventos: ${totalEvents}`);
+    },
     status() {
       console.log(`
 [WEBHOOK] STATUS
@@ -2226,75 +2280,85 @@ window.testarWebhook = () => {
   console.log('Testando endpoint do webhook…');
   fetch('/.netlify/functions/ifood-webhook')
     .then(r => r.json())
-    .then(() => showToast('Endpoint OK','success'))
-    .catch(() => showToast('Erro no webhook','error'));
+    .then(() => showToast?.('Endpoint OK','success'))
+    .catch(() => showToast?.('Erro no webhook','error'));
 };
 
 // ─── CHECK FOR COMPLETED ORDERS ──────────────────────────────
 window.checkForCompletedOrders = async function() {
   try {
     console.log('🔍 Verificando pedidos concluídos…');
-    const cards = document.querySelectorAll('.order-card');
-    for (const card of cards) {
+    document.querySelectorAll('.order-card').forEach(async card => {
       const orderId = card.getAttribute('data-order-id');
-      if (!orderId) continue;
+      if (!orderId) return;
       const statusEl = card.querySelector('.order-status');
-      if (statusEl && statusEl.textContent === getStatusText('CONCLUDED')) continue;
-      const details = await makeAuthorizedRequest(`/order/v1.0/orders/${orderId}`,'GET');
-      if (['CONCLUDED','CONC','CON'].includes(details.status)) {
-        console.log(`🏁 Pedido ${orderId} concluído, atualizando interface…`);
-        ordersCache[orderId].status = 'CONCLUDED';
-        updateOrderStatus(orderId,'CONCLUDED');
-        showToast(`Pedido #${orderId.slice(0,6)} concluído!`,'success');
+      if (statusEl && statusEl.textContent === getStatusText('CONCLUDED')) return;
+      try {
+        const details = await makeAuthorizedRequest(`/order/v1.0/orders/${orderId}`, 'GET');
+        if (['CONCLUDED','CONC','CON'].includes(details.status)) {
+          console.log(`🏁 Pedido ${orderId} concluído, atualizando interface…`);
+          ordersCache[orderId].status = 'CONCLUDED';
+          updateOrderStatus(orderId,'CONCLUDED');
+          showToast?.(`Pedido #${orderId.slice(0,6)} concluído!`,'success');
+        }
+      } catch (e) {
+        console.error(`Erro ao verificar pedido ${orderId}:`, e);
       }
-    }
+    });
   } catch (e) {
     console.error('Erro ao verificar pedidos concluídos:', e);
   }
 };
 
 // ─── SOBRESCREVER updateOrderStatus PARA TAKEOUT ─────────────
-const origUpdateOrderStatus = window.updateOrderStatus;
-window.updateOrderStatus = function(orderId, status) {
-  console.log(`🔍 Atualizando status do pedido ${orderId} para ${status}`);
-  origUpdateOrderStatus(orderId, status);
-  setTimeout(() => {
-    const card = document.querySelector(`.order-card[data-order-id="${orderId}"]`);
-    const order = ordersCache[orderId];
-    const isTakeout = isOrderTakeout(order);
-    const isReady = ['READY_TO_PICKUP','RTP'].includes(status);
-    if (card && order && isTakeout && isReady) {
-      console.log(`🔧 Corrigindo botões para takeout ${orderId}`);
-      const actions = card.querySelector('.order-actions');
-      if (!actions) return;
-      actions.innerHTML = '';
-      const statusDiv = document.createElement('div');
-      statusDiv.className = 'status-message';
-      statusDiv.textContent = 'Aguardando Retirada';
-      actions.appendChild(statusDiv);
-      const btn = document.createElement('button');
-      btn.className = 'action-button cancel';
-      btn.textContent = 'Cancelar';
-      btn.onclick = () => handleOrderAction(orderId,'requestCancellation');
-      actions.appendChild(btn);
-    }
-  }, 100);
-};
+(function(){
+  const orig = window.updateOrderStatus;
+  window.updateOrderStatus = function(orderId, status) {
+    console.log(`🔍 Atualizando status do pedido ${orderId} para ${status}`);
+    orig && orig(orderId, status);
+    setTimeout(() => {
+      const card = document.querySelector(`.order-card[data-order-id="${orderId}"]`);
+      const order = ordersCache[orderId];
+      const isTakeout = typeof isOrderTakeout === 'function' && isOrderTakeout(order);
+      const isReady = ['READY_TO_PICKUP','RTP'].includes(status);
+      if (card && order && isTakeout && isReady) {
+        console.log(`🔧 Corrigindo botões para takeout ${orderId}`);
+        const actions = card.querySelector('.order-actions');
+        if (!actions) return;
+        actions.innerHTML = '';
+        const statusDiv = document.createElement('div');
+        statusDiv.className = 'status-message';
+        statusDiv.textContent = 'Aguardando Retirada';
+        actions.appendChild(statusDiv);
+        const btn = document.createElement('button');
+        btn.className = 'action-button cancel';
+        btn.textContent = 'Cancelar';
+        btn.onclick = () => handleOrderAction?.(orderId,'requestCancellation');
+        actions.appendChild(btn);
+      }
+    }, 100);
+  };
+})();
 
 // ─── MELHORAR isTakeoutOrder EXISTENTE ───────────────────────
-const origIsTakeoutOrder = window.takeoutOrdersModule?.isTakeoutOrder;
-if (typeof origIsTakeoutOrder === 'function') {
-  window.takeoutOrdersModule.isTakeoutOrder = order =>
-    order.orderType==='TAKEOUT' ||
-    (order.takeout?.mode) ||
-    (order.enhancedTakeoutInfo?.mode);
-}
+(function(){
+  const mod = window.takeoutOrdersModule;
+  if (mod && typeof mod.isTakeoutOrder === 'function') {
+    const orig = mod.isTakeoutOrder;
+    mod.isTakeoutOrder = function(order) {
+      return orig(order) ||
+        order.orderType==='TAKEOUT' ||
+        order.takeout?.mode ||
+        order.enhancedTakeoutInfo?.mode;
+    };
+  }
+})();
 
 // ─── AUXILIAR isOrderTakeout ─────────────────────────────────
 function isOrderTakeout(order) {
-  return order.orderType==='TAKEOUT' ||
-         (order.takeout?.mode) ||
-         (order.enhancedTakeoutInfo?.mode);
+  return order?.orderType==='TAKEOUT' ||
+         order?.takeout?.mode ||
+         order?.enhancedTakeoutInfo?.mode;
 }
 
 // ─── EXPÕE PARA OUTROS MÓDULOS ───────────────────────────────
@@ -2303,8 +2367,8 @@ window.state        = state;
 window.CONFIG       = CONFIG;
 
 // ─── OVERRIDE GLOBAL fetch PARA IGNORAR WEBHOOK ──────────────
-;(function(){
-  const orig = window.fetch.bind(window);
+(function(){
+  const origFetch = window.fetch.bind(window);
   window.fetch = function(input, init) {
     const url = typeof input==='string' ? input : input.url;
     if (url.includes('/.netlify/functions/ifood-webhook') ||
@@ -2316,6 +2380,6 @@ window.CONFIG       = CONFIG;
         json: () => Promise.resolve({ success:true, events:[] })
       });
     }
-    return orig(input, init);
+    return origFetch(input, init);
   };
 })();
