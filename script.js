@@ -184,50 +184,50 @@ function searchOrders(query) {
 
 // Função de autenticação
 async function authenticate() {
-    try {
-        showLoading();
+  try {
+    showLoading();
 
-        const formData = new URLSearchParams();
-        formData.append('grantType', 'client_credentials');
-        formData.append('clientId', CONFIG.clientId);
-        formData.append('clientSecret', CONFIG.clientSecret);
+    const formData = new URLSearchParams();
+    formData.append('grantType', 'client_credentials');
+    formData.append('clientId', CONFIG.clientId);
+    formData.append('clientSecret', CONFIG.clientSecret);
 
-        const response = await fetch('/.netlify/functions/ifood-proxy', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                path: '/authentication/v1.0/oauth/token',
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded'
-                },
-                body: formData.toString(),
-                isAuth: true
-            })
-        });
+    const response = await fetch('/.netlify/functions/ifood-proxy', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        path: '/authentication/v1.0/oauth/token',
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded'
+        },
+        body: formData.toString(),
+        isAuth: true
+      })
+    });
 
-        if (!response.ok) {
-            throw new Error(`Erro na autenticação: ${response.status}`);
-        }
-
-        const data = await response.json();
-        
-if (data.accessToken) {
-  state.accessToken = data.accessToken;
-  showToast('Autenticado com sucesso!', 'success');
-  // polling só no DOMContentLoaded
-}
-        } else {
-            throw new Error('Token não recebido');
-        }
-    } catch (error) {
-        console.error('Erro na autenticação:', error);
-        showToast('Erro na autenticação: ' + error.message, 'error');
-    } finally {
-        hideLoading();
+    if (!response.ok) {
+      throw new Error(`Erro na autenticação: ${response.status}`);
     }
+
+    const data = await response.json();
+
+    if (data.accessToken) {
+      state.accessToken = data.accessToken;
+      showToast('Autenticado com sucesso!', 'success');
+      // polling só no DOMContentLoaded
+    } else {
+      throw new Error('Token não recebido');
+    }
+
+  } catch (error) {
+    console.error('Erro na autenticação:', error);
+    showToast('Erro na autenticação: ' + error.message, 'error');
+  } finally {
+    hideLoading();
+  }
 }
 
 async function makeAuthorizedRequest(path, method = 'GET', body = null) {
