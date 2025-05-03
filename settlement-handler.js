@@ -6,12 +6,13 @@
 // 4. Fallback por polling para disputas
 // 5. Timeout automático
 
-// IMPORTANTE: trazemos aqui o cache de pedidos e os timestamps para respeitar o intervalo mínimo
-import {
+// IMPORTANTE: orders-persistence.js deve ser carregado antes e expor no window:
+//     window.ordersCache, window.lastOrderFetchTimestamps, window.MIN_ORDER_FETCH_INTERVAL
+const {
   ordersCache,
   lastOrderFetchTimestamps,
   MIN_ORDER_FETCH_INTERVAL
-} from './orders-persistence.js';
+} = window;
 
 // Estado para armazenar histórico de negociações resolvidas
 let resolvedDisputes = [];
