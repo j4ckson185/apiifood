@@ -220,23 +220,25 @@ async function handleSettlementEvent(event) {
   try {
     console.log('🔍 Processando evento HANDSHAKE_SETTLEMENT:', event);
 
-   // extrai os campos que você já tinha
-   const disputeId = event.disputeId || event.metadata?.disputeId;
-   const orderId   = event.orderId;
-   const merchantId = event.merchantId || event.metadata?.merchantId;
+    // extrai os campos
+    const disputeId = event.disputeId || event.metadata?.disputeId;
+    const orderId   = event.orderId;
 
-   // validações básicas
-   if (!orderId || !disputeId || !merchantId) {
-     console.error('❌ Evento HANDSHAKE_SETTLEMENT inválido (falta orderId, disputeId ou merchantId):', event);
-     return;
-   }
+    // validações básicas (removida a checagem de merchantId)
+    if (!orderId || !disputeId) {
+      console.error(
+        '❌ Evento HANDSHAKE_SETTLEMENT inválido (falta orderId ou disputeId):',
+        event
+      );
+      return;
+    }
 
-   // ── CACHE “FLAT” POR orderId ───────────────────────
-   lastOrderFetchTimestamps[orderId] = lastOrderFetchTimestamps[orderId] || 0;
-   ordersCache[orderId] = {
-     disputeId,
-     // ... qualquer outro dado de settlement que você queira guardar ...
-   };
+    // ── CACHE “FLAT” POR orderId ───────────────────────
+    lastOrderFetchTimestamps[orderId] = lastOrderFetchTimestamps[orderId] || 0;
+    ordersCache[orderId] = {
+      disputeId,
+      // … qualquer outro dado de settlement que você queira guardar …
+    };
 
     // … resto da sua lógica original continua exatamente igual …
         
@@ -657,103 +659,98 @@ function closeNegotiationSummaryModal() {
     }
 }
 
-// Versão melhorada da função que restaura os botões
+// Versão melhorada da função que restaura os botões (cache “flat” por orderId)
 async function restoreOrderButtons(orderId) {
     try {
         console.log('🔄 Restaurando botões de ação para o pedido:', orderId);
         
-        // Busca o pedido na DOM
+        // 1) Busca o pedido na DOM
         const orderCard = document.querySelector(`.order-card[data-order-id="${orderId}"]`);
-        
         if (!orderCard) {
             console.log('❌ Card do pedido não encontrado para restauração de botões');
             return;
         }
         
-        // Busca o container de ações do pedido
+        // 2) Busca o container de ações do pedido
         const actionsContainer = orderCard.querySelector('.order-actions');
         if (!actionsContainer) {
             console.log('❌ Container de ações não encontrado no card do pedido');
             return;
         }
         
-        // Busca a disputa resolvida para este pedido (a mais recente)
+        // 3) Busca a disputa resolvida para este pedido (a mais recente)
         const resolvedDispute = resolvedDisputes
             .filter(d => d.orderId === orderId)
             .sort((a, b) => new Date(b.dataConclusao) - new Date(a.dataConclusao))[0];
         
-        // Estratégia 1: verificar o status armazenado na disputa resolvida
+        // Estratégia 1: status armazenado na disputa resolvida
         let orderStatus = null;
-        if (resolvedDispute && resolvedDispute.originalStatus && resolvedDispute.originalStatus !== 'PLACED') {
+        if (
+            resolvedDispute &&
+            resolvedDispute.originalStatus &&
+            resolvedDispute.originalStatus !== 'PLACED'
+        ) {
             orderStatus = resolvedDispute.originalStatus;
             console.log('✅ Usando status armazenado na disputa resolvida:', orderStatus);
         }
         
-// DEPOIS – Estratégia 2: cache primeiro, depois fetch protegido por intervalo mínimo e retry
-if (!orderStatus || orderStatus === 'PLACED') {
-    // 1) Tenta obter do cache
-    const cachedStatus = ordersCache[orderId]?.status;
-    console.log('ℹ️ Status no cache:', cachedStatus);
-    if (cachedStatus && cachedStatus !== 'PLACED') {
-        orderStatus = cachedStatus;
-    } else {
-        // 2) Se cache vazio ou PLACED, decide se faz fetch ou pula pelo intervalo mínimo
-        const nowRestore = Date.now();
-        const lastFetchRestore = lastOrderFetchTimestamps[orderId] || 0;
-
-        if (nowRestore - lastFetchRestore < MIN_ORDER_FETCH_INTERVAL) {
-            console.log(
-              `⏱️ Pulando fetch em restoreOrderButtons para ${orderId}; última há ${((nowRestore - lastFetchRestore)/60000).toFixed(1)} min`
-            );
-        } else {
-            console.log('🔍 Status em cache ausente ou PLACED, buscando da API (retry)…');
-            // 3 tentativas com intervalo de 1s
-            for (let i = 0; i < 3; i++) {
-                try {
-                    const fetched = await makeAuthorizedRequest(
-                      `/order/v1.0/orders/${orderId}`, 
-                      'GET'
+        // Estratégia 2: cache “flat” por orderId
+        if (!orderStatus || orderStatus === 'PLACED') {
+            const cachedStatus = ordersCache[orderId]?.status;
+            console.log('ℹ️ Status no cache:', cachedStatus);
+            if (cachedStatus && cachedStatus !== 'PLACED') {
+                orderStatus = cachedStatus;
+            } else {
+                // Estratégia 3: fetch protegido por intervalo mínimo e retry
+                const nowRestore       = Date.now();
+                const lastFetchRestore = lastOrderFetchTimestamps[orderId] || 0;
+                
+                if (nowRestore - lastFetchRestore < MIN_ORDER_FETCH_INTERVAL) {
+                    console.log(
+                      `⏱️ Pulando fetch em restoreOrderButtons para ${orderId}; última há ${((nowRestore - lastFetchRestore)/60000).toFixed(1)} min`
                     );
-                    if (fetched?.status) {
-                        console.log(`✅ Tentativa ${i+1}: Status obtido:`, fetched.status);
-                        orderStatus = fetched.status;
-                        ordersCache[orderId] = fetched;
-                        lastOrderFetchTimestamps[orderId] = nowRestore;
-                        break;
+                } else {
+                    console.log('🔍 Cache ausente ou PLACED, buscando da API (retry)…');
+                    for (let i = 0; i < 3; i++) {
+                        try {
+                            const fetched = await makeAuthorizedRequest(
+                              `/order/v1.0/orders/${orderId}`, 'GET'
+                            );
+                            if (fetched?.status) {
+                                console.log(`✅ Tentativa ${i+1}: Status obtido:`, fetched.status);
+                                orderStatus = fetched.status;
+                                ordersCache[orderId] = fetched;
+                                lastOrderFetchTimestamps[orderId] = nowRestore;
+                                break;
+                            }
+                            console.log(`⏳ Tentativa ${i+1}: aguardando status do pedido...`);
+                        } catch (err) {
+                            console.error(`❌ Erro na tentativa ${i+1}:`, err);
+                        }
+                        await new Promise(res => setTimeout(res, 1000));
                     }
-                    console.log(`⏳ Tentativa ${i+1}: aguardando status do pedido...`);
-                } catch (err) {
-                    console.error(`❌ Erro na tentativa ${i+1}:`, err);
                 }
-                await new Promise(res => setTimeout(res, 1000));
             }
         }
-    }
-}
         
-        // Estratégia 3: verificar as classes do card
+        // Estratégia 4: deduzir status pelas classes do card
         if (!orderStatus || orderStatus === 'PLACED') {
             console.log('🔍 Tentando deduzir status pelas classes do card...');
-            
-            // Verifica se o card tem alguma classe de status
             const statusClasses = Array.from(orderCard.classList)
                 .filter(className => className.startsWith('status-'));
-                
             if (statusClasses.length > 0) {
-                // Extrai o status da classe (remove 'status-' do início)
                 const cardStatus = statusClasses[0].replace('status-', '').toUpperCase();
                 if (cardStatus && cardStatus !== 'PLACED') {
-                    console.log('✅ Status deduzido das classes do card:', cardStatus);
                     orderStatus = cardStatus;
+                    console.log('✅ Status deduzido das classes do card:', orderStatus);
                 }
             }
         }
         
-        // Estratégia 4: verificar o atributo data-original-status
+        // Estratégia 5: verificar atributo data-original-status
         if (!orderStatus || orderStatus === 'PLACED') {
             const storedStatus = orderCard.getAttribute('data-original-status');
             if (storedStatus) {
-                // Converte texto do status para código
                 const statusMap = {
                     'Novo': 'PLACED',
                     'Confirmado': 'CONFIRMED',
@@ -763,13 +760,12 @@ if (!orderStatus || orderStatus === 'PLACED') {
                     'Concluído': 'CONCLUDED',
                     'Cancelado': 'CANCELLED'
                 };
-                
                 orderStatus = statusMap[storedStatus] || orderStatus;
-                console.log('✅ Status encontrado no atributo data:', orderStatus);
+                console.log('✅ Status encontrado no atributo data-original-status:', orderStatus);
             }
         }
         
-        // Estratégia 5: usar CONFIRMED como fallback seguro
+        // Estratégia 6: fallback seguro
         if (!orderStatus || orderStatus === 'PLACED') {
             console.warn('⚠️ Usando CONFIRMED como fallback de segurança');
             orderStatus = 'CONFIRMED';
@@ -777,22 +773,22 @@ if (!orderStatus || orderStatus === 'PLACED') {
         
         console.log('✅ Status final para restauração de botões:', orderStatus);
         
-        // Limpa o container de ações antes de adicionar novos botões
+        // 4) Limpa o container de ações antes de adicionar novos botões
         while (actionsContainer.firstChild) {
             actionsContainer.removeChild(actionsContainer.firstChild);
         }
         
-        // Recria os botões de ação baseados no status atual do pedido
+        // 5) Recria os botões de ação baseados no status atual
         addActionButtons(actionsContainer, { id: orderId, status: orderStatus });
         
-        // Se tiver disputa resolvida, readiciona o botão de resumo
+        // 6) Se tiver disputa resolvida, re-adiciona o botão de resumo
         if (resolvedDispute) {
             setTimeout(() => {
                 addNegotiationSummaryButton(orderCard, resolvedDispute);
             }, 100);
         }
         
-        // Retornamos o status para possível uso no callback
+        // Retorna o status para possível uso
         return orderStatus;
     } catch (error) {
         console.error('❌ Erro ao restaurar botões de ação:', error);
