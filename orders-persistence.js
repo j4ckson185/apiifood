@@ -2,6 +2,8 @@
 const ordersCache = {};
 // Cache de timestamps para evitar chamadas repetidas de detalhes de pedidos
 const lastOrderFetchTimestamps = {};
+// Intervalo mínimo entre consultas individuais de um mesmo pedido (5 minutos)
+const MIN_ORDER_FETCH_INTERVAL = 5 * 60 * 1000;
 
 // Função para salvar os pedidos no localStorage
 // Modificação na função saveOrdersToLocalStorage para incluir pedidos agendados
@@ -105,6 +107,7 @@ async function updateAllVisibleOrders() {
             try {
                 console.log(`Verificando mudanças para pedido ${orderId}`);
                 let orderDetails;
+                const now = Date.now();
 
                 if (ordersCache[orderId]) {
                     // Obtém status em cache e status atual na UI
@@ -124,12 +127,21 @@ async function updateAllVisibleOrders() {
                         console.log(`Pedido ${orderId} sem mudança de status (“${cachedStatus}”); usando cache`);
                         orderDetails = ordersCache[orderId];
                     } else {
-                        console.log(`Status mudou de ${cachedStatus} para ${uiStatus}; buscando detalhes`);
-                        orderDetails = await makeAuthorizedRequest(`/order/v1.0/orders/${orderId}`, 'GET');
+                        const lastFetch = lastOrderFetchTimestamps[orderId] || 0;
+                        if (now - lastFetch < MIN_ORDER_FETCH_INTERVAL) {
+                            console.log(`📌 Pulando fetch de detalhes para ${orderId}; última há ${((now - lastFetch)/60000).toFixed(1)} min`);
+                            orderDetails = ordersCache[orderId];
+                        } else {
+                            console.log(`Status mudou de ${cachedStatus} para ${uiStatus}; buscando detalhes`);
+                            orderDetails = await makeAuthorizedRequest(`/order/v1.0/orders/${orderId}`, 'GET');
+                            lastOrderFetchTimestamps[orderId] = now;
+                        }
                     }
                 } else {
+                    // Primeiro contato com este pedido
                     console.log(`Primeiro contato com pedido ${orderId}; buscando detalhes`);
                     orderDetails = await makeAuthorizedRequest(`/order/v1.0/orders/${orderId}`, 'GET');
+                    lastOrderFetchTimestamps[orderId] = now;
                 }
 
                 if (orderDetails && orderDetails.status) {
