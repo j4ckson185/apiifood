@@ -16,6 +16,9 @@ var resolvedDisputes = window.resolvedDisputes;
   lastOrderFetchTimestamps,
   MIN_ORDER_FETCH_INTERVAL
 ) {
+  // ── GARANTE QUE TENHAMOS OBJETOS DE CACHE VÁZIOS ──
+  ordersCache              = ordersCache              || {};
+  lastOrderFetchTimestamps = lastOrderFetchTimestamps || {};
 
 // Estado para controle do polling de disputas
 let isDisputePollingActive = false;
