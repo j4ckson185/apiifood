@@ -394,36 +394,52 @@ async function unifiedPolling() {
   }
 }
 
-// -------------------------------------------------
-// Page Visibility API: pausa/retoma o polling
-// -------------------------------------------------
-document.addEventListener('visibilitychange', () => {
-  if (document.hidden) {
-    console.log('⏸️ Aba em segundo plano: pausando polling');
-    state.isPolling = false;
-    if (pollingTimeoutId) {
-      clearTimeout(pollingTimeoutId);
-      pollingTimeoutId = null;
-    }
-  } else {
-    console.log('▶️ Aba em foco: retomando polling');
-    state.isPolling = true;
-    unifiedPolling();
-  }
-});
+// ─── Controle de polling aprimorado ────────────────────────────
+let lastPoll = 0;
 
-function startPolling() {
-    if (state.isPolling) {
-        console.log('🛑 Polling já iniciado — abortando nova inicialização.');
-        return;
-    }
-    // apenas ativa o flag e dispara um ciclo ÚNICO de unifiedPolling
-    state.isPolling = true;
-    unifiedPolling();
+// dispara o unifiedPolling e atualiza timestamp
+async function doUnifiedPolling() {
+  lastPoll = Date.now();
+  await unifiedPolling();
 }
 
-// Substitua qualquer uso anterior de pollEvents() por:
-window.pollEvents = unifiedPolling;
+// agenda o próximo polling após “delay” ms
+function scheduleNextPoll(delay) {
+  clearTimeout(pollingTimeoutId);
+  pollingTimeoutId = setTimeout(doUnifiedPolling, delay);
+}
+
+function stopPolling() {
+  console.log('⏸️ Aba em segundo plano: pausando polling');
+  state.isPolling = false;
+  clearTimeout(pollingTimeoutId);
+}
+
+function startPolling() {
+  if (state.isPolling) return;
+  console.log('▶️ Aba em foco: retomando polling');
+  state.isPolling = true;
+
+  const since = Date.now() - lastPoll;
+  if (since >= UNIFIED_POLLING_INTERVAL) {
+    // Se já passou do intervalo, faz um poll imediato
+    doUnifiedPolling().then(() => {
+      scheduleNextPoll(UNIFIED_POLLING_INTERVAL);
+    });
+  } else {
+    // Senão, agenda só o restante
+    scheduleNextPoll(UNIFIED_POLLING_INTERVAL - since);
+  }
+}
+
+// ─── Page Visibility API: pausa/retoma o polling ─────────────────
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) {
+    stopPolling();
+  } else {
+    startPolling();
+  }
+});
 
 async function handleEvent(event) {
     try {
@@ -2141,11 +2157,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     console.warn('initialize() não definida');
   }
 
-  // --- Dispara o polling unificado pela primeira vez ---
+// --- Dispara o polling unificado pela primeira vez ---
   state.isPolling = true;
-  if (typeof unifiedPolling === 'function') {
-    unifiedPolling();
-  }
+  lastPoll = Date.now();               // marca agora como último poll
+  doUnifiedPolling().then(() => {
+    scheduleNextPoll(UNIFIED_POLLING_INTERVAL);
+  });
 
   // --- Correção de pedidos de retirada existentes ---
   console.log('🔄 Verificando pedidos existentes para retirada READY_TO_PICKUP');
