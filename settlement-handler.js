@@ -6,15 +6,13 @@
 // 4. Fallback por polling para disputas
 // 5. Timeout automático
 
-// IMPORTANTE: orders-persistence.js deve ser carregado antes e expor no window:
-//     window.ordersCache, window.lastOrderFetchTimestamps, window.MIN_ORDER_FETCH_INTERVAL
-const {
-  ordersCache,
-  lastOrderFetchTimestamps,
-  MIN_ORDER_FETCH_INTERVAL
-} = window;
+// IMPORTANTE: orders-persistence.js deve ser incluído ANTES deste script,
+// e deve definir em window: ordersCache, lastOrderFetchTimestamps, MIN_ORDER_FETCH_INTERVAL
+var ordersCache               = window.ordersCache;
+var lastOrderFetchTimestamps  = window.lastOrderFetchTimestamps;
+var MIN_ORDER_FETCH_INTERVAL  = window.MIN_ORDER_FETCH_INTERVAL;
 
-// Estado para armazenar histórico de negociações resolvidas
+// Estado para armazenar histórico de disputas resolvidas
 let resolvedDisputes = [];
 
 // Estado para controle do polling de disputas
