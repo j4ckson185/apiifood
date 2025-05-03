@@ -2268,41 +2268,6 @@ Intervalo: ${POLLING_INTERVAL}ms
   return { start, stop, status };
 })();
 
-// ─── INTEGRAÇÃO NA INICIALIZAÇÃO DA APP ────────────────────────
-const _origInit = initialize;
-window.initialize = async function() {
-  console.log('[APP] Inicializando com webhook unificado...');
-  await _origInit();
-  // webhookIntegration.start();  // removido, pois agora roda pelo unifiedPolling
-  setTimeout(() => webhookIntegration.status(), 2000);
-};
-
-// ─── FIM DO BLOCO DE WEBHOOK UNIFICADO ────────────────────────
-
-// ─── INICIALIZAÇÃO COM WEBHOOK (corrigido) ──────────────────────
-const originalInitialize = initialize;
-window.initialize = async function() {
-  try {
-    console.log('[WEBHOOK-CLIENT] Inicializando aplicação com suporte a webhook...');
-    
-    // Chama a inicialização original
-    await originalInitialize();
-    
-    // Inicia polling de eventos do webhook
-    webhookIntegration.start();           // <-- método correto
-    
-    console.log('[WEBHOOK-CLIENT] Webhook integrado com sucesso!');
-    
-    // Exibe status após 2 segundos (dá tempo para primeira verificação)
-    setTimeout(() => {
-      webhookIntegration.status();
-    }, 2000);
-  } catch (error) {
-    console.error('[WEBHOOK-CLIENT] Erro na inicialização com webhook:', error);
-    showToast('Erro ao inicializar aplicação com webhook', 'error');
-  }
-};
-
 // Adicione no módulo webhookIntegration
 function verificarEventosDiretamente() {
   console.log('[WEBHOOK-CHECK] Verificando eventos diretamente...');
