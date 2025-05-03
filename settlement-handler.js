@@ -1006,6 +1006,9 @@ window.stopDisputePolling = stopDisputePolling;
 window.garantirRestauracaoBotoes = garantirRestauracaoBotoes;
 window.restoreOrderButtons = restoreOrderButtons;
 
+// ← Adicione esta linha para tornar a função visível ao unifiedPolling()
+  window.pollForNewDisputesOnce         = pollForNewDisputesOnce;
+
 // ─── FIM do IIFE ────────────────────────────────────────────
 })( 
   window.ordersCache,
