@@ -367,11 +367,18 @@ async function unifiedPolling() {
       checkExpiredDisputes();
     }
 
-    // 6) Atualiza todos os pedidos a cada 3 ciclos (~90 s)
+// 6) Atualiza todos os pedidos a cada 3 ciclos (~90 s)
     state.pollingCounter = (state.pollingCounter || 0) + 1;
     if (state.pollingCounter >= 3) {
       await updateAllVisibleOrders();
       state.pollingCounter = 0;
+    }
+
+    // 7) A cada 4 ciclos (~2 min), executa a verificação de pedidos concluídos
+    state.completedCheckCounter = (state.completedCheckCounter || 0) + 1;
+    if (state.completedCheckCounter >= 4) {
+      await checkForCompletedOrders();
+      state.completedCheckCounter = 0;
     }
 
   } catch (err) {
@@ -2130,8 +2137,8 @@ async function initialize() {
             cancelModal.setAttribute('hidden', 'true');
         }
         
-        // Iniciar verificação periódica de pedidos concluídos
-        setupCompletedOrdersCheck();
+// Verificação periódica de pedidos concluídos centralizada em unifiedPolling
+        // setupCompletedOrdersCheck();  // removido
     }
 }
 
@@ -2387,19 +2394,6 @@ window.checkForCompletedOrders = async function() {
     }
 };
 
-// Verificar se a função setupCompletedOrdersCheck já existe globalmente
-if (typeof window.setupCompletedOrdersCheck !== 'function') {
-    // Se não existir, definimos ela localmente
-    window.setupCompletedOrdersCheck = function() {
-        // Verificar a cada 2 minutos
-        setInterval(window.checkForCompletedOrders, 120000);
-        
-        // Também verifica na inicialização
-        setTimeout(window.checkForCompletedOrders, 5000);
-    };
-    
-    console.log('✅ Função setupCompletedOrdersCheck definida localmente');
-}
 
 // Sobrescreve a função updateOrderStatus para tratar pedidos para retirada
 const originalUpdateOrderStatus = window.updateOrderStatus;
