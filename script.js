@@ -1950,558 +1950,372 @@ function addChangeForField(orderElement, order) {
 }
 
 // Event Listeners
-document.addEventListener('DOMContentLoaded', () => {
-    // 1) Modal de cancelamento
-    const cancelModal = document.getElementById('cancellation-modal');
-    if (cancelModal) {
-        cancelModal.classList.add('hidden');
-        cancelModal.style.display = 'none';
-        cancelModal.setAttribute('hidden', 'true');
-        console.log("Modal escondido na inicialização do DOMContentLoaded");
+// ─── UNIFICAR TODOS OS DOMContentLoaded ───────────────────────
+document.addEventListener('DOMContentLoaded', async () => {
+  console.log('[APP] DOMContentLoaded — iniciando aplicação…');
+
+  // 1) Modal de cancelamento
+  const cancelModal = document.getElementById('cancellation-modal');
+  if (cancelModal) {
+    cancelModal.classList.add('hidden');
+    cancelModal.style.display = 'none';
+    cancelModal.setAttribute('hidden', 'true');
+    console.log("Modal escondido na inicialização do DOMContentLoaded");
+  }
+
+  // 2) Corrigir listeners do modal de cancelamento
+  const confirmButton = document.getElementById('confirm-cancellation');
+  if (confirmButton) {
+    const newConfirmButton = confirmButton.cloneNode(true);
+    confirmButton.parentNode.replaceChild(newConfirmButton, confirmButton);
+    newConfirmButton.addEventListener('click', () => {
+      console.log("Botão confirmar cancelamento clicado");
+      confirmCancellation();
+    });
+  }
+  const cancelButtonX = document.getElementById('cancel-cancellation');
+  if (cancelButtonX) {
+    const newCancelButton = cancelButtonX.cloneNode(true);
+    cancelButtonX.parentNode.replaceChild(newCancelButton, cancelButtonX);
+    newCancelButton.addEventListener('click', () => {
+      console.log("Botão cancelar cancelamento clicado");
+      closeCancellationModal();
+    });
+  }
+  const closeModalX = document.querySelector('.close-modal');
+  if (closeModalX) {
+    const newCloseModalX = closeModalX.cloneNode(true);
+    closeModalX.parentNode.replaceChild(newCloseModalX, closeModalX);
+    newCloseModalX.addEventListener('click', () => {
+      console.log("Botão X para fechar o modal clicado");
+      closeCancellationModal();
+    });
+  }
+  if (cancelModal) {
+    cancelModal.addEventListener('click', event => {
+      if (event.target === cancelModal) {
+        console.log("Clique fora do modal detectado, fechando modal");
+        closeCancellationModal();
+      }
+    });
+  }
+
+  // 3) Horários de funcionamento
+  document.getElementById('edit-hours')?.addEventListener('click', showEditModal);
+  document.getElementById('save-hours')?.addEventListener('click', saveOpeningHours);
+  document.getElementById('cancel-hours')?.addEventListener('click', () => {
+    document.getElementById('hours-modal').classList.remove('show');
+  });
+  document.querySelector('#hours-modal .close-modal')?.addEventListener('click', () => {
+    document.getElementById('hours-modal').classList.remove('show');
+  });
+  document.getElementById('hours-modal')?.addEventListener('click', e => {
+    if (e.target.id === 'hours-modal') {
+      e.target.classList.remove('show');
     }
-   
-    // 2) Corrigir listeners do modal de cancelamento
-    const confirmButton = document.getElementById('confirm-cancellation');
-    if (confirmButton) {
-        const newConfirmButton = confirmButton.cloneNode(true);
-        confirmButton.parentNode.replaceChild(newConfirmButton, confirmButton);
-        newConfirmButton.addEventListener('click', () => {
-            console.log("Botão confirmar cancelamento clicado");
-            confirmCancellation();
-        });
+  });
+
+  // 4) Limpar pedidos
+  document.getElementById('clear-orders')?.addEventListener('click', clearAllOrders);
+
+  // 5) Paginação de lojas
+  document.getElementById('prev-page')?.addEventListener('click', () => {
+    if (currentPage > 1) fetchStores(currentPage - 1);
+  });
+  document.getElementById('next-page')?.addEventListener('click', () => {
+    fetchStores(currentPage + 1);
+  });
+
+  // 6) Navegação lateral
+  document.querySelector('.sidebar-item[data-target="stores"]')?.addEventListener('click', () => {
+    switchMainTab('stores');
+    fetchStores(1);
+  });
+  document.querySelectorAll('.sidebar-item').forEach(item => {
+    item.addEventListener('click', () => {
+      const targetSection = item.getAttribute('data-target');
+      if (targetSection && targetSection !== 'stores') {
+        stopStatusPolling();
+      }
+      if (targetSection) switchMainTab(targetSection);
+    });
+  });
+
+  // 7) Tabs de pedidos, filtros e busca
+  document.querySelectorAll('.tab-item').forEach(tab => {
+    tab.addEventListener('click', () => {
+      const targetTab = tab.getAttribute('data-tab');
+      if (targetTab) switchOrderTab(targetTab);
+    });
+  });
+  document.querySelectorAll('.filter-button').forEach(button => {
+    button.addEventListener('click', () => {
+      const filter = button.getAttribute('data-filter');
+      if (filter) applyFilter(filter);
+    });
+  });
+  const searchInput = document.getElementById('search-orders');
+  if (searchInput) {
+    searchInput.addEventListener('input', () => {
+      searchOrders(searchInput.value);
+    });
+  }
+
+  // 8) Botão “Atualizar pedidos” (mantém o unifiedPolling)
+  document.getElementById('poll-orders')?.addEventListener('click', async () => {
+    if (!state.accessToken) {
+      await authenticate();
     }
-    const cancelButton = document.getElementById('cancel-cancellation');
-    if (cancelButton) {
-        const newCancelButton = cancelButton.cloneNode(true);
-        cancelButton.parentNode.replaceChild(newCancelButton, cancelButton);
-        newCancelButton.addEventListener('click', () => {
-            console.log("Botão cancelar cancelamento clicado");
-            closeCancellationModal();
-        });
-    }
-    const closeModalX = document.querySelector('.close-modal');
-    if (closeModalX) {
-        const newCloseModalX = closeModalX.cloneNode(true);
-        closeModalX.parentNode.replaceChild(newCloseModalX, closeModalX);
-        newCloseModalX.addEventListener('click', () => {
-            console.log("Botão X para fechar o modal clicado");
-            closeCancellationModal();
-        });
-    }
-    if (cancelModal) {
-        cancelModal.addEventListener('click', event => {
-            if (event.target === cancelModal) {
-                console.log("Clique fora do modal detectado, fechando modal");
-                closeCancellationModal();
-            }
-        });
-    }
-
-    // 3) Horários de funcionamento
-    document.getElementById('edit-hours')?.addEventListener('click', showEditModal);
-    document.getElementById('save-hours')?.addEventListener('click', saveOpeningHours);
-    document.getElementById('cancel-hours')?.addEventListener('click', () => {
-        document.getElementById('hours-modal').classList.remove('show');
-    });
-    document.querySelector('#hours-modal .close-modal')?.addEventListener('click', () => {
-        document.getElementById('hours-modal').classList.remove('show');
-    });
-    document.getElementById('hours-modal')?.addEventListener('click', e => {
-        if (e.target.id === 'hours-modal') {
-            e.target.classList.remove('show');
-        }
-    });
-
-    // 4) Limpar pedidos
-    document.getElementById('clear-orders')?.addEventListener('click', clearAllOrders);
-
-    // 5) Paginação de lojas
-    document.getElementById('prev-page')?.addEventListener('click', () => {
-        if (currentPage > 1) fetchStores(currentPage - 1);
-    });
-    document.getElementById('next-page')?.addEventListener('click', () => {
-        fetchStores(currentPage + 1);
-    });
-
-    // 6) Navegação lateral
-    document.querySelector('.sidebar-item[data-target="stores"]')?.addEventListener('click', () => {
-        switchMainTab('stores');
-        fetchStores(1);
-    });
-    document.querySelectorAll('.sidebar-item').forEach(item => {
-        item.addEventListener('click', () => {
-            const targetSection = item.getAttribute('data-target');
-            if (targetSection && targetSection !== 'stores') {
-                // você pode remover essa linha se não quiser parar nada
-                stopStatusPolling();
-            }
-            if (targetSection) switchMainTab(targetSection);
-        });
-    });
-
-    // 7) Tabs de pedidos, filtros e busca
-    document.querySelectorAll('.tab-item').forEach(tab => {
-        tab.addEventListener('click', () => {
-            const targetTab = tab.getAttribute('data-tab');
-            if (targetTab) switchOrderTab(targetTab);
-        });
-    });
-    document.querySelectorAll('.filter-button').forEach(button => {
-        button.addEventListener('click', () => {
-            const filter = button.getAttribute('data-filter');
-            if (filter) applyFilter(filter);
-        });
-    });
-    const searchInput = document.getElementById('search-orders');
-    if (searchInput) {
-        searchInput.addEventListener('input', () => {
-            searchOrders(searchInput.value);
-        });
-    }
-
-    // 8) Botão “Atualizar pedidos” – removemos o startPolling() isolado
-    document.getElementById('poll-orders').addEventListener('click', async () => {
-        if (!state.accessToken) {
-            await authenticate();
-        }
-        showLoading();
-        try {
-            await fetchActiveOrders();
-            //startPolling();        // << REMOVIDO
-            state.isPolling = true; // garante que o unifiedPolling vai rodar
-            unifiedPolling();       // dispara imediatamente um ciclo
-        } finally {
-            hideLoading();
-        }
-    });
-
-    // 9) Alternar status da loja
-    document.getElementById('toggle-store').addEventListener('click', async () => {
-        if (!state.accessToken) {
-            await authenticate();
-        } else {
-            await toggleStoreStatus();
-        }
-    });
-
-    // 10) Interrupção manual
-    document.getElementById('create-interruption')?.addEventListener('click', () => {
-        if (currentMerchantIdForInterruption) {
-            openCreateInterruptionModal();
-        } else {
-            showToast('Selecione uma loja primeiro', 'warning');
-        }
-    });
-
-    // --- Inicialização da app ---
-    initialize();
-
-    // --- AQUI: dispara o polling unificado pela primeira vez ---
-    state.isPolling = true;
-    unifiedPolling();
-
-    // --- REMOVA ou COMENTE todo e qualquer:
-    //      startDisputePolling();
-    //      setInterval(..., ...) que chame updateAllVisibleOrders / checkForCompletedOrders / pollForNewDisputesOnce isoladamente
-    // --- essas rotinas agora são todas orquestradas por unifiedPolling()
-});
-
-async function initialize() {
+    showLoading();
     try {
-        // Garantir que o modal de cancelamento esteja SEMPRE oculto
-        const cancelModal = document.getElementById('cancellation-modal');
-        if (cancelModal) {
-            cancelModal.classList.add('hidden');
-            cancelModal.style.display = 'none';
-            cancelModal.setAttribute('hidden', 'true');
-            console.log("Modal escondido na inicialização");
-        }
-       
-        showLoading();
-       
-        // Autenticação inicial
-        await authenticate();
-       
-        // Atualiza status da loja
-        await updateStoreStatus();
-       
-        // Carrega pedidos ativos iniciais
-        await fetchActiveOrders();
-       
-        // Inicia polling de eventos
-        // startPolling();     // <— agora removido, polling só no DOMContentLoaded
-    } catch (error) {
-        console.error('Erro na inicialização:', error);
-        showToast('Erro ao inicializar aplicação', 'error');
+      await fetchActiveOrders();   // opcional, você pode até remover se quiser
+      state.isPolling = true;
+      unifiedPolling();
     } finally {
-        hideLoading();
-       
-// Adicional: Garantir que o modal esteja oculto após carregar
-        const cancelModal = document.getElementById('cancellation-modal');
-        if (cancelModal) {
-            cancelModal.classList.add('hidden');
-            cancelModal.style.display = 'none';
-            cancelModal.setAttribute('hidden', 'true');
-        }
-        
-// Verificação periódica de pedidos concluídos centralizada em unifiedPolling
-        // setupCompletedOrdersCheck();  // removido
+      hideLoading();
     }
-}
+  });
 
-// Função para limpar pedidos do localStorage
-function clearAllOrders() {
-    try {
-        // Confirma se o usuário realmente quer limpar todos os pedidos
-        if (confirm('Tem certeza que deseja limpar todos os pedidos? Esta ação não pode ser desfeita.')) {
-            // Remove do localStorage
-            localStorage.removeItem('savedOrders');
-            
-            // Limpa processedOrderIds
-            processedOrderIds.clear();
-            localStorage.removeItem('processedOrderIds');
-            
-            // Limpa cache de pedidos
-            for (const key in ordersCache) {
-                delete ordersCache[key];
-            }
-            
-            // Limpa os containers na interface
-            clearOrdersContainers();
-            
-            // Verifica cada tab para exibir a mensagem "sem pedidos"
-            checkForEmptyTab('preparation');
-            checkForEmptyTab('dispatched');
-            checkForEmptyTab('completed');
-            checkForEmptyTab('cancelled');
-            
-            showToast('Todos os pedidos foram removidos com sucesso', 'success');
-        }
-    } catch (error) {
-        console.error('Erro ao limpar pedidos:', error);
-        showToast('Erro ao limpar pedidos', 'error');
+  // 9) Alternar status da loja
+  document.getElementById('toggle-store')?.addEventListener('click', async () => {
+    if (!state.accessToken) {
+      await authenticate();
+    } else {
+      await toggleStoreStatus();
     }
-}
+  });
 
-// Event listener de carregamento da janela
-window.addEventListener('load', () => {
-    const cancelModal = document.getElementById('cancellation-modal');
-    if (cancelModal) {
-        cancelModal.classList.add('hidden');
-        cancelModal.style.display = 'none';
-        cancelModal.setAttribute('hidden', 'true');
-        console.log("Modal escondido no evento de carregamento da janela");
+  // 10) Interrupção manual
+  document.getElementById('create-interruption')?.addEventListener('click', () => {
+    if (currentMerchantIdForInterruption) {
+      openCreateInterruptionModal();
+    } else {
+      showToast('Selecione uma loja primeiro', 'warning');
     }
+  });
+
+  // --- Inicialização da app (auth + UI) ---
+  await initialize();
+
+  // --- Dispara o polling unificado pela primeira vez ---
+  state.isPolling = true;
+  unifiedPolling();
+
+  // --- Correção de pedidos de retirada já exibidos (antes da próxima carga) ---
+  console.log('🔄 Adicionando verificação adicional para pedidos de retirada com status READY_TO_PICKUP');
+  setTimeout(() => {
+    const cards = document.querySelectorAll('.order-card');
+    console.log(`Verificando ${cards.length} pedidos existentes para corrigir botões...`);
+    cards.forEach(card => {
+      const orderId = card.getAttribute('data-order-id');
+      if (!orderId) return;
+      const order = ordersCache[orderId];
+      if (!order) return;
+      const isTakeout = isOrderTakeout(order);
+      const isReady = ['READY_TO_PICKUP','RTP'].includes(order.status)
+        || card.classList.contains('status-ready_to_pickup');
+      if (isTakeout && isReady) {
+        console.log(`🔧 Corrigindo botões para pedido existente para retirada ${orderId}`);
+        const actionsContainer = card.querySelector('.order-actions');
+        if (!actionsContainer) return;
+        actionsContainer.innerHTML = '';
+        const statusDiv = document.createElement('div');
+        statusDiv.className = 'status-message';
+        statusDiv.textContent = 'Aguardando Retirada';
+        actionsContainer.appendChild(statusDiv);
+        const cancelBtn = document.createElement('button');
+        cancelBtn.className = 'action-button cancel';
+        cancelBtn.textContent = 'Cancelar';
+        cancelBtn.onclick = () => handleOrderAction(orderId, 'requestCancellation');
+        actionsContainer.appendChild(cancelBtn);
+      }
+    });
+  }, 2000);
 });
 
-// ─── INÍCIO DO BLOCO DE WEBHOOK UNIFICADO ───────────────────────
-// Módulo para integração de eventos do webhook com polling único
-const webhookIntegration = (() => {
-  const POLLING_INTERVAL = CONFIG.pollingInterval;  // agora 30s
+// ─── FUNÇÃO initialize (sem fetchActiveOrders no boot) ─────────
+async function initialize() {
+  try {
+    const cancelModal = document.getElementById('cancellation-modal');
+    if (cancelModal) {
+      cancelModal.classList.add('hidden');
+      cancelModal.style.display = 'none';
+      cancelModal.setAttribute('hidden', 'true');
+      console.log("Modal escondido na inicialização");
+    }
+    showLoading();
+    await authenticate();
+    await updateStoreStatus();
+    // fetchActiveOrders();  <-- removido do boot
+  } catch (error) {
+    console.error('Erro na inicialização:', error);
+    showToast('Erro ao inicializar aplicação', 'error');
+  } finally {
+    hideLoading();
+  }
+}
 
-  let isPolling = false;
-  let totalEvents = 0;
-  let lastTimestamp = null;
+// ─── Evento load para garantir modal sempre oculto ─────────────
+window.addEventListener('load', () => {
+  const cancelModal = document.getElementById('cancellation-modal');
+  if (cancelModal) {
+    cancelModal.classList.add('hidden');
+    cancelModal.style.display = 'none';
+    cancelModal.setAttribute('hidden', 'true');
+    console.log("Modal escondido no evento de carregamento da janela");
+  }
+});
+
+// ─── BLOCO DE WEBHOOK UNIFICADO ────────────────────────────────
+const webhookIntegration = (() => {
+  const POLLING_INTERVAL = CONFIG.pollingInterval;
+  let isPolling = false, totalEvents = 0, lastTimestamp = null;
 
   async function pollWebhookEvents() {
     if (!isPolling || !state.accessToken) return;
     lastTimestamp = new Date().toISOString();
     console.log(`[WEBHOOK] Polling em ${lastTimestamp}`);
     try {
-      const res = await fetch('/.netlify/functions/ifood-webhook-events', {
-        method: 'GET',
-        headers: { 'Content-Type': 'application/json' }
-      });
+      const res = await fetch('/.netlify/functions/ifood-webhook-events');
       if (!res.ok) throw new Error(res.statusText);
       const { eventos } = await res.json();
       if (eventos?.length) {
         console.log(`[WEBHOOK] ${eventos.length} eventos recebidos`, eventos);
         totalEvents += eventos.length;
         for (const ev of eventos) {
-          try {
-            await handleEvent(ev);
-            console.log(`[WEBHOOK] Evento ${ev.id} processado`);
-          } catch(err) {
-            console.error(`[WEBHOOK] Falha em ${ev.id}:`, err);
-          }
+          try { await handleEvent(ev); console.log(`[WEBHOOK] Evento ${ev.id} processado`); }
+          catch(err){ console.error(`[WEBHOOK] Falha em ${ev.id}:`, err); }
         }
         showToast(`${eventos.length} eventos via webhook`, 'info');
       }
     } catch (err) {
       console.error('[WEBHOOK] Erro no polling:', err);
-    } finally {
-      // sem re-agendamento aqui; vai rodar via unifiedPolling()
     }
   }
 
-  function start() {
-    if (!isPolling) {
-      isPolling = true;
-      totalEvents = 0;
-      console.log('[WEBHOOK] Iniciando polling único');
-      pollWebhookEvents();
-    }
-  }
-
-  function stop() {
-    isPolling = false;
-    console.log(`[WEBHOOK] Polling parado. Total eventos: ${totalEvents}`);
-  }
-
-  function status() {
-    console.log(`
+  return {
+    start() { if (!isPolling) { isPolling = true; totalEvents = 0; console.log('[WEBHOOK] Iniciando polling'); pollWebhookEvents(); } },
+    stop()  { isPolling = false; console.log(`[WEBHOOK] Polling parado. Total eventos: ${totalEvents}`); },
+    status() {
+      console.log(`
 [WEBHOOK] STATUS
 Polling: ${isPolling}
 Última execução: ${lastTimestamp}
 Total de eventos: ${totalEvents}
 Intervalo: ${POLLING_INTERVAL}ms
-    `);
-  }
-
-  window.testarWebhook = () => {
-    fetch('/.netlify/functions/ifood-webhook-events')
-      .then(r => r.json())
-      .then(() => showToast('Webhook OK', 'success'))
-      .catch(() => showToast('Erro no webhook', 'error'));
+      `);
+    }
   };
-
-  return { start, stop, status };
 })();
 
-// Adicione no módulo webhookIntegration
+// ─── VERIFICAÇÃO DIRETA DO WEBHOOK ────────────────────────────
 function verificarEventosDiretamente() {
   console.log('[WEBHOOK-CHECK] Verificando eventos diretamente...');
-  
-  // Verifica se há eventos armazenados diretamente na função webhook
-  fetch('/.netlify/functions/ifood-webhook?check=true', {
-    method: 'GET',
-    headers: {
-      'Content-Type': 'application/json',
-    }
-  })
-  .then(response => response.json())
-  .then(data => {
-    console.log('[WEBHOOK-CHECK] Resposta da verificação direta:', data);
-    if (data.lastEvent) {
-      console.log('[WEBHOOK-CHECK] Último evento recebido:', data.lastEvent);
-    } else {
-      console.log('[WEBHOOK-CHECK] Nenhum evento encontrado diretamente na função webhook');
-    }
-  })
-  .catch(error => {
-    console.error('[WEBHOOK-CHECK] Erro na verificação direta:', error);
-  });
+  fetch('/.netlify/functions/ifood-webhook?check=true')
+    .then(r => r.json())
+    .then(data => {
+      console.log('[WEBHOOK-CHECK] Resposta:', data);
+      if (data.lastEvent) console.log('[WEBHOOK-CHECK] Último evento:', data.lastEvent);
+    })
+    .catch(err => console.error('[WEBHOOK-CHECK] Erro:', err));
 }
-
-// Exponha a função para uso no console
 window.verificarWebhookEventos = verificarEventosDiretamente;
 
-// Função para testar se o endpoint do webhook está respondendo
-window.testarWebhook = function() {
-  console.log('Testando endpoint do webhook...');
-  
-  fetch('/.netlify/functions/ifood-webhook', {
-    method: 'GET'
-  })
-  .then(response => response.json())
-  .then(data => {
-    console.log('Resposta do endpoint do webhook:', data);
-    showToast('Endpoint do webhook está funcionando', 'success');
-  })
-  .catch(error => {
-    console.error('Erro ao acessar endpoint do webhook:', error);
-    showToast('Erro ao acessar endpoint do webhook', 'error');
-  });
-}
+// ─── FUNÇÃO PARA TESTAR O WEBHOOK ────────────────────────────
+window.testarWebhook = () => {
+  console.log('Testando endpoint do webhook…');
+  fetch('/.netlify/functions/ifood-webhook')
+    .then(r => r.json())
+    .then(() => showToast('Endpoint OK','success'))
+    .catch(() => showToast('Erro no webhook','error'));
+};
 
-// Adicione esta função ao arquivo script.js para corrigir o comportamento dos botões
-// de pedidos para retirada com status READY_TO_PICKUP
-
-// Definição global da função checkForCompletedOrders que está faltando
+// ─── CHECK FOR COMPLETED ORDERS ──────────────────────────────
 window.checkForCompletedOrders = async function() {
-    try {
-        console.log('🔍 Verificando pedidos concluídos...');
-        
-        // Busca todos os pedidos visíveis
-        const orderCards = document.querySelectorAll('.order-card');
-        
-        for (const card of orderCards) {
-            const orderId = card.getAttribute('data-order-id');
-            if (!orderId) continue;
-            
-            // Verifica se o pedido já está marcado como concluído
-            const statusElement = card.querySelector('.order-status');
-            if (statusElement && statusElement.textContent === getStatusText('CONCLUDED')) {
-                continue; // Já está concluído, não precisa verificar
-            }
-            
-            try {
-                // Busca o status atual do pedido
-                const orderDetails = await makeAuthorizedRequest(`/order/v1.0/orders/${orderId}`, 'GET');
-                
-                // Verifica se o status voltou como concluído
-                if (orderDetails.status === 'CONCLUDED' || 
-                    orderDetails.status === 'CONC' || 
-                    orderDetails.status === 'CON') {
-                    
-                    console.log(`🏁 Pedido ${orderId} está concluído no iFood, atualizando interface...`);
-                    
-                    // Atualiza o status no cache
-                    if (ordersCache[orderId]) {
-                        ordersCache[orderId].status = 'CONCLUDED';
-                    }
-                    
-                    // Atualiza a interface
-                    updateOrderStatus(orderId, 'CONCLUDED');
-                    
-                    // Mostra notificação
-                    showToast(`Pedido #${orderId.substring(0, 6)} foi concluído!`, 'success');
-                }
-            } catch (error) {
-                console.error(`Erro ao verificar status do pedido ${orderId}:`, error);
-            }
-        }
-    } catch (error) {
-        console.error('Erro ao verificar pedidos concluídos:', error);
+  try {
+    console.log('🔍 Verificando pedidos concluídos…');
+    const cards = document.querySelectorAll('.order-card');
+    for (const card of cards) {
+      const orderId = card.getAttribute('data-order-id');
+      if (!orderId) continue;
+      const statusEl = card.querySelector('.order-status');
+      if (statusEl && statusEl.textContent === getStatusText('CONCLUDED')) continue;
+      const details = await makeAuthorizedRequest(`/order/v1.0/orders/${orderId}`,'GET');
+      if (['CONCLUDED','CONC','CON'].includes(details.status)) {
+        console.log(`🏁 Pedido ${orderId} concluído, atualizando interface…`);
+        ordersCache[orderId].status = 'CONCLUDED';
+        updateOrderStatus(orderId,'CONCLUDED');
+        showToast(`Pedido #${orderId.slice(0,6)} concluído!`,'success');
+      }
     }
+  } catch (e) {
+    console.error('Erro ao verificar pedidos concluídos:', e);
+  }
 };
 
-
-// Sobrescreve a função updateOrderStatus para tratar pedidos para retirada
-const originalUpdateOrderStatus = window.updateOrderStatus;
+// ─── SOBRESCREVER updateOrderStatus PARA TAKEOUT ─────────────
+const origUpdateOrderStatus = window.updateOrderStatus;
 window.updateOrderStatus = function(orderId, status) {
-    console.log(`🔍 Atualizando status do pedido ${orderId} para ${status}`);
-
-    // Primeiro, executa a função original para manter todas as funcionalidades existentes
-    originalUpdateOrderStatus(orderId, status);
-    
-    // Agora, verificamos se é um pedido para retirada com status READY_TO_PICKUP
-    setTimeout(() => {
-        const orderCard = document.querySelector(`.order-card[data-order-id="${orderId}"]`);
-        if (!orderCard) return;
-        
-        // Busca no cache para verificar se é um pedido para retirada
-        const order = ordersCache[orderId];
-        if (!order) return;
-        
-        const isTakeout = order.orderType === 'TAKEOUT' || (order.takeout && order.takeout.mode);
-        const isReady = status === 'READY_TO_PICKUP' || status === 'RTP';
-        
-        console.log(`✓ Verificação adicional: pedido ${orderId} é takeout? ${isTakeout}, está pronto? ${isReady}`);
-        
-        // Se for pedido para retirada E com status pronto para retirada
-        if (isTakeout && isReady) {
-            console.log(`🔧 Corrigindo botões para pedido para retirada ${orderId} com status pronto`);
-            
-            // Busca o container de ações
-            const actionsContainer = orderCard.querySelector('.order-actions');
-            if (!actionsContainer) return;
-            
-            // Limpa o container de ações existente (remove o botão despachar incorreto)
-            actionsContainer.innerHTML = '';
-            
-            // Adiciona mensagem de status e botão de cancelar
-            const statusDiv = document.createElement('div');
-            statusDiv.className = 'status-message';
-            statusDiv.textContent = 'Aguardando Retirada';
-            actionsContainer.appendChild(statusDiv);
-            
-            const cancelButton = document.createElement('button');
-            cancelButton.className = 'action-button cancel';
-            cancelButton.textContent = 'Cancelar';
-            cancelButton.onclick = () => handleOrderAction(orderId, 'requestCancellation');
-            actionsContainer.appendChild(cancelButton);
-            
-            console.log(`✅ Botões corrigidos para pedido de retirada ${orderId}`);
-        }
-    }, 100); // Pequeno delay para garantir que a função original terminou
+  console.log(`🔍 Atualizando status do pedido ${orderId} para ${status}`);
+  origUpdateOrderStatus(orderId, status);
+  setTimeout(() => {
+    const card = document.querySelector(`.order-card[data-order-id="${orderId}"]`);
+    const order = ordersCache[orderId];
+    const isTakeout = isOrderTakeout(order);
+    const isReady = ['READY_TO_PICKUP','RTP'].includes(status);
+    if (card && order && isTakeout && isReady) {
+      console.log(`🔧 Corrigindo botões para takeout ${orderId}`);
+      const actions = card.querySelector('.order-actions');
+      if (!actions) return;
+      actions.innerHTML = '';
+      const statusDiv = document.createElement('div');
+      statusDiv.className = 'status-message';
+      statusDiv.textContent = 'Aguardando Retirada';
+      actions.appendChild(statusDiv);
+      const btn = document.createElement('button');
+      btn.className = 'action-button cancel';
+      btn.textContent = 'Cancelar';
+      btn.onclick = () => handleOrderAction(orderId,'requestCancellation');
+      actions.appendChild(btn);
+    }
+  }, 100);
 };
 
-// Melhorar a verificação de pedidos para retirada também na função original
-const originalIsTakeoutOrder = window.takeoutOrdersModule?.isTakeoutOrder;
-if (typeof originalIsTakeoutOrder === 'function') {
-    window.takeoutOrdersModule.isTakeoutOrder = function(order) {
-        // Verificação melhorada
-        return order.orderType === 'TAKEOUT' || 
-               (order.takeout && order.takeout.mode) ||
-               (order.enhancedTakeoutInfo && order.enhancedTakeoutInfo.mode);
-    };
+// ─── MELHORAR isTakeoutOrder EXISTENTE ───────────────────────
+const origIsTakeoutOrder = window.takeoutOrdersModule?.isTakeoutOrder;
+if (typeof origIsTakeoutOrder === 'function') {
+  window.takeoutOrdersModule.isTakeoutOrder = order =>
+    order.orderType==='TAKEOUT' ||
+    (order.takeout?.mode) ||
+    (order.enhancedTakeoutInfo?.mode);
 }
 
-// Função auxiliar para verificar se um pedido é para retirada (caso a função oficial não exista)
+// ─── AUXILIAR isOrderTakeout ─────────────────────────────────
 function isOrderTakeout(order) {
-    return order.orderType === 'TAKEOUT' || 
-           (order.takeout && order.takeout.mode) ||
-           (order.enhancedTakeoutInfo && order.enhancedTakeoutInfo.mode);
+  return order.orderType==='TAKEOUT' ||
+         (order.takeout?.mode) ||
+         (order.enhancedTakeoutInfo?.mode);
 }
 
-// Adicione esse código ao final do arquivo para adicionar um ouvinte que corrige pedidos existentes
-document.addEventListener('DOMContentLoaded', () => {
-    console.log('🔄 Adicionando verificação adicional para pedidos de retirada com status READY_TO_PICKUP');
-    
-    // Verifica pedidos existentes para corrigir
-    setTimeout(() => {
-        const cards = document.querySelectorAll('.order-card');
-        console.log(`Verificando ${cards.length} pedidos existentes para corrigir botões...`);
-        
-        cards.forEach(card => {
-            const orderId = card.getAttribute('data-order-id');
-            if (!orderId) return;
-            
-            const order = ordersCache[orderId];
-            if (!order) return;
-            
-            const isTakeout = isOrderTakeout(order);
-            const isReady = order.status === 'READY_TO_PICKUP' || 
-                           order.status === 'RTP' || 
-                           card.classList.contains('status-ready_to_pickup');
-            
-            if (isTakeout && isReady) {
-                console.log(`🔧 Corrigindo botões para pedido existente para retirada ${orderId}`);
-                
-                const actionsContainer = card.querySelector('.order-actions');
-                if (!actionsContainer) return;
-                
-                // Limpa o container
-                actionsContainer.innerHTML = '';
-                
-                // Adiciona mensagem de status e botão
-                const statusDiv = document.createElement('div');
-                statusDiv.className = 'status-message';
-                statusDiv.textContent = 'Aguardando Retirada';
-                actionsContainer.appendChild(statusDiv);
-                
-                const cancelButton = document.createElement('button');
-                cancelButton.className = 'action-button cancel';
-                cancelButton.textContent = 'Cancelar';
-                cancelButton.onclick = () => handleOrderAction(orderId, 'requestCancellation');
-                actionsContainer.appendChild(cancelButton);
-            }
-        });
-    }, 2000); // Delay para garantir que outros scripts foram carregados
-});
-
-// expõe para os outros módulos
+// ─── EXPÕE PARA OUTROS MÓDULOS ───────────────────────────────
 window.displayOrder = displayOrder;
 window.state        = state;
 window.CONFIG       = CONFIG;
 
-// ─── No final de script.js, após tudo ────────────────────────
+// ─── OVERRIDE GLOBAL fetch PARA IGNORAR WEBHOOK ──────────────
 ;(function(){
-  const origFetch = window.fetch.bind(window);
-  window.fetch = function(input, init){
-    const url = typeof input === 'string' ? input : input.url;
-    // Ajuste os paths conforme os seus endpoints de webhook:
+  const orig = window.fetch.bind(window);
+  window.fetch = function(input, init) {
+    const url = typeof input==='string' ? input : input.url;
     if (url.includes('/.netlify/functions/ifood-webhook') ||
-        url.includes('/.netlify/functions/ifood-webhook-events')){
+        url.includes('/.netlify/functions/ifood-webhook-events')) {
       console.log('🚫 Ignorando webhook:', url);
-      // Retorna uma resposta fake 200 com body vazio ou { events: [] }
       return Promise.resolve({
         ok: true,
         status: 200,
-        json: () => Promise.resolve({ success: true, events: [] })
+        json: () => Promise.resolve({ success:true, events:[] })
       });
     }
-    return origFetch(input, init);
+    return orig(input, init);
   };
 })();
