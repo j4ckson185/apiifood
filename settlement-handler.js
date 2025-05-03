@@ -6,6 +6,13 @@
 // 4. Fallback por polling para disputas
 // 5. Timeout automático
 
+// IMPORTANTE: trazemos aqui o cache de pedidos e os timestamps para respeitar o intervalo mínimo
+import {
+  ordersCache,
+  lastOrderFetchTimestamps,
+  MIN_ORDER_FETCH_INTERVAL
+} from './orders-persistence.js';
+
 // Estado para armazenar histórico de negociações resolvidas
 let resolvedDisputes = [];
 
@@ -322,26 +329,42 @@ async function handleSettlementEvent(event) {
                 // Aguarda um pequeno intervalo para garantir que a API esteja atualizada
                 await new Promise(resolve => setTimeout(resolve, 1000));
                 
-                // Primeira estratégia: tentar obter o status atual via API
-                console.log('📡 Tentativa 1: Buscar status atual via API...');
-                
-                let currentStatus = null;
-                let successfulFetch = false;
-                
-                try {
-                    const orderDetails = await makeAuthorizedRequest(`/order/v1.0/orders/${event.orderId}`, 'GET');
-                    
-                    if (orderDetails && orderDetails.status) {
-                        currentStatus = orderDetails.status;
-                        console.log('✅ Status atualizado obtido via API:', currentStatus);
-                        successfulFetch = true;
-                        
-                        // Atualiza o cache
-                        ordersCache[event.orderId] = orderDetails;
-                    }
-                } catch (apiError) {
-                    console.error('❌ Erro ao buscar status via API:', apiError);
-                }
+// Primeira estratégia: tentar obter o status atual via API (protegido pelo intervalo mínimo)
+console.log('📡 Tentativa 1: Buscar status atual via API…');
+
+let currentStatus = null;
+let successfulFetch = false;
+
+// 1. Verifica se já fizemos fetch recentemente
+const now = Date.now();
+const lastFetch = lastOrderFetchTimestamps[event.orderId] || 0;
+let orderDetailsFromApi = null;
+
+if (now - lastFetch < MIN_ORDER_FETCH_INTERVAL) {
+    console.log(
+      `⏱️ Pulando fetch (settlement) para ${event.orderId}; última há ${((now - lastFetch)/60000).toFixed(1)} min`
+    );
+    orderDetailsFromApi = ordersCache[event.orderId];
+} else {
+    // Faz o fetch e atualiza timestamp
+    try {
+        console.log(`🔄 Fetch (settlement) do pedido ${event.orderId}`);
+        orderDetailsFromApi = await makeAuthorizedRequest(
+          `/order/v1.0/orders/${event.orderId}`, 'GET'
+        );
+        lastOrderFetchTimestamps[event.orderId] = now;
+    } catch (apiError) {
+        console.error('❌ Erro ao buscar status via API:', apiError);
+    }
+}
+
+// 2. Se obteve dados válidos, atualiza status, flag e cache
+if (orderDetailsFromApi && orderDetailsFromApi.status) {
+    currentStatus = orderDetailsFromApi.status;
+    console.log('✅ Status atualizado obtido via API:', currentStatus);
+    successfulFetch = true;
+    ordersCache[event.orderId] = orderDetailsFromApi;
+}
                 
                 // Segunda estratégia: usar o status em cache se a API falhou
                 if (!successfulFetch || !currentStatus || currentStatus === 'PLACED') {
@@ -653,42 +676,47 @@ async function restoreOrderButtons(orderId) {
             console.log('✅ Usando status armazenado na disputa resolvida:', orderStatus);
         }
         
-        // Estratégia 2: verificar o status no cache
-        if (!orderStatus || orderStatus === 'PLACED') {
-            orderStatus = ordersCache[orderId]?.status;
-            console.log('ℹ️ Status no cache:', orderStatus);
-            
-            if (!orderStatus || orderStatus === 'PLACED') {
-                console.log('🔍 Status em cache ausente ou PLACED, buscando da API...');
-                
-                // Por essa com retry:
-                let orderDetails = null;
-                let success = false;
-                
-                for (let i = 0; i < 3; i++) {
-                    try {
-                        orderDetails = await makeAuthorizedRequest(`/order/v1.0/orders/${orderId}`, 'GET');
-                        if (orderDetails?.status) {
-                            console.log(`✅ Tentativa ${i+1}: Status obtido:`, orderDetails.status);
-                            success = true;
-                            break;
-                        }
-                        
-                        console.log(`⏳ Tentativa ${i+1}: aguardando status do pedido...`);
-                        await new Promise(res => setTimeout(res, 1000)); // espera 1 segundo
-                    } catch (err) {
-                        console.error(`❌ Erro na tentativa ${i+1}:`, err);
-                        await new Promise(res => setTimeout(res, 1000)); // espera 1 segundo
+// DEPOIS – Estratégia 2: cache primeiro, depois fetch protegido por intervalo mínimo e retry
+if (!orderStatus || orderStatus === 'PLACED') {
+    // 1) Tenta obter do cache
+    const cachedStatus = ordersCache[orderId]?.status;
+    console.log('ℹ️ Status no cache:', cachedStatus);
+    if (cachedStatus && cachedStatus !== 'PLACED') {
+        orderStatus = cachedStatus;
+    } else {
+        // 2) Se cache vazio ou PLACED, decide se faz fetch ou pula pelo intervalo mínimo
+        const nowRestore = Date.now();
+        const lastFetchRestore = lastOrderFetchTimestamps[orderId] || 0;
+
+        if (nowRestore - lastFetchRestore < MIN_ORDER_FETCH_INTERVAL) {
+            console.log(
+              `⏱️ Pulando fetch em restoreOrderButtons para ${orderId}; última há ${((nowRestore - lastFetchRestore)/60000).toFixed(1)} min`
+            );
+        } else {
+            console.log('🔍 Status em cache ausente ou PLACED, buscando da API (retry)…');
+            // 3 tentativas com intervalo de 1s
+            for (let i = 0; i < 3; i++) {
+                try {
+                    const fetched = await makeAuthorizedRequest(
+                      `/order/v1.0/orders/${orderId}`, 
+                      'GET'
+                    );
+                    if (fetched?.status) {
+                        console.log(`✅ Tentativa ${i+1}: Status obtido:`, fetched.status);
+                        orderStatus = fetched.status;
+                        ordersCache[orderId] = fetched;
+                        lastOrderFetchTimestamps[orderId] = nowRestore;
+                        break;
                     }
+                    console.log(`⏳ Tentativa ${i+1}: aguardando status do pedido...`);
+                } catch (err) {
+                    console.error(`❌ Erro na tentativa ${i+1}:`, err);
                 }
-                
-                if (success && orderDetails) {
-                    orderStatus = orderDetails.status;
-                    // Atualiza o cache
-                    ordersCache[orderId] = orderDetails;
-                }
+                await new Promise(res => setTimeout(res, 1000));
             }
         }
+    }
+}
         
         // Estratégia 3: verificar as classes do card
         if (!orderStatus || orderStatus === 'PLACED') {
@@ -955,7 +983,7 @@ document.addEventListener('DOMContentLoaded', () => {
     loadResolvedDisputes();
     
     // Inicia polling de disputas
-    startDisputePolling();
+    // (removido) startDisputePolling();
     
     // Inicia verificação periódica de disputas expiradas
     setInterval(checkExpiredDisputes, 1000);
