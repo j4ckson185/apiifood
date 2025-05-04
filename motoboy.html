@@ -407,9 +407,9 @@ async function doDispatch(id, card, btn) {
       clientSecret:'137o75y57ug8fm55ubfoxlwjpl0xm25jxj18ne5mser23mbprj5nfncvfnr82utnzx73ij4h449o298370rjwpycppazsfyh2s0l'
     };
 async function fetchOwnToken() {
-  // 1) Monta o corpo só com grant_type
+  // 1) Monta o corpo apenas com grantType
   const body = new URLSearchParams({
-    grant_type: 'client_credentials'
+    grantType: 'client_credentials'
   }).toString();
 
   // 2) Cabeçalhos: Content-Type + Basic auth
@@ -418,7 +418,7 @@ async function fetchOwnToken() {
     'Authorization': 'Basic ' + btoa(`${CONFIG.clientId}:${CONFIG.clientSecret}`)
   };
 
-  // 3) Payload pro seu Netlify Function
+  // 3) Payload para o seu Netlify Function
   const payload = {
     path: '/authentication/v1.0/oauth/token',
     method: 'POST',
@@ -433,7 +433,6 @@ async function fetchOwnToken() {
     body: JSON.stringify(payload)
   });
 
-  // 5) Debugue o retorno caso queira
   const text = await res.text();
   console.log('fetchOwnToken status=', res.status, 'body=', text);
 
@@ -441,12 +440,12 @@ async function fetchOwnToken() {
     throw new Error(`auth ${res.status}: ${text}`);
   }
 
-  // 6) Extrai o accessToken
+  // 5) Extrai o accessToken da resposta
   const { accessToken } = JSON.parse(text);
   return accessToken;
 }
 
-  // logo após fetchOwnToken
+// e logo abaixo (caso tenha perdido), declare:
 let _token = null;
 
 async function ensureToken() {
