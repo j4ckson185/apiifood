@@ -239,8 +239,6 @@
       signInAnonymously
     } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 
-    import { onAuthStateChanged, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-
 // Garante que o motoboy fique logado anonimamente no Firebase
 onAuthStateChanged(auth, async user => {
   if (!user) {
