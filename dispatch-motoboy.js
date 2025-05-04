@@ -79,21 +79,29 @@ function refreshDispatchableOrders() {
   const container = document.getElementById("dispatch-orders");
   if (!container) return;
   container.innerHTML = "";
-  document.querySelectorAll(".order-card.status-confirmed").forEach(card => {
-    const id = card.dataset.id;
-    if (!id) return;
-    const mini = document.createElement("div");
-    mini.className = "order-card-light";
-    mini.dataset.id   = id;
-    mini.innerHTML    = `<div class="info">#${id.slice(0,8)}</div>`;
-    mini.onclick      = () => {
-      mini.classList.toggle("selected");
-      if (mini.classList.contains("selected")) selectedOrders.add(id);
-      else selectedOrders.delete(id);
-      toggleSendBtn();
-    };
-    container.appendChild(mini);
-  });
+
+  // Seleciona cards com status confirmed (texto) ou cfm (código)
+  document
+    .querySelectorAll(".order-card.status-confirmed, .order-card.status-cfm")
+    .forEach(card => {
+      // No seu HTML principal o atributo é data-order-id
+      const id = card.getAttribute("data-order-id");
+      if (!id) return;
+      const mini = document.createElement("div");
+      mini.className = "order-card-light";
+      mini.dataset.id = id;
+      mini.innerHTML = `<div class="info">#${id.slice(0,8)}</div>`;
+      mini.onclick = () => {
+        mini.classList.toggle("selected");
+        if (mini.classList.contains("selected")) selectedOrders.add(id);
+        else selectedOrders.delete(id);
+        toggleSendBtn();
+      };
+      container.appendChild(mini);
+    });
+
+  // atualiza estado do botão “Enviar”
+  toggleSendBtn();
 }
 
 function toggleSendBtn() {
