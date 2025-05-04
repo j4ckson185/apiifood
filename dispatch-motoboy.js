@@ -2,6 +2,23 @@
 // Substitui BroadcastChannel por canal real-time no Firestore
 // Suporta tanto a página Admin (envio) quanto a motoboy.html (recepção)
 
+// ① cria o canal de comunicação motoboy ↔ admin
+const channel = new BroadcastChannel('dispatchChannel');
+
+channel.addEventListener('message', e => {
+  const msg = e.data;
+  if (msg?.type === 'dispatch-request') {
+    const orderId = msg.orderId;
+    // ② encontra o card e o botão “Despachar” no dashboard do admin
+    const card = document.querySelector(`.order-card[data-id="${orderId}"]`);
+    const btn  = card?.querySelector('button.dispatch');
+    if (btn) {
+      // ③ dispara exatamente o clique que já aciona a API iFood
+      btn.click();
+    }
+  }
+});
+
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
 import {
   getFirestore,
