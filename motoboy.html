@@ -163,6 +163,12 @@ async function makeRequest(path,method='GET',body=null){
   const txt=await resp.text();return txt?JSON.parse(txt):{};
 }
 
+  // Retorna todos os pedidos que já estão prontos para entrega
+async function fetchDispatched() {
+  const path = `/order/v1.0/orders?stage=READY_FOR_DELIVERY&limit=50`;
+  return (await makeRequest(path, 'GET')).content || [];
+}
+
 /* ----------------------------------------------------------------
    4. PERSISTÊNCIA
 ---------------------------------------------------------------- */
@@ -266,9 +272,20 @@ async function fetchOrderDetails(id){
         addr.formattedAddress ||
         `${addr.streetName||''}, ${addr.streetNumber||''}${addr.complement ? ' - '+addr.complement : ''}`;
 
-  // Total em reais - o iFood devolve centavos
-  const cents  = o.pricing?.totalPrice ?? o.pricing?.price?.value ?? o.totalPrice ?? 0;
-  const total  = cents / 100;
+  /* Valor total — usa a mesma regra do admin */
+  let raw = o.pricing?.orderAmount ??                       // iFood mais recente
+            o.pricing?.totalPrice  ??                       // fallback
+            o.pricing?.price?.value ??                     // fallback
+            null;
+
+  // Se não veio nada em pricing, soma todos os métodos de pagamento
+  if (raw == null && o.payments?.methods?.length) {
+    raw = o.payments.methods.reduce((s,m)=>
+      s + (m.value > 100 ? m.value*100 : m.value*100) ,0);
+  }
+
+  const total = (raw > 100 ? raw/100 : raw) || 0;
+
 
   // Forma de pagamento (mesma estrutura do admin)
   const payObj = o.payments?.methods?.[0] || {};
@@ -327,6 +344,21 @@ function enterUI(){
   $('#tabs').classList.remove('hidden');
   $('#panels').classList.remove('hidden');
 }
+
+  // A cada 15 s busca pedidos prontos e adiciona os que ainda não temos
+setInterval(async () => {
+  if (!state.accessToken) return;
+  const list = await fetchDispatched();
+  for (const o of list) {
+    const id = o.id || o.orderId;
+    if (state.active[id] || state.finished[id]) continue;    // já exibido
+    const full = await fetchOrderDetails(id);                // reaproveita função
+    state.active[id] = full;
+    renderActive(full);
+    saveLocal();
+  }
+}, 15000);
+
 function doLogin(u){
   localStorage.setItem('motoboyUser',u);
   enterUI();loadLocal();renderAll();
