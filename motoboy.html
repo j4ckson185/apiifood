@@ -406,29 +406,46 @@ async function doDispatch(id, card, btn) {
       clientId:'e6415912-782e-4bd9-b6ea-af48c81ae323',
       clientSecret:'137o75y57ug8fm55ubfoxlwjpl0xm25jxj18ne5mser23mbprj5nfncvfnr82utnzx73ij4h449o298370rjwpycppazsfyh2s0l'
     };
-    async function fetchOwnToken(){
-      const payload = {
-        path:'/authentication/v1.0/oauth/token',
-        method:'POST',
-        headers:{'Content-Type':'application/x-www-form-urlencoded'},
-        body:`grantType=client_credentials
-              &clientId=${CONFIG.clientId}
-              &clientSecret=${CONFIG.clientSecret}`
-              .replace(/\s+/g,'')
-      };
-      const r = await fetch('/.netlify/functions/ifood-proxy',{
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body:JSON.stringify(payload)
-      });
-      if(!r.ok) throw new Error('auth '+r.status);
-      return (await r.json()).accessToken;
-    }
-    let _token=null;
-    async function ensureToken(){
-      if(!_token) _token = await fetchOwnToken();
-      return _token;
-    }
+async function fetchOwnToken() {
+  // 1) Monta o corpo só com grant_type
+  const body = new URLSearchParams({
+    grant_type: 'client_credentials'
+  }).toString();
+
+  // 2) Cabeçalhos: Content-Type + Basic auth
+  const headers = {
+    'Content-Type': 'application/x-www-form-urlencoded',
+    'Authorization': 'Basic ' + btoa(`${CONFIG.clientId}:${CONFIG.clientSecret}`)
+  };
+
+  // 3) Payload pro seu Netlify Function
+  const payload = {
+    path: '/authentication/v1.0/oauth/token',
+    method: 'POST',
+    headers,
+    body
+  };
+
+  // 4) Chama o proxy
+  const res = await fetch('/.netlify/functions/ifood-proxy', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+
+  // 5) Debugue o retorno caso queira
+  const text = await res.text();
+  console.log('fetchOwnToken status=', res.status, 'body=', text);
+
+  if (!res.ok) {
+    throw new Error(`auth ${res.status}: ${text}`);
+  }
+
+  // 6) Extrai o accessToken
+  const { accessToken } = JSON.parse(text);
+  return accessToken;
+}
+    
     async function makeRequest(path,method='GET',body=null){
       await ensureToken();
       const headers = {
