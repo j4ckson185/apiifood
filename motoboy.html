@@ -337,18 +337,27 @@
     }
 
     // Ações
-    function doDispatch(id,card,btn){
-      const user = localStorage.getItem('motoboyUser');
-      const ref  = doc(db,'dispatchs',user,'orders',id);
-      const batch= writeBatch(db);
-      batch.set(ref,{orderId:id,assignedAt:serverTimestamp()});
-      batch.commit();
-      state.active[id].status='DISPATCHED';
-      setStatus(card,'DISPATCHED');
-      btn.remove();
-      toast('Pedido despachado','info');
-      saveLocal();
-    }
+async function doDispatch(id, card, btn) {
+  const user = localStorage.getItem('motoboyUser');
+  const ref = doc(db, 'dispatchs', user, 'orders', id);
+  const batch = writeBatch(db);
+  batch.set(ref, { orderId: id, assignedAt: serverTimestamp() });
+  await batch.commit();
+
+  try {
+    // Dispara o dispatch na API do iFood
+    await makeRequest(`/order/v1.0/orders/${id}/dispatch`, 'POST');
+    toast('Pedido despachado no iFood', 'success');
+  } catch (e) {
+    console.error('Erro ao despachar no iFood:', e);
+    toast('Erro ao despachar no iFood', 'error');
+  }
+
+  state.active[id].status = 'DISPATCHED';
+  setStatus(card, 'DISPATCHED');
+  btn.remove();
+  saveLocal();
+}
     function doFinish(id,card){
       const det = state.active[id];
       det.status='CONCLUDED';
