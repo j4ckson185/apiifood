@@ -19,12 +19,6 @@ let state = {
 let currentCancellationOrderId = null;
 let cancellationReasons = [];
 
-// -------------------------------------------------
-// Aqui definimos o ID do timer e o intervalo padrão
-// -------------------------------------------------
-let pollingTimeoutId = null;
-const UNIFIED_POLLING_INTERVAL = CONFIG.pollingInterval;
-
 // Funções de utilidade
 const showLoading = () => document.getElementById('loading-overlay').classList.remove('hidden');
 const hideLoading = () => document.getElementById('loading-overlay').classList.add('hidden');
@@ -391,6 +385,7 @@ async function unifiedPolling() {
 // ─── Controle de polling aprimorado ───────────────────────────
 let pollingTimeoutId = null;
 let lastPoll = 0;
+const UNIFIED_POLLING_INTERVAL = CONFIG.pollingInterval;
 
 // dispara o unifiedPolling e agenda o próximo ciclo
 async function doUnifiedPolling() {
