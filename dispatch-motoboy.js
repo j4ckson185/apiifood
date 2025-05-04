@@ -1,45 +1,37 @@
 // dispatch-motoboy.js
-// Integra página-admin ↔ motoboy (via BroadcastChannel)
+// Substitui BroadcastChannel por canal real-time no Firestore
+// Suporta tanto a página Admin (envio) quanto a motoboy.html (recepção)
 
-const dispatchChannel = new BroadcastChannel('dispatchChannel');
-/* ─────────── NOVO BLOCO: responde a pedido de token ─────────── */
-dispatchChannel.addEventListener('message', async (ev) => {
-  if (ev.data?.type === 'token-request') {
-    // garante que já temos token; se ainda não, autentica
-    if (!state.accessToken && typeof authenticate === 'function') {
-      try { await authenticate(); } catch {}
-    }
-    if (state.accessToken) {
-      dispatchChannel.postMessage({ type: 'token', token: state.accessToken });
-    }
-  }
-});
-/* ─────────── FIM DO BLOCO ───────────────────────────────────── */
+import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+import {
+  getFirestore,
+  collection,
+  doc,
+  writeBatch,
+  serverTimestamp,
+  onSnapshot
+} from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-/* ─────────── NOVO BLOCO: admin executa o “Despachar” real ─────────── */
-dispatchChannel.addEventListener('message', ev => {
-  if (ev.data?.type === 'dispatch-request') {
-    const { orderId } = ev.data;
+// 1) Firebase Config e Inicialização
+const firebaseConfig = {
+  apiKey: "AIzaSyBuRHTtuKgpQE_qAdMIbT9_9qbjh4cbLI8",
+  authDomain: "apiifood-e0d35.firebaseapp.com",
+  projectId: "apiifood-e0d35",
+  storageBucket: "apiifood-e0d35.firebasestorage.app",
+  messagingSenderId: "905864103175",
+  appId: "1:905864103175:web:a198383d3a66a7d2cd31a2"
+};
+const app = initializeApp(firebaseConfig);
+const db  = getFirestore(app);
 
-    // Garante que o card esteja expandido
-    const card = document.querySelector(`.order-card[data-order-id="${orderId}"]`);
-    card?.querySelector('.order-header')?.click();
-
-    // Clica no botão DESPACHAR do modal / card
-    card?.querySelector('.action-button.dispatch')?.click();
-  }
-});
-/* ─────────── FIM DO BLOCO ─────────────────────────────────────────── */
-
+// 2) Estado local de pedidos selecionados (Admin)
 let selectedOrders = new Set();
 
-// 1. Preenche a aba “Despachar para Motoboy” automaticamente
+// 3) Função que monta a lista de pedidos “CONFIRMED” para despacho
 function refreshDispatchableOrders() {
   const container = document.getElementById('dispatch-orders');
   if (!container) return;
   container.innerHTML = '';
-
-  // pega todos os cards CONFIRMED já existentes
   document.querySelectorAll('.order-card.status-confirmed')
     .forEach(card => {
       const id = card.dataset.orderId;
@@ -56,52 +48,87 @@ function refreshDispatchableOrders() {
       container.appendChild(mini);
     });
 }
-window.refreshDispatchableOrders = refreshDispatchableOrders;
 
-// 2. Habilita/desabilita botão “Enviar”
+// 4) Habilita/desabilita botão “Enviar”
 function toggleSendBtn() {
-  document.getElementById('send-to-courier').disabled = selectedOrders.size === 0 ||
-         !document.getElementById('courier-select').value;
+  const btn = document.getElementById('send-to-courier');
+  const user = document.getElementById('courier-select')?.value;
+  btn && (btn.disabled = selectedOrders.size === 0 || !user);
 }
 
-// 3. Re-render sempre que mudar status dos pedidos
-dispatchChannel.addEventListener('message',e=>{
-  if(e.data?.type==='status-update'){
-    // remove cards que já foram despachados/concluídos
+// 5) Função de envio (Admin → Firestore)
+async function sendToMotoboy(user, orderIds) {
+  if (!user || orderIds.length === 0) return;
+  const batch = writeBatch(db);
+  orderIds.forEach(id => {
+    const ref = doc(db, "dispatchs", user, "orders", id);
+    batch.set(ref, {
+      orderId: id,
+      assignedAt: serverTimestamp()
+    });
+  });
+  await batch.commit();
+}
+
+// 6) Listener em tempo real (motoboy.html)
+function startMotoboyListener() {
+  const motoboyUser = localStorage.getItem('motoboyUser');
+  if (!motoboyUser) return;
+  const ordersCol = collection(db, "dispatchs", motoboyUser, "orders");
+  onSnapshot(ordersCol, snapshot => {
+    snapshot.docChanges().forEach(async change => {
+      if (change.type === "added") {
+        const orderId = change.doc.id;
+        if (!state.active[orderId] && !state.finished[orderId]) {
+          const details = await fetchOrderDetails(orderId);
+          state.active[orderId] = details;
+          renderActive(details);
+          saveLocal();
+        }
+      }
+      // opcional: if change.type==="removed" → remover UI
+    });
+  });
+}
+
+// 7) Wiring: detecta Admin vs Motoboy
+document.addEventListener('DOMContentLoaded', () => {
+  // --- Admin page: elementos de despacho existem? ---
+  const sendBtn       = document.getElementById('send-to-courier');
+  const courierSelect = document.getElementById('courier-select');
+  const dispatchTab   = document.querySelector('.sidebar-item[data-target="dispatch"]');
+  const dispatchSect  = document.getElementById('dispatch-section');
+
+  if (sendBtn && courierSelect && dispatchTab && dispatchSect) {
+    // 7.1) sidebar → aba dispatch
+    dispatchTab.addEventListener('click', () => switchMainTab('dispatch'));
+
+    // 7.2) quando a aba abre, recarrega lista
+    const observer = new MutationObserver(() => {
+      if (!dispatchSect.classList.contains('hidden')) {
+        refreshDispatchableOrders();
+      }
+    });
+    observer.observe(dispatchSect, { attributes: true });
+
+    // 7.3) interações
+    courierSelect.addEventListener('change', toggleSendBtn);
+    sendBtn.addEventListener('click', async () => {
+      const user     = courierSelect.value;
+      const arrayIds = [...selectedOrders];
+      await sendToMotoboy(user, arrayIds);
+      showToast(`${arrayIds.length} pedido(s) enviados ao motoboy ${user}`, 'success');
+      selectedOrders.clear();
+      refreshDispatchableOrders();
+      toggleSendBtn();
+    });
+
+    // 7.4) primeira carga
     refreshDispatchableOrders();
   }
-});
 
-// 4. Listeners
-document.addEventListener('DOMContentLoaded',()=>{
-  // conecta aba lateral
-  document.querySelector('.sidebar-item[data-target="dispatch"]')
-          .addEventListener('click',() => switchMainTab('dispatch'));
-
-  // quando a aba é mostrada
-  const observer = new MutationObserver(() => {
-     if (!document.getElementById('dispatch-section').classList.contains('hidden')) {
-         refreshDispatchableOrders();
-     }
-  });
-  observer.observe(document.getElementById('dispatch-section'),{attributes:true});
-
-  // select motoboy
-  document.getElementById('courier-select').addEventListener('change',toggleSendBtn);
-
-  // botão enviar
-  document.getElementById('send-to-courier').addEventListener('click',()=>{
-     const user = document.getElementById('courier-select').value;
-     if(!user) return;
-
-     const arrayIds = [...selectedOrders];
-     if(arrayIds.length===0) return;
-     // avisa a página do motoboy
-     dispatchChannel.postMessage({type:'assign',user,orders:arrayIds});
-     showToast(`${arrayIds.length} pedido(s) enviados ao motoboy ${user}`,'success');
-     // limpa seleção
-     selectedOrders.clear();
-     refreshDispatchableOrders();
-     toggleSendBtn();
-  });
+  // --- Motoboy page: se houver motoboyUser definido, escuta o Firestore ---
+  if (localStorage.getItem('motoboyUser')) {
+    startMotoboyListener();
+  }
 });
