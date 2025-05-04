@@ -162,6 +162,9 @@ opacity:0;pointer-events:none;transition:opacity .3s}
       onSnapshot
     } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
+        // comunica com o admin
+    const channel = new BroadcastChannel('dispatchChannel');
+
     // 1) Estado e helpers de UI
     const state = { accessToken:null, active:{}, finished:{} };
     const CONFIG = {
@@ -281,17 +284,17 @@ opacity:0;pointer-events:none;transition:opacity .3s}
     }
 
     // 4) Ações de Despachar / Finalizar
-    function doDispatch(id,card,btn){
-      btn.disabled = true;
-      // atualiza localmente
-      state.active[id].status = 'DISPATCHED';
-      setStatus(card,'DISPATCHED');
-      btn.remove();
-      saveLocal();
-      toast('Pedido despachado','info');
-      // NOTA: não chamamos mais BroadcastChannel, 
-      // nem avisamos o admin — é unidirecional Firestore→motoboy
-    }
+  function doDispatch(id, card, btn) {
+    // avisa o admin para despachar
+    channel.postMessage({ type: 'dispatch-request', orderId: id });
+    // atualiza localmente
+    btn.disabled = true;
+    state.active[id].status = 'DISPATCHED';
+    setStatus(card, 'DISPATCHED');
+    btn.remove();
+    saveLocal();
+    toast('Pedido despachado', 'info');
+  }
     function doFinish(id,card){
       const det = state.active[id];
       det.status = 'CONCLUDED';
