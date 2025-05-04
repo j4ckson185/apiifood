@@ -2399,3 +2399,13 @@ window.CONFIG       = CONFIG;
     return origFetch(input, init);
   };
 })();
+
+/* ==== Broadcast de mudanças de status para o motoboy ==== */
+(function(){
+  const ch   = new BroadcastChannel('dispatchChannel');
+  const orig = window.updateOrderStatus;
+  window.updateOrderStatus = function(orderId,status){
+    orig && orig(orderId,status);          // mantém comportamento original
+    ch.postMessage({type:'status-update',orderId,status});
+  };
+})();
