@@ -40,8 +40,23 @@ const auth = getAuth(app);
 
 // 2) Stubs de UI — adapte aos seus elementos reais
 function switchMainTab(tabName) {
-  console.warn("switchMainTab não implementado:", tabName);
+  // 1) Esconder todas as seções
+  document.querySelectorAll(".tab-section").forEach(sec =>
+    sec.classList.add("hidden")
+  );
+
+  // 2) Mostrar a seção correspondente (ex: dispatch → #dispatch-section)
+  const panel = document.getElementById(`${tabName}-section`);
+  if (panel) panel.classList.remove("hidden");
+
+  // 3) Atualizar o estado ativo da sidebar
+  document.querySelectorAll(".sidebar-item").forEach(item =>
+    item.classList.remove("active")
+  );
+  const btn = document.querySelector(`.sidebar-item[data-target="${tabName}"]`);
+  if (btn) btn.classList.add("active");
 }
+
 function showToast(msg, type = "info") {
   console.log(`[toast:${type}]`, msg);
 }
