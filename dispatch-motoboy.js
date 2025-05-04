@@ -1,12 +1,13 @@
 // dispatch-motoboy.js
-// Substitui BroadcastChannel por canal real-time no Firestore
-// Suporta tanto a página Admin (envio) quanto a motoboy.html (recepção)
+// Usa canal real-time do Firestore para comunicação Admin ↔ Motoboy
 
+// 0) Imports completos de App, Firestore e Auth
 import {
   initializeApp,
   getApps,
   getApp
 } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+
 import {
   getFirestore,
   collection,
@@ -17,7 +18,13 @@ import {
   getDoc
 } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-// 1) Firebase Config
+import {
+  getAuth,
+  onAuthStateChanged,
+  signInAnonymously
+} from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+
+// 1) Configuração do Firebase
 const firebaseConfig = {
   apiKey: "AIzaSyBuRHTtuKgpQE_qAdMIbT9_9qbjh4cbLI8",
   authDomain: "apiifood-e0d35.firebaseapp.com",
@@ -27,14 +34,11 @@ const firebaseConfig = {
   appId: "1:905864103175:web:a198383d3a66a7d2cd31a2"
 };
 
-// Só inicializa se ainda não houver nenhum app DEFAULT
-const app = !getApps().length
-  ? initializeApp(firebaseConfig)
-  : getApp();
+const app  = getApps().length ? getApp() : initializeApp(firebaseConfig);
+const db   = getFirestore(app);
+const auth = getAuth(app);
 
-const db = getFirestore(app);
-
-// 2) Stubs de funções de UI — adapte ao seu HTML/JS real
+// 2) Stubs de UI — adapte aos seus elementos reais
 function switchMainTab(tabName) {
   console.warn("switchMainTab não implementado:", tabName);
 }
@@ -42,7 +46,7 @@ function showToast(msg, type = "info") {
   console.log(`[toast:${type}]`, msg);
 }
 async function fetchOrderDetails(orderId) {
-  const ref = doc(db, "orders", orderId);
+  const ref  = doc(db, "orders", orderId);
   const snap = await getDoc(ref);
   return snap.exists() ? snap.data() : null;
 }
@@ -53,7 +57,7 @@ function saveLocal() {
   console.log("saveLocal()");
 }
 
-// 3) Admin: seleção de pedidos
+// 3) ADMINISTRADOR
 const selectedOrders = new Set();
 
 function refreshDispatchableOrders() {
@@ -65,9 +69,9 @@ function refreshDispatchableOrders() {
     if (!id) return;
     const mini = document.createElement("div");
     mini.className = "order-card-light";
-    mini.dataset.id = id;
-    mini.innerHTML = `<div class="info">#${id.slice(0,8)}</div>`;
-    mini.onclick = () => {
+    mini.dataset.id   = id;
+    mini.innerHTML    = `<div class="info">#${id.slice(0,8)}</div>`;
+    mini.onclick      = () => {
       mini.classList.toggle("selected");
       if (mini.classList.contains("selected")) selectedOrders.add(id);
       else selectedOrders.delete(id);
@@ -89,14 +93,14 @@ async function sendToMotoboy(user, orderIds) {
   orderIds.forEach(id => {
     const ref = doc(db, "dispatchs", user, "orders", id);
     batch.set(ref, {
-      orderId:      id,
-      assignedAt:   serverTimestamp()
+      orderId:    id,
+      assignedAt: serverTimestamp()
     });
   });
   await batch.commit();
 }
 
-// 4) Motoboy: escuta real-time
+// 4) MOTOBOY
 const state = { active: {}, finished: {} };
 
 function startMotoboyListener() {
@@ -114,14 +118,14 @@ function startMotoboyListener() {
           saveLocal();
         }
       }
-      // if (change.type === "removed") → remover da UI
+      // if (change.type === "removed") → aqui você pode remover da UI
     });
   });
 }
 
-// 5) Wiring: Admin vs Motoboy
+// 5) WIRING
 document.addEventListener("DOMContentLoaded", () => {
-  // Admin
+  // === Admin ===
   const sendBtn       = document.getElementById("send-to-courier");
   const courierSelect = document.getElementById("courier-select");
   const dispatchTab   = document.querySelector('.sidebar-item[data-target="dispatch"]');
@@ -130,12 +134,13 @@ document.addEventListener("DOMContentLoaded", () => {
   if (sendBtn && courierSelect && dispatchTab && dispatchSect) {
     dispatchTab.addEventListener("click", () => switchMainTab("dispatch"));
 
+    // Quando a aba ficar visível, recarrega os pedidos
     const observer = new MutationObserver(() => {
       if (!dispatchSect.classList.contains("hidden")) {
         refreshDispatchableOrders();
       }
     });
-    observer.observe(dispatchSect, { attributes: true });
+    observer.observe(dispatchSect, { attributes: true, attributeFilter: ["class"] });
 
     courierSelect.addEventListener("change", toggleSendBtn);
     sendBtn.addEventListener("click", async () => {
@@ -148,30 +153,23 @@ document.addEventListener("DOMContentLoaded", () => {
       toggleSendBtn();
     });
 
+    // Primeira carga
     refreshDispatchableOrders();
   }
+});
 
-import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-
-// … seus imports e init do Firebase/App/Auth/Firestore …
-
-// 1) DOMContentLoaded – só para o **Admin**:
-document.addEventListener("DOMContentLoaded", () => {
-  // …toda a sua lógica de montagem do dashboard Admin…
-  // **remova** isto daqui:
-  // if (localStorage.getItem("motoboyUser")) {
-  //   startMotoboyListener();
-  // }
-});  // <-- este é o `});` que fecha o listener do DOMContentLoaded
-
-// 2) onAuthStateChanged – para o **Motoboy**, só após o anon‐login completar:
-onAuthStateChanged(auth, user => {
+// === Motoboy: auth anônimo + listener real-time ===
+onAuthStateChanged(auth, async user => {
   if (!user) {
-    console.warn("Aguardando autenticação...");
+    // Se ainda não estiver logado, faz anon-login
+    await signInAnonymously(auth);
     return;
   }
+  // Após o anon-login, inicia o listener
   const motoboyUser = localStorage.getItem("motoboyUser");
   if (motoboyUser) {
-    startMotoboyListener(motoboyUser);
+    startMotoboyListener();
+  } else {
+    console.warn("Nenhum motoboyUser em localStorage, listener não iniciado.");
   }
 });
