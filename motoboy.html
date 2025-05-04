@@ -239,6 +239,26 @@
       signInAnonymously
     } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 
+    import { onAuthStateChanged, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+
+// Garante que o motoboy fique logado anonimamente no Firebase
+onAuthStateChanged(auth, async user => {
+  if (!user) {
+    try {
+      await signInAnonymously(auth);
+      console.log("Motoboy autenticado anonimamente");
+    } catch(e) {
+      console.error("Falha no anon-login do motoboy:", e);
+    }
+  } else {
+    // Se já estava logado e já tem motoboyUser no localStorage, inicia o listener
+    const u = localStorage.getItem("motoboyUser");
+    if (u) {
+      startMotoboyListener();
+    }
+  }
+});
+
     // Estado e helpers
     const state = { active:{}, finished:{} };
     const $ = s => document.querySelector(s);
@@ -486,7 +506,7 @@ async function doDispatch(id, card, btn) {
       enterUI();
       loadLocal();
       renderAll();
-      startMotoboyListener();
+      // startMotoboyListener();
     }
     $('#login-btn').onclick = ()=>{
       const u=$('#user').value.trim().toLowerCase();
