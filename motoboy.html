@@ -235,29 +235,37 @@
     let _token = null;
 
     // obtém o token do iFood
-    async function fetchOwnToken() {
-      const body = new URLSearchParams({ grantType: 'client_credentials' }).toString();
-      const headers = {
-        'Content-Type': 'application/x-www-form-urlencoded',
-        'Authorization': 'Basic ' + btoa(`${CONFIG.clientId}:${CONFIG.clientSecret}`)
-      };
-      const payload = {
-        path:   '/authentication/v1.0/oauth/token',
-        method: 'POST',
-        headers,
-        body,
-        isAuth: true
-      };
-      const res = await fetch('/.netlify/functions/ifood-proxy', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-      const text = await res.text();
-      console.log('fetchOwnToken status=', res.status, 'body=', text);
-      if (!res.ok) throw new Error(`auth ${res.status}: ${text}`);
-      return JSON.parse(text).accessToken;
-    }
+async function fetchOwnToken() {
+  // monta o form corretamente com clientId e clientSecret
+  const params = new URLSearchParams();
+  params.append('grantType',    'client_credentials');
+  params.append('clientId',     CONFIG.clientId);
+  params.append('clientSecret', CONFIG.clientSecret);
+  const body = params.toString(); // "grantType=client_credentials&clientId=...&clientSecret=..."
+
+  const headers = {
+    'Content-Type': 'application/x-www-form-urlencoded'
+  };
+
+  const payload = {
+    path:   '/authentication/v1.0/oauth/token',
+    method: 'POST',
+    headers,
+    body,
+    isAuth: true    // para o proxy não re-serializar o body
+  };
+
+  const res = await fetch('/.netlify/functions/ifood-proxy', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+
+  const text = await res.text();
+  console.log('fetchOwnToken status=', res.status, 'body=', text);
+  if (!res.ok) throw new Error(`auth ${res.status}: ${text}`);
+  return JSON.parse(text).accessToken;
+}
 
     // garante que só busque 1×
     async function ensureToken() {
