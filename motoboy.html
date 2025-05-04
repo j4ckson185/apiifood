@@ -163,10 +163,23 @@ async function makeRequest(path,method='GET',body=null){
   const txt=await resp.text();return txt?JSON.parse(txt):{};
 }
 
-  // Retorna todos os pedidos que já estão prontos para entrega
+/************ BUSCA PEDIDOS “READY_FOR_DISPATCH” ************/
 async function fetchDispatched() {
-  const path = `/order/v1.0/orders?stage=READY_FOR_DELIVERY&limit=50`;
-  return (await makeRequest(path, 'GET')).content || [];
+  /* A API exige POST em /order/v1.0/orders:search                *
+   * e devolve lista em resp.content                              */
+  const body = {
+    page : 1,
+    size : 50,
+    filters : {
+      orderStage : ['READY_FOR_DISPATCH']   // status após “Despachar”
+    }
+  };
+  const resp = await makeRequest(
+    '/order/v1.0/orders:search',
+    'POST',
+    JSON.stringify(body)
+  );
+  return resp.content || [];
 }
 
 /* ----------------------------------------------------------------
@@ -345,19 +358,24 @@ function enterUI(){
   $('#panels').classList.remove('hidden');
 }
 
-  // A cada 15 s busca pedidos prontos e adiciona os que ainda não temos
+  // A cada 30 s busca pedidos prontos e adiciona os que ainda não temos
 setInterval(async () => {
-  if (!state.accessToken) return;
-  const list = await fetchDispatched();
-  for (const o of list) {
-    const id = o.id || o.orderId;
-    if (state.active[id] || state.finished[id]) continue;    // já exibido
-    const full = await fetchOrderDetails(id);                // reaproveita função
-    state.active[id] = full;
-    renderActive(full);
-    saveLocal();
+  try {
+    if (!state.accessToken) return;
+    const list = await fetchDispatched();
+    for (const o of list) {
+      const id = o.id || o.orderId;
+      if (state.active[id] || state.finished[id]) continue;
+      const full = await fetchOrderDetails(id);
+      state.active[id] = full;
+      renderActive(full);
+      saveLocal();
+    }
+  } catch (err) {
+    // Qualquer erro (latência, 4xx, 5xx) é logado mas não bloqueia o loop
+    console.warn('[sync] erro ignorado:', err.message);
   }
-}, 15000);
+}, 30000);
 
 function doLogin(u){
   localStorage.setItem('motoboyUser',u);
