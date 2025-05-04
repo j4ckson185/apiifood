@@ -9,7 +9,6 @@
 
   <style>
     *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-
     :root{
       --bg:#f5f5f5;
       --primary:#4285f4;
@@ -21,16 +20,13 @@
       --radius:10px;
       font-family:system-ui,sans-serif
     }
-
     body{
       background:var(--bg);
       min-height:100vh;
       display:flex;
       flex-direction:column
     }
-
     .hidden{display:none !important}
-
     /* TOPBAR */
     #topbar{
       background:#fff;
@@ -49,7 +45,6 @@
       cursor:pointer
     }
     #logout-btn i{margin-right:.3rem}
-
     /* TABS */
     #tabs{
       display:flex;
@@ -74,7 +69,6 @@
     }
     .panel{display:none}
     .panel.active{display:block}
-
     /* CARDS */
     .order-card{
       width:100%;
@@ -96,7 +90,6 @@
     .badge.NEW{background:var(--primary)}
     .badge.DISPATCHED{background:var(--warning)}
     .badge.CONCLUDED{background:var(--success)}
-
     .order-header{
       display:flex;
       justify-content:space-between;
@@ -106,7 +99,6 @@
     }
     .order-header h3{font-size:1rem}
     .order-header small{color:#555}
-
     .order-body{
       padding:0 1rem 1rem;
       font-size:.9rem;
@@ -115,7 +107,6 @@
     }
     .order-body.open{display:block}
     .order-body div{margin-top:.45rem}
-
     .order-actions{
       margin-top:.8rem;
       display:flex;
@@ -137,7 +128,6 @@
       opacity:.6;
       cursor:not-allowed
     }
-
     /* LOGIN */
     #login-box{
       max-width:320px;
@@ -170,7 +160,6 @@
       cursor:pointer
     }
     #login-box button:hover{background:var(--primary-dark)}
-
     /* TOAST */
     .toast{
       position:fixed;
@@ -186,14 +175,10 @@
       transition:opacity .3s
     }
     .toast.show{opacity:1}
-
     @media(max-width:480px){
       .order-header h3{font-size:.95rem}
     }
   </style>
-
-  <!-- ① Inicialização do Firebase -->
-  <script type="module" src="./firebase-init.js"></script>
 </head>
 
 <body>
@@ -239,35 +224,84 @@
       signInAnonymously
     } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 
-// Garante que o motoboy fique logado anonimamente no Firebase
-onAuthStateChanged(auth, async user => {
-  if (!user) {
-    try {
-      await signInAnonymously(auth);
-      console.log("Motoboy autenticado anonimamente");
-    } catch(e) {
-      console.error("Falha no anon-login do motoboy:", e);
-    }
-  } else {
-    // Se já estava logado e já tem motoboyUser no localStorage, inicia o listener
-    const u = localStorage.getItem("motoboyUser");
-    if (u) {
-      startMotoboyListener();
-    }
-  }
-});
+    // –––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
+    // CONFIGURAÇÃO PROXY iFood
+    const CONFIG = {
+      clientId:    'e6415912-782e-4bd9-b6ea-af48c81ae323',
+      clientSecret:'137o75y57ug8fm55ubfoxlwjpl0xm25jxj18ne5mser23mbprj5nfncvfnr82utnzx73ij4h449o298370rjwpycppazsfyh2s0l'
+    };
 
-    // Estado e helpers
-    const state = { active:{}, finished:{} };
-    const $ = s => document.querySelector(s);
+    // token global
+    let _token = null;
 
+    // obtém o token do iFood
+    async function fetchOwnToken() {
+      const body = new URLSearchParams({ grantType: 'client_credentials' }).toString();
+      const headers = {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'Authorization': 'Basic ' + btoa(`${CONFIG.clientId}:${CONFIG.clientSecret}`)
+      };
+      const payload = {
+        path:   '/authentication/v1.0/oauth/token',
+        method: 'POST',
+        headers,
+        body,
+        isAuth: true
+      };
+      const res = await fetch('/.netlify/functions/ifood-proxy', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const text = await res.text();
+      console.log('fetchOwnToken status=', res.status, 'body=', text);
+      if (!res.ok) throw new Error(`auth ${res.status}: ${text}`);
+      return JSON.parse(text).accessToken;
+    }
+
+    // garante que só busque 1×
+    async function ensureToken() {
+      if (!_token) {
+        _token = await fetchOwnToken();
+      }
+      return _token;
+    }
+
+    // wrapper genérico para API
+    async function makeRequest(path, method='GET', body=null) {
+      await ensureToken();
+      const headers = {
+        'Content-Type':'application/json',
+        'Authorization':`Bearer ${_token}`
+      };
+      const r = await fetch('/.netlify/functions/ifood-proxy', {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ path, method, headers, body })
+      });
+      if (!r.ok) throw new Error('HTTP '+r.status);
+      const txt = await r.text();
+      return txt ? JSON.parse(txt) : {};
+    }
+
+    // traduz método de pagamento
+    function translatePayment(code,brand) {
+      const map = { CASH:'Dinheiro', CARD:'Cartão', PIX:'PIX', PREPAID:'Pré-pago', ONLINE:'Online' };
+      const key = code.toUpperCase();
+      const lbl = map[key] || (key[0]+key.slice(1).toLowerCase());
+      return brand ? `${lbl} (${brand})` : lbl;
+    }
+
+    // alert/toast
     function toast(msg,type='info'){
-      const t = $('#toast');
+      const t = document.querySelector('#toast');
       t.textContent = msg;
       t.style.background = type==='error'? 'var(--danger)' : '#333';
       t.classList.add('show');
       setTimeout(()=>t.classList.remove('show'),2300);
     }
+
+    // badge e aba
     function badgeText(s){
       return s==='NEW'? 'Novo'
            : s==='DISPATCHED'? 'Despachado'
@@ -275,12 +309,13 @@ onAuthStateChanged(auth, async user => {
     }
     function toggleTab(tab){
       const act = tab==='active';
-      $('#tab-active').classList.toggle('active',act);
-      $('#tab-finished').classList.toggle('active',!act);
-      $('#panel-active').classList.toggle('active',act);
-      $('#panel-finished').classList.toggle('active',!act);
+      document.querySelector('#tab-active').classList.toggle('active',act);
+      document.querySelector('#tab-finished').classList.toggle('active',!act);
+      document.querySelector('#panel-active').classList.toggle('active',act);
+      document.querySelector('#panel-finished').classList.toggle('active',!act);
     }
 
+    // montadores de card
     function createCard(det){
       const c = document.createElement('div');
       c.className = 'order-card';
@@ -305,28 +340,23 @@ onAuthStateChanged(auth, async user => {
        .onclick = ()=>c.querySelector('.order-body').classList.toggle('open');
       return c;
     }
-
     function setStatus(card,s){
       const b = card.querySelector('.badge');
       b.className = 'badge '+s;
       b.textContent = badgeText(s);
     }
-
     function renderActive(det){
       const card = createCard(det);
       const acts = card.querySelector('.order-actions');
       acts.innerHTML = det.status==='NEW'
         ? `<button class="dispatch">
-             <i class="fas fa-location-arrow"></i>
-             Despachar
+             <i class="fas fa-location-arrow"></i> Despachar
            </button>
            <button class="finish">
-             <i class="fas fa-check"></i>
-             Finalizar
+             <i class="fas fa-check"></i> Finalizar
            </button>`
         : `<button class="finish">
-             <i class="fas fa-check"></i>
-             Finalizar
+             <i class="fas fa-check"></i> Finalizar
            </button>`;
       acts.querySelectorAll('button').forEach(btn=>{
         btn.onclick = e=>{
@@ -337,57 +367,22 @@ onAuthStateChanged(auth, async user => {
             doFinish(det.id,card);
         };
       });
-      $('#panel-active').prepend(card);
+      document.querySelector('#panel-active').prepend(card);
     }
-
     function renderFinished(det){
       const card = createCard({...det,status:'CONCLUDED'});
       card.querySelector('.order-actions').remove();
       setStatus(card,'CONCLUDED');
-      $('#panel-finished').prepend(card);
+      document.querySelector('#panel-finished').prepend(card);
     }
-
     function renderAll(){
-      $('#panel-active').innerHTML   = '';
-      $('#panel-finished').innerHTML = '';
+      document.querySelector('#panel-active').innerHTML   = '';
+      document.querySelector('#panel-finished').innerHTML = '';
       Object.values(state.active).forEach(renderActive);
       Object.values(state.finished).forEach(renderFinished);
     }
 
-    // Ações
-async function doDispatch(id, card, btn) {
-  const user = localStorage.getItem('motoboyUser');
-  const ref = doc(db, 'dispatchs', user, 'orders', id);
-  const batch = writeBatch(db);
-  batch.set(ref, { orderId: id, assignedAt: serverTimestamp() });
-  await batch.commit();
-
-  try {
-    // Dispara o dispatch na API do iFood
-    await makeRequest(`/order/v1.0/orders/${id}/dispatch`, 'POST');
-    toast('Pedido despachado no iFood', 'success');
-  } catch (e) {
-    console.error('Erro ao despachar no iFood:', e);
-    toast('Erro ao despachar no iFood', 'error');
-  }
-
-  state.active[id].status = 'DISPATCHED';
-  setStatus(card, 'DISPATCHED');
-  btn.remove();
-  saveLocal();
-}
-    function doFinish(id,card){
-      const det = state.active[id];
-      det.status='CONCLUDED';
-      state.finished[id]=det;
-      delete state.active[id];
-      card.remove();
-      renderFinished(det);
-      toast('Pedido finalizado','success');
-      saveLocal();
-    }
-
-    // Storage local
+    // local storage
     function saveLocal(){
       localStorage.setItem('mbActive',  JSON.stringify(state.active));
       localStorage.setItem('mbFinished',JSON.stringify(state.finished));
@@ -397,112 +392,75 @@ async function doDispatch(id, card, btn) {
         state.active   = JSON.parse(localStorage.getItem('mbActive'))   || {};
         state.finished = JSON.parse(localStorage.getItem('mbFinished')) || {};
       } catch {
-        state.active={}, state.finished={};
+        state.active = {}; state.finished = {};
       }
     }
 
-    // Proxies e tradução de resposta
-    const CONFIG = {
-      clientId:'e6415912-782e-4bd9-b6ea-af48c81ae323',
-      clientSecret:'137o75y57ug8fm55ubfoxlwjpl0xm25jxj18ne5mser23mbprj5nfncvfnr82utnzx73ij4h449o298370rjwpycppazsfyh2s0l'
-    };
-// fetchOwnToken (modificado no seu motoboy (3).html)
-async function fetchOwnToken() {
-  const body = new URLSearchParams({
-    grantType: 'client_credentials'
-  }).toString();
-
-  const headers = {
-    'Content-Type': 'application/x-www-form-urlencoded',
-    'Authorization': 'Basic ' + btoa(`${CONFIG.clientId}:${CONFIG.clientSecret}`)
-  };
-
-  // repare no isAuth: true aqui
-  const payload = {
-    path: '/authentication/v1.0/oauth/token',
-    method: 'POST',
-    headers,
-    body,
-    isAuth: true
-  };
-
-  const res = await fetch('/.netlify/functions/ifood-proxy', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload)
-  });
-
-  const text = await res.text();
-  console.log('fetchOwnToken status=', res.status, 'body=', text);
-
-  if (!res.ok) {
-    throw new Error(`auth ${res.status}: ${text}`);
-  }
-  return JSON.parse(text).accessToken;
-}
-
-async function ensureToken() {
-  if (!_token) {
-    _token = await fetchOwnToken();
-  }
-  return _token;
-}
-    
-    async function makeRequest(path,method='GET',body=null){
-      await ensureToken();
-      const headers = {
-        'Content-Type':'application/json',
-        'Authorization':`Bearer ${_token}`
-      };
-      const r = await fetch('/.netlify/functions/ifood-proxy',{
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({path,method,headers,body})
-      });
-      if(!r.ok) throw new Error('HTTP '+r.status);
-      const txt = await r.text();
-      return txt?JSON.parse(txt):{};
-    }
-    function translatePayment(code,brand){
-      const map={
-        CASH:'Dinheiro',CARD:'Cartão',PIX:'PIX',
-        PREPAID:'Pré-pago',ONLINE:'Online'
-      };
-      const key=code.toUpperCase();
-      const lbl=map[key]||(key[0]+key.slice(1).toLowerCase());
-      return brand?`${lbl} (${brand})`:lbl;
-    }
+    // busca detalhes do pedido
     async function fetchOrderDetails(id){
       const o = await makeRequest(`/order/v1.0/orders/${id}`);
-      const addr=o.delivery?.deliveryAddress||{};
-      const address=addr.formattedAddress
-        ||`${addr.streetName||''},${addr.streetNumber||''}`
+      const addr = o.delivery?.deliveryAddress || {};
+      const address = addr.formattedAddress
+        || `${addr.streetName||''},${addr.streetNumber||''}`
          + (addr.complement?` – ${addr.complement}`:'');
-      let raw = o.pricing?.orderAmount
-             ||o.pricing?.totalPrice
-             ||o.pricing?.price?.value || 0;
-      const customer=o.customer?.name
-        ||`${o.customer?.firstName||''} ${o.customer?.lastName||''}`.trim()
-        ||'—';
-      const displayId=o.displayId||id.slice(0,8);
-      const total=raw;
-      const pm=o.payments?.methods?.[0]||{};
-      const payment=translatePayment(pm.method||pm.methodType||'',pm.card?.brand);
-      return {id,displayId,customer,address,total,payment,status:'NEW'};
+      const raw = o.pricing?.orderAmount
+               || o.pricing?.totalPrice
+               || o.pricing?.price?.value || 0;
+      const customer = o.customer?.name
+        || `${o.customer?.firstName||''} ${o.customer?.lastName||''}`.trim()
+        || '—';
+      const displayId = o.displayId || id.slice(0,8);
+      const total = raw;
+      const pm = o.payments?.methods?.[0] || {};
+      const payment = translatePayment(pm.method||pm.methodType||'',pm.card?.brand);
+      return { id, displayId, customer, address, total, payment, status:'NEW' };
     }
 
-    // Firestore Listener — substitui BroadcastChannel
+    // ações de dispatch e finish
+    async function doDispatch(id,card,btn){
+      const user = localStorage.getItem('motoboyUser');
+      const ref = doc(db,'dispatchs',user,'orders',id);
+      const batch = writeBatch(db);
+      batch.set(ref,{ orderId:id, assignedAt:serverTimestamp() });
+      await batch.commit();
+      try {
+        await makeRequest(`/order/v1.0/orders/${id}/dispatch`,'POST');
+        toast('Pedido despachado no iFood','success');
+      } catch(e){
+        console.error(e);
+        toast('Erro ao despachar no iFood','error');
+      }
+      state.active[id].status = 'DISPATCHED';
+      setStatus(card,'DISPATCHED');
+      btn.remove();
+      saveLocal();
+    }
+    function doFinish(id,card){
+      const det = state.active[id];
+      det.status = 'CONCLUDED';
+      state.finished[id] = det;
+      delete state.active[id];
+      card.remove();
+      renderFinished(det);
+      toast('Pedido finalizado','success');
+      saveLocal();
+    }
+
+    // estado global
+    const state = { active:{}, finished:{} };
+
+    // inicia listener Firestore
     function startMotoboyListener(){
       const motoboyUser = localStorage.getItem('motoboyUser');
-      if(!motoboyUser) return;
+      if (!motoboyUser) return;
       const ordersCol = collection(db,'dispatchs',motoboyUser,'orders');
       onSnapshot(ordersCol,snap=>{
         snap.docChanges().forEach(async change=>{
-          if(change.type==='added'){
-            const orderId=change.doc.id;
-            if(!state.active[orderId]&&!state.finished[orderId]){
-              const det=await fetchOrderDetails(orderId);
-              state.active[orderId]=det;
+          if (change.type==='added'){
+            const orderId = change.doc.id;
+            if (!state.active[orderId] && !state.finished[orderId]){
+              const det = await fetchOrderDetails(orderId);
+              state.active[orderId] = det;
               renderActive(det);
               saveLocal();
             }
@@ -511,38 +469,58 @@ async function ensureToken() {
       });
     }
 
-    // Login / Logout
+    // Firebase Auth anônimo
+    onAuthStateChanged(auth, async user => {
+      if (!user) {
+        try {
+          await signInAnonymously(auth);
+          console.log("Motoboy autenticado anonimamente");
+        } catch(e) {
+          console.error("Falha no anon-login:", e);
+        }
+      } else if (localStorage.getItem("motoboyUser")) {
+        // já temos usuário no localStorage → inicia
+        enterUI();
+        loadLocal();
+        renderAll();
+        startMotoboyListener();
+      }
+    });
+
+    // UI login/logout
     function enterUI(){
-      $('#login-box').classList.add('hidden');
-      $('#topbar').classList.remove('hidden');
-      $('#tabs').classList.remove('hidden');
-      $('#panels').classList.remove('hidden');
+      document.querySelector('#login-box').classList.add('hidden');
+      document.querySelector('#topbar').classList.remove('hidden');
+      document.querySelector('#tabs').classList.remove('hidden');
+      document.querySelector('#panels').classList.remove('hidden');
     }
     function doLogin(u){
       localStorage.setItem('motoboyUser',u);
       enterUI();
       loadLocal();
       renderAll();
-      // startMotoboyListener();
+      startMotoboyListener();
     }
-    $('#login-btn').onclick = ()=>{
-      const u=$('#user').value.trim().toLowerCase();
-      const p=$('#pass').value;
-      if(u==='boaz'&&p==='boaz123') doLogin(u);
+
+    // eventos de botão
+    document.querySelector('#login-btn').onclick = ()=>{
+      const u = document.querySelector('#user').value.trim().toLowerCase();
+      const p = document.querySelector('#pass').value;
+      if (u==='boaz' && p==='boaz123') doLogin(u);
       else toast('Usuário ou senha inválidos','error');
     };
-    $('#logout-btn').onclick = ()=>{
+    document.querySelector('#logout-btn').onclick = ()=>{
       localStorage.clear();
       location.reload();
     };
-    window.addEventListener('load',()=>{
-      const u=localStorage.getItem('motoboyUser');
-      if(u) doLogin(u);
-    });
+    document.querySelector('#tab-active').onclick   = ()=>toggleTab('active');
+    document.querySelector('#tab-finished').onclick = ()=>toggleTab('finished');
 
-    // Abas
-    $('#tab-active').onclick   = ()=>toggleTab('active');
-    $('#tab-finished').onclick = ()=>toggleTab('finished');
+    // ao carregar a página, se já estiver logado
+    window.addEventListener('load',()=>{
+      const u = localStorage.getItem('motoboyUser');
+      if (u) enterUI();
+    });
   </script>
 
 </body>
