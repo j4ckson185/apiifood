@@ -1,6 +1,4 @@
 // firebase-init.js
-// Inicializa o Firebase App e exporta a instância do Firestore (db)
-
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
 import { getFirestore }  from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
@@ -19,5 +17,4 @@ const app = initializeApp(firebaseConfig);
 // Inicializa o Firestore
 const db = getFirestore(app);
 
-// Exporta para uso em outros módulos
 export { db };
