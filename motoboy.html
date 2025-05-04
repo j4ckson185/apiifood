@@ -4,130 +4,209 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Central do Motoboy</title>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+  <link rel="stylesheet"
+        href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
 
-<style>
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 
-*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    :root{
+      --bg:#f5f5f5;
+      --primary:#4285f4;
+      --primary-dark:#2962d3;
+      --success:#28a745;
+      --warning:#f0ad4e;
+      --danger:#c33;
+      --shadow:0 2px 6px rgba(0,0,0,.1);
+      --radius:10px;
+      font-family:system-ui,sans-serif
+    }
 
-:root{
+    body{
+      background:var(--bg);
+      min-height:100vh;
+      display:flex;
+      flex-direction:column
+    }
 
---bg:#f5f5f5;--primary:#4285f4;--primary-dark:#2962d3;
+    .hidden{display:none !important}
 
---success:#28a745;--warning:#f0ad4e;--danger:#c33;
+    /* TOPBAR */
+    #topbar{
+      background:#fff;
+      box-shadow:var(--shadow);
+      padding:.75rem 1rem;
+      display:flex;
+      justify-content:space-between;
+      align-items:center
+    }
+    #topbar h1{font-size:1.1rem;font-weight:600;color:#444}
+    #logout-btn{
+      background:none;
+      border:none;
+      color:var(--danger);
+      font-size:.9rem;
+      cursor:pointer
+    }
+    #logout-btn i{margin-right:.3rem}
 
---shadow:0 2px 6px rgb(0 0 0 /.1);--radius:10px;
+    /* TABS */
+    #tabs{
+      display:flex;
+      border-bottom:1px solid #ddd;
+      background:#fff
+    }
+    .tab-btn{
+      flex:1;
+      text-align:center;
+      padding:.7rem 0;
+      cursor:pointer;
+      font-weight:600
+    }
+    .tab-btn.active{
+      color:var(--primary);
+      border-bottom:3px solid var(--primary)
+    }
+    #panels{
+      flex:1;
+      overflow-y:auto;
+      padding:1rem
+    }
+    .panel{display:none}
+    .panel.active{display:block}
 
-font-family:system-ui,sans-serif
+    /* CARDS */
+    .order-card{
+      width:100%;
+      max-width:380px;
+      margin:0 auto 1rem;
+      background:#fff;
+      border-radius:var(--radius);
+      box-shadow:var(--shadow)
+    }
+    .badge{
+      align-self:flex-start;
+      margin-left:.5rem;
+      padding:.1rem .6rem;
+      border-radius:999px;
+      font-size:.75rem;
+      font-weight:600;
+      color:#fff
+    }
+    .badge.NEW{background:var(--primary)}
+    .badge.DISPATCHED{background:var(--warning)}
+    .badge.CONCLUDED{background:var(--success)}
 
-}
+    .order-header{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      padding:.9rem 1rem;
+      cursor:pointer
+    }
+    .order-header h3{font-size:1rem}
+    .order-header small{color:#555}
 
-body{background:var(--bg);min-height:100vh;display:flex;flex-direction:column}
+    .order-body{
+      padding:0 1rem 1rem;
+      font-size:.9rem;
+      color:#555;
+      display:none
+    }
+    .order-body.open{display:block}
+    .order-body div{margin-top:.45rem}
 
-.hidden{display:none !important}
+    .order-actions{
+      margin-top:.8rem;
+      display:flex;
+      gap:.5rem
+    }
+    .order-actions button{
+      flex:1;
+      padding:.55rem;
+      border:none;
+      border-radius:6px;
+      font-weight:600;
+      color:#fff;
+      cursor:pointer;
+      font-size:.82rem
+    }
+    .dispatch{background:var(--warning)}
+    .finish{background:var(--success)}
+    .order-actions button:disabled{
+      opacity:.6;
+      cursor:not-allowed
+    }
 
-/* TOPBAR */
+    /* LOGIN */
+    #login-box{
+      max-width:320px;
+      margin:auto;
+      padding:2rem;
+      background:#fff;
+      border-radius:var(--radius);
+      box-shadow:var(--shadow)
+    }
+    #login-box h2{
+      text-align:center;
+      margin-bottom:1.4rem;
+      color:#444
+    }
+    #login-box input{
+      width:100%;
+      padding:.8rem;
+      margin-bottom:1rem;
+      border:1px solid #ccc;
+      border-radius:6px
+    }
+    #login-box button{
+      width:100%;
+      padding:.8rem;
+      border:none;
+      border-radius:6px;
+      background:var(--primary);
+      color:#fff;
+      font-weight:600;
+      cursor:pointer
+    }
+    #login-box button:hover{background:var(--primary-dark)}
 
-#topbar{background:#fff;box-shadow:var(--shadow);padding:.75rem 1rem;
+    /* TOAST */
+    .toast{
+      position:fixed;
+      left:50%;
+      bottom:1rem;
+      transform:translateX(-50%);
+      background:#333;
+      color:#fff;
+      padding:.6rem 1.2rem;
+      border-radius:var(--radius);
+      opacity:0;
+      pointer-events:none;
+      transition:opacity .3s
+    }
+    .toast.show{opacity:1}
 
-display:flex;justify-content:space-between;align-items:center}
+    @media(max-width:480px){
+      .order-header h3{font-size:.95rem}
+    }
+  </style>
 
-#topbar h1{font-size:1.1rem;font-weight:600;color:#444}
-
-#logout-btn{background:none;border:none;color:var(--danger);font-size:.9rem;cursor:pointer}
-
-#logout-btn i{margin-right:.3rem}
-
-/* TABS */
-
-#tabs{display:flex;border-bottom:1px solid #ddd;background:#fff}
-
-.tab-btn{flex:1;text-align:center;padding:.7rem 0;cursor:pointer;font-weight:600}
-
-.tab-btn.active{color:var(--primary);border-bottom:3px solid var(--primary)}
-
-#panels{flex:1;overflow-y:auto;padding:1rem}
-
-.panel{display:none}.panel.active{display:block}
-
-/* CARDS */
-
-.order-card{width:100%;max-width:380px;margin:0 auto 1rem;
-
-background:#fff;border-radius:var(--radius);box-shadow:var(--shadow)}
-
-.badge{align-self:flex-start;margin-left:.5rem;padding:.1rem .6rem;border-radius:999px;
-
-font-size:.75rem;font-weight:600;color:#fff}
-
-.badge.NEW{background:var(--primary)}
-
-.badge.DISPATCHED{background:var(--warning)}
-
-.badge.CONCLUDED{background:var(--success)}
-
-.order-header{display:flex;justify-content:space-between;align-items:center;
-
-padding:.9rem 1rem;cursor:pointer}
-
-.order-header h3{font-size:1rem}
-
-.order-header small{color:#555}
-
-.order-body{padding:0 1rem 1rem;font-size:.9rem;color:#555;display:none}
-
-.order-body.open{display:block}
-
-.order-body div{margin-top:.45rem}
-
-.order-actions{margin-top:.8rem;display:flex;gap:.5rem}
-
-.order-actions button{flex:1;padding:.55rem;border:none;border-radius:6px;
-
-font-weight:600;color:#fff;cursor:pointer;font-size:.82rem}
-
-.dispatch{background:var(--warning)}
-
-.finish{background:var(--success)}
-
-.order-actions button:disabled{opacity:.6;cursor:not-allowed}
-
-/* LOGIN */
-
-#login-box{max-width:320px;margin:auto;padding:2rem;background:#fff;
-
-border-radius:var(--radius);box-shadow:var(--shadow)}
-
-#login-box h2{text-align:center;margin-bottom:1.4rem;color:#444}
-
-#login-box input{width:100%;padding:.8rem;margin-bottom:1rem;border:1px solid #ccc;border-radius:6px}
-
-#login-box button{width:100%;padding:.8rem;border:none;border-radius:6px;
-
-background:var(--primary);color:#fff;font-weight:600;cursor:pointer}
-
-#login-box button:hover{background:var(--primary-dark)}
-
-/* TOAST */
-
-.toast{position:fixed;left:50%;bottom:1rem;transform:translateX(-50%);
-
-background:#333;color:#fff;padding:.6rem 1.2rem;border-radius:var(--radius);
-
-opacity:0;pointer-events:none;transition:opacity .3s}
-
-.toast.show{opacity:1}
-
-@media(max-width:480px){.order-header h3{font-size:.95rem}}
-
-</style>
-
-  <!-- ① Inicialização do Firebase (exporta `db`) -->
+  <!-- ① Inicialização do Firebase -->
   <script type="module" src="./firebase-init.js"></script>
 </head>
+
 <body>
 
-  <!-- ===== INTERFACE ===== -->
+  <!-- LOGIN -->
+  <div id="login-box">
+    <h2><i class="fas fa-user-shield"></i> Login Motoboy</h2>
+    <input id="user" type="text" placeholder="Usuário" autocomplete="username">
+    <input id="pass" type="password" placeholder="Senha" autocomplete="current-password">
+    <button id="login-btn">Entrar</button>
+  </div>
+
+  <!-- INTERFACE -->
   <header id="topbar" class="hidden">
     <h1>Central do Motoboy</h1>
     <button id="logout-btn"><i class="fas fa-sign-out-alt"></i>Sair</button>
@@ -143,44 +222,38 @@ opacity:0;pointer-events:none;transition:opacity .3s}
     <section id="panel-finished" class="panel"></section>
   </main>
 
-  <!-- ===== LOGIN ===== -->
-  <div id="login-box">
-    <h2><i class="fas fa-user-shield"></i> Login Motoboy</h2>
-    <input id="user" type="text" placeholder="Usuário" autocomplete="username">
-    <input id="pass" type="password" placeholder="Senha" autocomplete="current-password">
-    <button id="login-btn">Entrar</button>
-  </div>
-
-  <!-- ===== TOAST ===== -->
   <div id="toast" class="toast"></div>
 
-  <!-- ===== LÓGICA CLIENTE ===== -->
+  <!-- LÓGICA -->
   <script type="module">
-    import { db } from "./firebase-init.js";
+    import { db, auth } from "./firebase-init.js";
     import {
       collection,
+      doc,
+      writeBatch,
+      serverTimestamp,
       onSnapshot
     } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+    import {
+      onAuthStateChanged,
+      signInAnonymously
+    } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 
-        // comunica com o admin
-    const channel = new BroadcastChannel('dispatchChannel');
-
-    // 1) Estado e helpers de UI
-    const state = { accessToken:null, active:{}, finished:{} };
-    const CONFIG = {
-      clientId: 'e6415912-782e-4bd9-b6ea-af48c81ae323',
-      clientSecret: '137o75y57ug8fm55ubfoxlwjpl0xm25jxj18ne5mser23mbprj5nfncvfnr82utnzx73ij4h449o298370rjwpycppazsfyh2s0l'
-    };
+    // Estado e helpers
+    const state = { active:{}, finished:{} };
     const $ = s => document.querySelector(s);
+
     function toast(msg,type='info'){
-      const t=$('#toast');
-      t.textContent=msg;
-      t.style.background= type==='error' ? 'var(--danger)' : '#333';
+      const t = $('#toast');
+      t.textContent = msg;
+      t.style.background = type==='error'? 'var(--danger)' : '#333';
       t.classList.add('show');
       setTimeout(()=>t.classList.remove('show'),2300);
     }
     function badgeText(s){
-      return s==='NEW'?'Novo': s==='DISPATCHED'?'Despachado':'Finalizado';
+      return s==='NEW'? 'Novo'
+           : s==='DISPATCHED'? 'Despachado'
+           : 'Finalizado';
     }
     function toggleTab(tab){
       const act = tab==='active';
@@ -190,43 +263,6 @@ opacity:0;pointer-events:none;transition:opacity .3s}
       $('#panel-finished').classList.toggle('active',!act);
     }
 
-    // 2) Autenticação + proxy Netlify
-    async function fetchOwnToken(){
-      const payload = {
-        path:'/authentication/v1.0/oauth/token', method:'POST',
-        headers:{'Content-Type':'application/x-www-form-urlencoded'},
-        body:`grantType=client_credentials&clientId=${CONFIG.clientId}&clientSecret=${CONFIG.clientSecret}`,
-        isAuth:true
-      };
-      const r = await fetch('/.netlify/functions/ifood-proxy',{
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body:JSON.stringify(payload)
-      });
-      if(!r.ok) throw new Error('auth '+r.status);
-      return (await r.json()).accessToken;
-    }
-    async function ensureToken(){
-      if(state.accessToken) return;
-      state.accessToken = await fetchOwnToken();
-    }
-    async function makeRequest(path,method='GET',body=null){
-      await ensureToken();
-      const headers = {
-        'Content-Type':'application/json',
-        'Authorization':`Bearer ${state.accessToken}`
-      };
-      const r = await fetch('/.netlify/functions/ifood-proxy',{
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({path,method,headers,body})
-      });
-      if(!r.ok) throw new Error('HTTP '+r.status);
-      const txt = await r.text();
-      return txt ? JSON.parse(txt) : {};
-    }
-
-    // 3) Monta e renderiza cards
     function createCard(det){
       const c = document.createElement('div');
       c.className = 'order-card';
@@ -237,7 +273,9 @@ opacity:0;pointer-events:none;transition:opacity .3s}
             <h3>#${det.displayId}</h3>
             <small>${det.customer}</small>
           </div>
-          <span class="badge ${det.status}">${badgeText(det.status)}</span>
+          <span class="badge ${det.status}">
+            ${badgeText(det.status)}
+          </span>
         </div>
         <div class="order-body">
           <div><b>Endereço:</b> ${det.address}</div>
@@ -249,33 +287,48 @@ opacity:0;pointer-events:none;transition:opacity .3s}
        .onclick = ()=>c.querySelector('.order-body').classList.toggle('open');
       return c;
     }
+
     function setStatus(card,s){
       const b = card.querySelector('.badge');
       b.className = 'badge '+s;
       b.textContent = badgeText(s);
     }
+
     function renderActive(det){
       const card = createCard(det);
       const acts = card.querySelector('.order-actions');
       acts.innerHTML = det.status==='NEW'
-        ? `<button class="dispatch"><i class="fas fa-location-arrow"></i> Despachar</button>
-           <button class="finish"><i class="fas fa-check"></i> Finalizar</button>`
-        : `<button class="finish"><i class="fas fa-check"></i> Finalizar</button>`;
+        ? `<button class="dispatch">
+             <i class="fas fa-location-arrow"></i>
+             Despachar
+           </button>
+           <button class="finish">
+             <i class="fas fa-check"></i>
+             Finalizar
+           </button>`
+        : `<button class="finish">
+             <i class="fas fa-check"></i>
+             Finalizar
+           </button>`;
       acts.querySelectorAll('button').forEach(btn=>{
         btn.onclick = e=>{
           e.stopPropagation();
-          if(btn.classList.contains('dispatch')) doDispatch(det.id,card,btn);
-          else                                 doFinish(det.id,card);
+          if (btn.classList.contains('dispatch'))
+            doDispatch(det.id,card,btn);
+          else
+            doFinish(det.id,card);
         };
       });
       $('#panel-active').prepend(card);
     }
+
     function renderFinished(det){
       const card = createCard({...det,status:'CONCLUDED'});
       card.querySelector('.order-actions').remove();
       setStatus(card,'CONCLUDED');
       $('#panel-finished').prepend(card);
     }
+
     function renderAll(){
       $('#panel-active').innerHTML   = '';
       $('#panel-finished').innerHTML = '';
@@ -283,30 +336,31 @@ opacity:0;pointer-events:none;transition:opacity .3s}
       Object.values(state.finished).forEach(renderFinished);
     }
 
-    // 4) Ações de Despachar / Finalizar
-  function doDispatch(id, card, btn) {
-    // avisa o admin para despachar
-    channel.postMessage({ type: 'dispatch-request', orderId: id });
-    // atualiza localmente
-    btn.disabled = true;
-    state.active[id].status = 'DISPATCHED';
-    setStatus(card, 'DISPATCHED');
-    btn.remove();
-    saveLocal();
-    toast('Pedido despachado', 'info');
-  }
+    // Ações
+    function doDispatch(id,card,btn){
+      const user = localStorage.getItem('motoboyUser');
+      const ref  = doc(db,'dispatchs',user,'orders',id);
+      const batch= writeBatch(db);
+      batch.set(ref,{orderId:id,assignedAt:serverTimestamp()});
+      batch.commit();
+      state.active[id].status='DISPATCHED';
+      setStatus(card,'DISPATCHED');
+      btn.remove();
+      toast('Pedido despachado','info');
+      saveLocal();
+    }
     function doFinish(id,card){
       const det = state.active[id];
-      det.status = 'CONCLUDED';
-      state.finished[id] = det;
+      det.status='CONCLUDED';
+      state.finished[id]=det;
       delete state.active[id];
       card.remove();
       renderFinished(det);
-      saveLocal();
       toast('Pedido finalizado','success');
+      saveLocal();
     }
 
-    // 5) Storage local
+    // Storage local
     function saveLocal(){
       localStorage.setItem('mbActive',  JSON.stringify(state.active));
       localStorage.setItem('mbFinished',JSON.stringify(state.finished));
@@ -316,90 +370,93 @@ opacity:0;pointer-events:none;transition:opacity .3s}
         state.active   = JSON.parse(localStorage.getItem('mbActive'))   || {};
         state.finished = JSON.parse(localStorage.getItem('mbFinished')) || {};
       } catch {
-        state.active = {}; state.finished = {};
+        state.active={}, state.finished={};
       }
     }
 
-// ————————————————
-// traduz códigos da API para PT-BR
-function translatePayment(code, brand) {
-  const map = {
-    CASH:          'Dinheiro',
-    CARD:          'Cartão',
-    CREDIT_CARD:   'Cartão de Crédito',
-    DEBIT_CARD:    'Cartão de Débito',
-    PIX:           'PIX',
-    MEAL_VOUCHER:  'Vale Refeição',
-    GIFT_VOUCHER:  'Vale Presente',
-    PREPAID:       'Pré-pago',
-    ONLINE:        'Online'
-  };
-  // força uppercase da key e fallback “Title Case”
-  const key = code.toUpperCase();
-  const label = map[key] || key.split('_').map(w=>w[0]+w.slice(1).toLowerCase()).join(' ');
-  return brand ? `${label} (${brand})` : label;
-}
-
-// ————————————————
-// busca detalhes e extrai endereço, total e pagamento já traduzido
-async function fetchOrderDetails(id){
-  const o = await makeRequest(`/order/v1.0/orders/${id}`);
-
-  // 1) monta o endereço
-  const addr = o.delivery?.deliveryAddress || {};
-  const address = addr.formattedAddress
-    || `${addr.streetName||''}, ${addr.streetNumber||''}` 
-       + (addr.complement ? ' – '+addr.complement : '');
-
-  // 2) calcula o total
-  let raw = o.pricing?.orderAmount
-         ?? o.pricing?.totalPrice
-         ?? o.pricing?.price?.value;
-  if (raw == null) {
-    // tenta pré-pago
-    raw = o.payments?.prepaid ?? 0;
-    // ou soma todos os métodos
-    if (!raw && Array.isArray(o.payments?.methods)) {
-      raw = o.payments.methods.reduce((sum,m)=> sum + (m.value||0), 0);
+    // Proxies e tradução de resposta
+    const CONFIG = {
+      clientId:'e6415912-782e-4bd9-b6ea-af48c81ae323',
+      clientSecret:'137o75y57ug8fm55ubfoxlwjpl0xm25jxj18ne5mser23mbprj5nfncvfnr82utnzx73ij4h449o298370rjwpycppazsfyh2s0l'
+    };
+    async function fetchOwnToken(){
+      const payload = {
+        path:'/authentication/v1.0/oauth/token',
+        method:'POST',
+        headers:{'Content-Type':'application/x-www-form-urlencoded'},
+        body:`grantType=client_credentials
+              &clientId=${CONFIG.clientId}
+              &clientSecret=${CONFIG.clientSecret}`
+              .replace(/\s+/g,'')
+      };
+      const r = await fetch('/.netlify/functions/ifood-proxy',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify(payload)
+      });
+      if(!r.ok) throw new Error('auth '+r.status);
+      return (await r.json()).accessToken;
     }
-  }
-  // já está em reais (ex: 27), sem divisão
-  const total = raw || 0;
+    let _token=null;
+    async function ensureToken(){
+      if(!_token) _token = await fetchOwnToken();
+      return _token;
+    }
+    async function makeRequest(path,method='GET',body=null){
+      await ensureToken();
+      const headers = {
+        'Content-Type':'application/json',
+        'Authorization':`Bearer ${_token}`
+      };
+      const r = await fetch('/.netlify/functions/ifood-proxy',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({path,method,headers,body})
+      });
+      if(!r.ok) throw new Error('HTTP '+r.status);
+      const txt = await r.text();
+      return txt?JSON.parse(txt):{};
+    }
+    function translatePayment(code,brand){
+      const map={
+        CASH:'Dinheiro',CARD:'Cartão',PIX:'PIX',
+        PREPAID:'Pré-pago',ONLINE:'Online'
+      };
+      const key=code.toUpperCase();
+      const lbl=map[key]||(key[0]+key.slice(1).toLowerCase());
+      return brand?`${lbl} (${brand})`:lbl;
+    }
+    async function fetchOrderDetails(id){
+      const o = await makeRequest(`/order/v1.0/orders/${id}`);
+      const addr=o.delivery?.deliveryAddress||{};
+      const address=addr.formattedAddress
+        ||`${addr.streetName||''},${addr.streetNumber||''}`
+         + (addr.complement?` – ${addr.complement}`:'');
+      let raw = o.pricing?.orderAmount
+             ||o.pricing?.totalPrice
+             ||o.pricing?.price?.value || 0;
+      const customer=o.customer?.name
+        ||`${o.customer?.firstName||''} ${o.customer?.lastName||''}`.trim()
+        ||'—';
+      const displayId=o.displayId||id.slice(0,8);
+      const total=raw;
+      const pm=o.payments?.methods?.[0]||{};
+      const payment=translatePayment(pm.method||pm.methodType||'',pm.card?.brand);
+      return {id,displayId,customer,address,total,payment,status:'NEW'};
+    }
 
-  // 3) traduz o meio de pagamento
-  const payObj = o.payments?.methods?.[0] || {};
-  const code = payObj.method || payObj.methodName || payObj.methodType || '';
-  const payment = translatePayment(code, payObj.card?.brand);
-
-  // 4) displayId e cliente (mesma lógica do admin)
-  const displayId = o.displayId || o.orderDisplayId || id.slice(0,8);
-  const customer  = o.customer?.name
-                  || `${o.customer?.firstName||''} ${o.customer?.lastName||''}`.trim()
-                  || '—';
-
-  return {
-    id,
-    displayId,
-    customer,
-    address,
-    total,
-    payment,
-    status: 'NEW'
-  };
-}
-
-    // 7) Listener Firestore (substitui BroadcastChannel & polling)
-    function startMotoboyListener() {
+    // Firestore Listener — substitui BroadcastChannel
+    function startMotoboyListener(){
       const motoboyUser = localStorage.getItem('motoboyUser');
-      if (!motoboyUser) return;
-      const ordersCol = collection(db, "dispatchs", motoboyUser, "orders");
-      onSnapshot(ordersCol, snapshot => {
-        snapshot.docChanges().forEach(async change => {
-          if (change.type === "added") {
-            const orderId = change.doc.id;
-            if (!state.active[orderId] && !state.finished[orderId]) {
-              const det = await fetchOrderDetails(orderId);
-              state.active[orderId] = det;
+      if(!motoboyUser) return;
+      const ordersCol = collection(db,'dispatchs',motoboyUser,'orders');
+      onSnapshot(ordersCol,snap=>{
+        snap.docChanges().forEach(async change=>{
+          if(change.type==='added'){
+            const orderId=change.doc.id;
+            if(!state.active[orderId]&&!state.finished[orderId]){
+              const det=await fetchOrderDetails(orderId);
+              state.active[orderId]=det;
               renderActive(det);
               saveLocal();
             }
@@ -408,7 +465,7 @@ async function fetchOrderDetails(id){
       });
     }
 
-    // 8) Login / Logout
+    // Login / Logout
     function enterUI(){
       $('#login-box').classList.add('hidden');
       $('#topbar').classList.remove('hidden');
@@ -423,9 +480,9 @@ async function fetchOrderDetails(id){
       startMotoboyListener();
     }
     $('#login-btn').onclick = ()=>{
-      const u = $('#user').value.trim().toLowerCase();
-      const p = $('#pass').value;
-      if(u==='boaz' && p==='boaz123') doLogin(u);
+      const u=$('#user').value.trim().toLowerCase();
+      const p=$('#pass').value;
+      if(u==='boaz'&&p==='boaz123') doLogin(u);
       else toast('Usuário ou senha inválidos','error');
     };
     $('#logout-btn').onclick = ()=>{
@@ -437,10 +494,10 @@ async function fetchOrderDetails(id){
       if(u) doLogin(u);
     });
 
-    // 9) Tabs
+    // Abas
     $('#tab-active').onclick   = ()=>toggleTab('active');
     $('#tab-finished').onclick = ()=>toggleTab('finished');
-
   </script>
+
 </body>
 </html>
