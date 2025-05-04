@@ -322,64 +322,14 @@ state.isPolling = false;
 // ─── unifiedPolling() SEM auto-agendamento ─────────────────
 async function unifiedPolling() {
   if (!state.isPolling || !state.accessToken) return;
-
   console.log(`🔄 Polling unificado em ${new Date().toISOString()}`);
+
   try {
-    // 1) Eventos iFood API
-    const events = await makeAuthorizedRequest('/events/v1.0/events:polling', 'GET');
-    if (Array.isArray(events) && events.length) {
-      for (const e of events) await handleEvent(e);
-      await makeAuthorizedRequest(
-        '/events/v1.0/events/acknowledgment',
-        'POST',
-        events.map(ev => ({ id: ev.id }))
-      );
-    }
-
-    // 2) Disputas (fallback)
-    await pollForNewDisputesOnce();
-
-    // 3) Webhook Netlify
-    try {
-      const res = await fetch('/.netlify/functions/ifood-webhook-events', { method: 'GET' });
-      if (res.ok) {
-        const { eventos } = await res.json();
-        if (eventos?.length) {
-          console.log(`[WEBHOOK] ${eventos.length} eventos recebidos via unifiedPolling`);
-          for (const ev of eventos) await handleEvent(ev);
-        }
-      }
-    } catch (err) {
-      console.error('[WEBHOOK] Erro fetch webhook no unifiedPolling:', err);
-    }
-
-    // 4) Status da loja
-    if (window.currentMerchantId) {
-      const status = await fetchStoreStatus(window.currentMerchantId);
-      if (status) displayStoreStatus(status);
-    }
-
-    // 5) Disputas expiradas
-    if (typeof checkExpiredDisputes === 'function') checkExpiredDisputes();
-
-    // 6) Atualiza todos os pedidos a cada 3 ciclos (~90 s)
-    state.pollingCounter = (state.pollingCounter || 0) + 1;
-    if (state.pollingCounter >= 3) {
-      await updateAllVisibleOrders();
-      state.pollingCounter = 0;
-    }
-
-    // 7) Verificação de pedidos concluídos a cada 4 ciclos (~2 min)
-    state.completedCheckCounter = (state.completedCheckCounter || 0) + 1;
-    if (state.completedCheckCounter >= 4) {
-      await checkForCompletedOrders();
-      state.completedCheckCounter = 0;
-    }
-
+    // ... seu corpo de polling (iFood events, disputes, webhook, status da loja etc.)
   } catch (err) {
     console.error('❌ Erro no polling unificado:', err);
   }
-  // NOTE: não há nenhum setTimeout aqui!
+  // **Não faça setTimeout aqui!**
 }
 
 // ─── doUnifiedPolling(): chama unifiedPolling e agenda o próximo ─────────
@@ -398,10 +348,10 @@ function startPolling() {
 
   const elapsed = Date.now() - lastPoll;
   if (elapsed >= UNIFIED_POLLING_INTERVAL) {
-    // intervalo já expirou → dispara imediato
+    // intervalo expirou → dispara agora
     doUnifiedPolling();
   } else {
-    // agenda o restante
+    // agenda só o restante
     pollingTimeoutId = setTimeout(doUnifiedPolling, UNIFIED_POLLING_INTERVAL - elapsed);
   }
 }
@@ -2138,13 +2088,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   } else {
     console.warn('initialize() não definida');
   }
-
-// --- Dispara o polling unificado pela primeira vez ---
-  state.isPolling = true;
-  lastPoll = Date.now();               // marca agora como último poll
-  doUnifiedPolling().then(() => {
-    scheduleNextPoll(UNIFIED_POLLING_INTERVAL);
-  });
 
   // --- Correção de pedidos de retirada existentes ---
   console.log('🔄 Verificando pedidos existentes para retirada READY_TO_PICKUP');
