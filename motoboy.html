@@ -255,21 +255,34 @@ function doFinish(id,card){
 }
 
 /* ----------------------------------------------------------------
-   7. DETALHES DO PEDIDO
+   7. DETALHES DO PEDIDO (endereço, valor e pagamento iguais ao admin)
 ---------------------------------------------------------------- */
 async function fetchOrderDetails(id){
-  const o=await makeRequest(`/order/v1.0/orders/${id}`,'GET');
-  const cents = o.pricing?.price?.value ?? o.pricing?.totalPrice ?? o.totalPrice ?? 0;
-  const total = cents/100;
+  const o = await makeRequest(`/order/v1.0/orders/${id}`,'GET');
+
+  // Endereço no mesmo padrão usado no admin
+  const addr = o.delivery?.deliveryAddress ?? {};
+  const address =
+        addr.formattedAddress ||
+        `${addr.streetName||''}, ${addr.streetNumber||''}${addr.complement ? ' - '+addr.complement : ''}`;
+
+  // Total em reais - o iFood devolve centavos
+  const cents  = o.pricing?.totalPrice ?? o.pricing?.price?.value ?? o.totalPrice ?? 0;
+  const total  = cents / 100;
+
+  // Forma de pagamento (mesma estrutura do admin)
+  const payObj = o.payments?.methods?.[0] || {};
+  const payment = payObj.methodName || payObj.methodType || payObj.method || '—';
+
   return {
     id,
-    displayId:o.displayId || o.orderDisplayId || id.slice(0,8),
-    customer :o.customer?.name || `${o.customer?.firstName||''} ${o.customer?.lastName||''}`.trim() || '—',
-    address  :o.deliveryAddress?.formattedAddress ||
-              `${o.deliveryAddress?.streetName||''}, ${o.deliveryAddress?.number||''}`,
-    total    :total,
-    payment  :o.payments?.[0]?.methodName || o.payments?.[0]?.method || o.payments?.[0]?.methodType || '—',
-    status   :'NEW'
+    displayId : o.displayId || o.orderDisplayId || id.slice(0,8),
+    customer  : o.customer?.name ||
+                `${o.customer?.firstName||''} ${o.customer?.lastName||''}`.trim() || '—',
+    address,
+    total,
+    payment,
+    status    : 'NEW'
   };
 }
 
