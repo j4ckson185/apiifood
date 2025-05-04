@@ -216,6 +216,7 @@
       collection,
       doc,
       writeBatch,
+      updateDoc,
       serverTimestamp,
       onSnapshot
     } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
@@ -472,39 +473,67 @@ async function doDispatch(id, card, btn) {
   saveLocal();
 }
     
-    function doFinish(id,card){
-      const det = state.active[id];
-      det.status = 'CONCLUDED';
-      state.finished[id] = det;
-      delete state.active[id];
-      card.remove();
-      renderFinished(det);
-      toast('Pedido finalizado','success');
-      saveLocal();
-    }
+async function doFinish(id, card){
+  const user = localStorage.getItem('motoboyUser');        // ← pega usuário
+  await updateDoc(
+    doc(db,'dispatchs',user,'orders',id),
+    { status:'CONCLUDED', finishedAt:serverTimestamp() }
+  );
+
+  const det = state.active[id];
+  det.status = 'CONCLUDED';
+  state.finished[id] = det;
+  delete state.active[id];
+  card.remove();
+  renderFinished(det);
+  toast('Pedido finalizado','success');
+  saveLocal();
+}
 
     // estado global
     const state = { active:{}, finished:{} };
 
     // inicia listener Firestore
-    function startMotoboyListener(){
-      const motoboyUser = localStorage.getItem('motoboyUser');
-      if (!motoboyUser) return;
-      const ordersCol = collection(db,'dispatchs',motoboyUser,'orders');
-      onSnapshot(ordersCol,snap=>{
-        snap.docChanges().forEach(async change=>{
-          if (change.type==='added'){
-            const orderId = change.doc.id;
-            if (!state.active[orderId] && !state.finished[orderId]){
-              const det = await fetchOrderDetails(orderId);
-              state.active[orderId] = det;
-              renderActive(det);
-              saveLocal();
-            }
-          }
-        });
-      });
+function startMotoboyListener () {
+  const motoboyUser = localStorage.getItem('motoboyUser');
+  if (!motoboyUser) return;
+
+  const ordersCol = collection(db, 'dispatchs', motoboyUser, 'orders');
+
+  onSnapshot(ordersCol, async snapshot => {
+    for (const change of snapshot.docChanges()) {
+
+      // tratamos adições e modificações (mantém status após novo login)
+      if (change.type === 'added' || change.type === 'modified') {
+        const orderId = change.doc.id;
+        const data    = change.doc.data();
+        const status  = data.status || 'NEW';          // NEW / DISPATCHED / CONCLUDED
+
+        // busca os detalhes mais recentes do pedido
+        const det = await fetchOrderDetails(orderId);
+        det.status = status;
+
+        /* limpa qualquer card duplicado antes de redesenhar */
+        document
+          .querySelector(`.order-card[data-id="${orderId}"]`)
+          ?.remove();
+        delete state.active[orderId];
+        delete state.finished[orderId];
+
+        if (status === 'CONCLUDED') {
+          state.finished[orderId] = det;
+          renderFinished(det);
+        } else {
+          state.active[orderId] = det;                 // NEW ou DISPATCHED
+          renderActive(det);
+        }
+        saveLocal();
+      }
+
+      // se quiser: tratar change.type === 'removed' aqui…
     }
+  });
+}
 
     // Firebase Auth anônimo
     onAuthStateChanged(auth, async user => {
