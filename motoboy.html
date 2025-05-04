@@ -292,13 +292,23 @@ async function fetchOwnToken() {
       return txt ? JSON.parse(txt) : {};
     }
 
-    // traduz método de pagamento
-    function translatePayment(code,brand) {
-      const map = { CASH:'Dinheiro', CARD:'Cartão', PIX:'PIX', PREPAID:'Pré-pago', ONLINE:'Online' };
-      const key = code.toUpperCase();
-      const lbl = map[key] || (key[0]+key.slice(1).toLowerCase());
-      return brand ? `${lbl} (${brand})` : lbl;
-    }
+  function translatePayment(pm) {
+  // pm = { value, currency, method, prepaid, type, card:{brand} }
+  const mapMethod = {
+    CASH:            'Dinheiro',
+    CARD:            'Cartão',
+    PIX:             'PIX',
+    PREPAID:         'Pré-pago',
+    ONLINE:          'Online',
+    MEAL_VOUCHER:    'Vale Refeição',
+    FOOD_VOUCHER:    'Vale Alimentação',
+    // ... outros se precisar
+  };
+  const name = mapMethod[pm.method] || mapMethod[pm.type] || pm.method || pm.type || '';
+  const brand = pm.card?.brand ? ` (${pm.card.brand})` : '';
+  const type  = pm.type ? ` - ${pm.type}` : '';
+  return `${name}${brand}${type}`.trim();
+}
 
     // alert/toast
     function toast(msg,type='info'){
@@ -405,44 +415,52 @@ async function fetchOwnToken() {
     }
 
     // busca detalhes do pedido
-    async function fetchOrderDetails(id){
-      const o = await makeRequest(`/order/v1.0/orders/${id}`);
-      const addr = o.delivery?.deliveryAddress || {};
-      const address = addr.formattedAddress
-        || `${addr.streetName||''},${addr.streetNumber||''}`
-         + (addr.complement?` – ${addr.complement}`:'');
-      const raw = o.pricing?.orderAmount
-               || o.pricing?.totalPrice
-               || o.pricing?.price?.value || 0;
-      const customer = o.customer?.name
-        || `${o.customer?.firstName||''} ${o.customer?.lastName||''}`.trim()
-        || '—';
-      const displayId = o.displayId || id.slice(0,8);
-      const total = raw;
-      const pm = o.payments?.methods?.[0] || {};
-      const payment = translatePayment(pm.method||pm.methodType||'',pm.card?.brand);
-      return { id, displayId, customer, address, total, payment, status:'NEW' };
-    }
+async function fetchOrderDetails(id){
+  const o = await makeRequest(`/order/v1.0/orders/${id}`);
 
-    // ações de dispatch e finish
-    async function doDispatch(id,card,btn){
-      const user = localStorage.getItem('motoboyUser');
-      const ref = doc(db,'dispatchs',user,'orders',id);
-      const batch = writeBatch(db);
-      batch.set(ref,{ orderId:id, assignedAt:serverTimestamp() });
-      await batch.commit();
-      try {
-        await makeRequest(`/order/v1.0/orders/${id}/dispatch`,'POST');
-        toast('Pedido despachado no iFood','success');
-      } catch(e){
-        console.error(e);
-        toast('Erro ao despachar no iFood','error');
-      }
-      state.active[id].status = 'DISPATCHED';
-      setStatus(card,'DISPATCHED');
-      btn.remove();
-      saveLocal();
-    }
+  // endereço...
+  const addr = o.delivery?.deliveryAddress || {};
+  const address = addr.formattedAddress
+    || `${addr.streetName||''},${addr.streetNumber||''}`
+     + (addr.complement?` – ${addr.complement}`:'');
+
+  // valor principal: total.orderAmount
+  const raw = o.total?.orderAmount
+           || o.payments?.methods?.[0]?.value
+           || 0;
+
+  // cliente...
+  const customer = o.customer?.name
+    || `${o.customer?.firstName||''} ${o.customer?.lastName||''}`.trim()
+    || '—';
+
+  const displayId = o.displayId || id.slice(0,8);
+  const total     = raw;
+
+  // método de pagamento
+  const pm = o.payments?.methods?.[0] || {};
+  const payment = translatePayment(pm);
+
+  return { id, displayId, customer, address, total, payment, status:'NEW' };
+}
+
+async function doDispatch(id, card, btn) {
+  const user = localStorage.getItem('motoboyUser');
+  const ref  = doc(db, 'dispatchs', user, 'orders', id);
+  const batch = writeBatch(db);
+  batch.set(ref, { orderId: id, assignedAt: serverTimestamp() });
+  await batch.commit();
+
+  // não chamar mais a API do iFood aqui!
+  toast('Pedido marcado como despachado (aguardando ação do Admin)', 'success');
+
+  // atualiza UI local
+  state.active[id].status = 'DISPATCHED';
+  setStatus(card, 'DISPATCHED');
+  btn.remove();
+  saveLocal();
+}
+    
     function doFinish(id,card){
       const det = state.active[id];
       det.status = 'CONCLUDED';
