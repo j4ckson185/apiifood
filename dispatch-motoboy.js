@@ -2,6 +2,19 @@
 // Integra página-admin ↔ motoboy (via BroadcastChannel)
 
 const dispatchChannel = new BroadcastChannel('dispatchChannel');
+/* ─────────── NOVO BLOCO: responde a pedido de token ─────────── */
+dispatchChannel.addEventListener('message', async (ev) => {
+  if (ev.data?.type === 'token-request') {
+    // garante que já temos token; se ainda não, autentica
+    if (!state.accessToken && typeof authenticate === 'function') {
+      try { await authenticate(); } catch {}
+    }
+    if (state.accessToken) {
+      dispatchChannel.postMessage({ type: 'token', token: state.accessToken });
+    }
+  }
+});
+/* ─────────── FIM DO BLOCO ───────────────────────────────────── */
 let selectedOrders = new Set();
 
 // 1. Preenche a aba “Despachar para Motoboy” automaticamente
