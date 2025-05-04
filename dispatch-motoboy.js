@@ -1,24 +1,8 @@
-// dispatch-motoboy.js
-// Substitui BroadcastChannel por canal real-time no Firestore
-// Suporta tanto a página Admin (envio) quanto a motoboy.html (recepção)
-
-// ① cria o canal de comunicação motoboy ↔ admin
-const channel = new BroadcastChannel('dispatchChannel');
-
-channel.addEventListener('message', e => {
-  const msg = e.data;
-  if (msg?.type === 'dispatch-request') {
-    const orderId = msg.orderId;
-    // ② encontra o card e o botão “Despachar” no dashboard do admin
-    const card = document.querySelector(`.order-card[data-id="${orderId}"]`);
-    const btn  = card?.querySelector('button.dispatch');
-    if (btn) {
-      // ③ dispara exatamente o clique que já aciona a API iFood
-      btn.click();
-    }
-  }
-});
-
+<!-- Inclua este script como módulo -->
+<script type="module">
+// ----------------------------------------------------------------------------
+// 1) Imports e inicialização do Firebase
+// ----------------------------------------------------------------------------
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
 import {
   getFirestore,
@@ -26,54 +10,87 @@ import {
   doc,
   writeBatch,
   serverTimestamp,
-  onSnapshot
+  onSnapshot,
+  getDoc
 } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-// 1) Firebase Config e Inicialização
 const firebaseConfig = {
   apiKey: "AIzaSyBuRHTtuKgpQE_qAdMIbT9_9qbjh4cbLI8",
   authDomain: "apiifood-e0d35.firebaseapp.com",
   projectId: "apiifood-e0d35",
-  storageBucket: "apiifood-e0d35.firebasestorage.app",
+  storageBucket: "apiifood-e0d35.appspot.com",
   messagingSenderId: "905864103175",
   appId: "1:905864103175:web:a198383d3a66a7d2cd31a2"
 };
+
 const app = initializeApp(firebaseConfig);
 const db  = getFirestore(app);
 
-// 2) Estado local de pedidos selecionados (Admin)
-let selectedOrders = new Set();
+// ----------------------------------------------------------------------------
+// 2) Funções utilitárias (implemente conforme seu front)
+// ----------------------------------------------------------------------------
+function switchMainTab(tabName) {
+  // stub: ative a aba correta do seu dashboard
+  console.warn("switchMainTab não implementado:", tabName);
+}
 
-// 3) Função que monta a lista de pedidos “CONFIRMED” para despacho
+function showToast(msg, type = "info") {
+  // stub: exiba um toast na UI
+  console.log(`[toast:${type}]`, msg);
+}
+
+async function fetchOrderDetails(orderId) {
+  const ref = doc(db, "orders", orderId);
+  const snap = await getDoc(ref);
+  return snap.exists() ? snap.data() : null;
+}
+
+function renderActive(details) {
+  // stub: adicione o card de pedido ativo na UI do motoboy
+  console.log("renderActive:", details);
+}
+
+function saveLocal() {
+  // stub: persista no localStorage ou IndexedDB
+  console.log("saveLocal()");
+}
+
+// ----------------------------------------------------------------------------
+// 3) Código do Admin
+// ----------------------------------------------------------------------------
+
+// estado local de pedidos selecionados
+const selectedOrders = new Set();
+
 function refreshDispatchableOrders() {
-  const container = document.getElementById('dispatch-orders');
+  const container = document.getElementById("dispatch-orders");
   if (!container) return;
-  container.innerHTML = '';
-  document.querySelectorAll('.order-card.status-confirmed')
-    .forEach(card => {
-      const id = card.dataset.orderId;
-      const mini = document.createElement('div');
-      mini.className = 'order-card-light';
-      mini.dataset.orderId = id;
-      mini.innerHTML = `<div class="info">#${id.slice(0,8)}</div>`;
-      mini.onclick = () => {
-        mini.classList.toggle('selected');
-        if (mini.classList.contains('selected')) selectedOrders.add(id);
-        else selectedOrders.delete(id);
-        toggleSendBtn();
-      };
-      container.appendChild(mini);
-    });
+  container.innerHTML = "";
+
+  // note: seu HTML deve usar data-id="…"
+  document.querySelectorAll(".order-card.status-confirmed").forEach(card => {
+    const id = card.dataset.id;
+    if (!id) return;
+    const mini = document.createElement("div");
+    mini.className = "order-card-light";
+    mini.dataset.id = id;
+    mini.innerHTML = `<div class="info">#${id.slice(0,8)}</div>`;
+    mini.onclick = () => {
+      mini.classList.toggle("selected");
+      if (mini.classList.contains("selected")) selectedOrders.add(id);
+      else selectedOrders.delete(id);
+      toggleSendBtn();
+    };
+    container.appendChild(mini);
+  });
 }
 
-// 4) Habilita/desabilita botão “Enviar”
 function toggleSendBtn() {
-  const btn = document.getElementById('send-to-courier');
-  const user = document.getElementById('courier-select')?.value;
-  btn && (btn.disabled = selectedOrders.size === 0 || !user);
+  const btn = document.getElementById("send-to-courier");
+  const user = document.getElementById("courier-select")?.value;
+  if (btn) btn.disabled = selectedOrders.size === 0 || !user;
 }
 
-// 5) Função de envio (Admin → Firestore)
 async function sendToMotoboy(user, orderIds) {
   if (!user || orderIds.length === 0) return;
   const batch = writeBatch(db);
@@ -87,9 +104,17 @@ async function sendToMotoboy(user, orderIds) {
   await batch.commit();
 }
 
-// 6) Listener em tempo real (motoboy.html)
+// ----------------------------------------------------------------------------
+// 4) Código do Motoboy
+// ----------------------------------------------------------------------------
+
+const state = {
+  active: {},   // pedidos em trânsito
+  finished: {}  // pedidos concluídos (opcional)
+};
+
 function startMotoboyListener() {
-  const motoboyUser = localStorage.getItem('motoboyUser');
+  const motoboyUser = localStorage.getItem("motoboyUser");
   if (!motoboyUser) return;
   const ordersCol = collection(db, "dispatchs", motoboyUser, "orders");
   onSnapshot(ordersCol, snapshot => {
@@ -103,49 +128,54 @@ function startMotoboyListener() {
           saveLocal();
         }
       }
-      // opcional: if change.type==="removed" → remover UI
+      // se quiser tratar remoção:
+      // if (change.type === "removed") { … }
     });
   });
 }
 
-// 7) Wiring: detecta Admin vs Motoboy
-document.addEventListener('DOMContentLoaded', () => {
-  // --- Admin page: elementos de despacho existem? ---
-  const sendBtn       = document.getElementById('send-to-courier');
-  const courierSelect = document.getElementById('courier-select');
+// ----------------------------------------------------------------------------
+// 5) Wiring: detecta Admin vs Motoboy
+// ----------------------------------------------------------------------------
+
+document.addEventListener("DOMContentLoaded", () => {
+  // admin
+  const sendBtn       = document.getElementById("send-to-courier");
+  const courierSelect = document.getElementById("courier-select");
   const dispatchTab   = document.querySelector('.sidebar-item[data-target="dispatch"]');
-  const dispatchSect  = document.getElementById('dispatch-section');
+  const dispatchSect  = document.getElementById("dispatch-section");
 
   if (sendBtn && courierSelect && dispatchTab && dispatchSect) {
-    // 7.1) sidebar → aba dispatch
-    dispatchTab.addEventListener('click', () => switchMainTab('dispatch'));
+    // 5.1) ao clicar na aba
+    dispatchTab.addEventListener("click", () => switchMainTab("dispatch"));
 
-    // 7.2) quando a aba abre, recarrega lista
+    // 5.2) ao abrir a aba, atualiza lista
     const observer = new MutationObserver(() => {
-      if (!dispatchSect.classList.contains('hidden')) {
+      if (!dispatchSect.classList.contains("hidden")) {
         refreshDispatchableOrders();
       }
     });
     observer.observe(dispatchSect, { attributes: true });
 
-    // 7.3) interações
-    courierSelect.addEventListener('change', toggleSendBtn);
-    sendBtn.addEventListener('click', async () => {
+    // 5.3) interações
+    courierSelect.addEventListener("change", toggleSendBtn);
+    sendBtn.addEventListener("click", async () => {
       const user     = courierSelect.value;
       const arrayIds = [...selectedOrders];
       await sendToMotoboy(user, arrayIds);
-      showToast(`${arrayIds.length} pedido(s) enviados ao motoboy ${user}`, 'success');
+      showToast(`${arrayIds.length} pedido(s) enviados ao motoboy ${user}`, "success");
       selectedOrders.clear();
       refreshDispatchableOrders();
       toggleSendBtn();
     });
 
-    // 7.4) primeira carga
+    // 5.4) primeira carga
     refreshDispatchableOrders();
   }
 
-  // --- Motoboy page: se houver motoboyUser definido, escuta o Firestore ---
-  if (localStorage.getItem('motoboyUser')) {
+  // motoboy
+  if (localStorage.getItem("motoboyUser")) {
     startMotoboyListener();
   }
 });
+</script>
