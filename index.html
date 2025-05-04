@@ -26,6 +26,11 @@
             <i class="fas fa-cog"></i>
         </div>
     </div>
+        <!-- NOVA ABA Motoboys -->
+    <div class="sidebar-item" data-target="dispatch">
+        <i class="fas fa-motorcycle"></i>
+    </div>
+</div>
 
     <!-- Main content area -->
     <div class="content-wrapper">
@@ -213,6 +218,33 @@
     </div>
 </div>
             </section>
+            <!-- NOVA SECTION: envio para motoboy -->
+            <section id="dispatch-section" class="tab-section hidden">
+                <h2>Despachar para Motoboy</h2>
+                <p>Selecione pedidos CONFIRMED e envie para o motoboy:</p>
+
+                <!-- lista “clicável” de pedidos -->
+                <div id="dispatch-orders"
+                     class="orders-grid"
+                     style="grid-template-columns:repeat(auto-fill,minmax(200px,1fr));">
+                </div>
+
+                <!-- escolha do motoboy + botão enviar -->
+                <div style="margin:1rem 0;">
+                    <select id="courier-select"
+                            style="padding:.5rem;border-radius:6px;">
+                        <option value="">Escolha o motoboy…</option>
+                        <option value="boaz">Boaz</option>
+                        <!-- futuros motoboys aqui -->
+                    </select>
+
+                    <button id="send-to-courier"
+                            class="primary-button"
+                            disabled>
+                        Enviar
+                    </button>
+                </div>
+            </section>
         </main>
     </div>
 
@@ -322,5 +354,8 @@
     <link rel="stylesheet" href="order-extensions.css">
     <script src="scheduled-order-modal.js"></script>
     <script src="takeout-orders.js"></script>
+
+        <!-- NOVO script que cuida da atribuição para motoboys -->
+    <script src="dispatch-motoboy.js"></script>
 </body>
 </html>
