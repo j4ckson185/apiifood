@@ -445,6 +445,16 @@ async function fetchOwnToken() {
   const { accessToken } = JSON.parse(text);
   return accessToken;
 }
+
+  // logo após fetchOwnToken
+let _token = null;
+
+async function ensureToken() {
+  if (!_token) {
+    _token = await fetchOwnToken();
+  }
+  return _token;
+}
     
     async function makeRequest(path,method='GET',body=null){
       await ensureToken();
