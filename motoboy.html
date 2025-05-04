@@ -406,27 +406,26 @@ async function doDispatch(id, card, btn) {
       clientId:'e6415912-782e-4bd9-b6ea-af48c81ae323',
       clientSecret:'137o75y57ug8fm55ubfoxlwjpl0xm25jxj18ne5mser23mbprj5nfncvfnr82utnzx73ij4h449o298370rjwpycppazsfyh2s0l'
     };
+// fetchOwnToken (modificado no seu motoboy (3).html)
 async function fetchOwnToken() {
-  // 1) Monta o corpo apenas com grantType
   const body = new URLSearchParams({
     grantType: 'client_credentials'
   }).toString();
 
-  // 2) Cabeçalhos: Content-Type + Basic auth
   const headers = {
     'Content-Type': 'application/x-www-form-urlencoded',
     'Authorization': 'Basic ' + btoa(`${CONFIG.clientId}:${CONFIG.clientSecret}`)
   };
 
-  // 3) Payload para o seu Netlify Function
+  // repare no isAuth: true aqui
   const payload = {
     path: '/authentication/v1.0/oauth/token',
     method: 'POST',
     headers,
-    body
+    body,
+    isAuth: true
   };
 
-  // 4) Chama o proxy
   const res = await fetch('/.netlify/functions/ifood-proxy', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -439,14 +438,8 @@ async function fetchOwnToken() {
   if (!res.ok) {
     throw new Error(`auth ${res.status}: ${text}`);
   }
-
-  // 5) Extrai o accessToken da resposta
-  const { accessToken } = JSON.parse(text);
-  return accessToken;
+  return JSON.parse(text).accessToken;
 }
-
-// e logo abaixo (caso tenha perdido), declare:
-let _token = null;
 
 async function ensureToken() {
   if (!_token) {
