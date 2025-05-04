@@ -17,62 +17,46 @@
 body{background:var(--bg);min-height:100vh;display:flex;flex-direction:column}
 .hidden{display:none !important}
 
-/* TOPBAR -------------------------------------------------- */
+/* TOPBAR */
 #topbar{background:#fff;box-shadow:var(--shadow);padding:.75rem 1rem;
         display:flex;justify-content:space-between;align-items:center}
 #topbar h1{font-size:1.1rem;font-weight:600;color:#444}
-#logout-btn{background:none;border:none;color:var(--danger);
-            font-size:.9rem;cursor:pointer}
+#logout-btn{background:none;border:none;color:var(--danger);font-size:.9rem;cursor:pointer}
 #logout-btn i{margin-right:.3rem}
 
-/* TABS ---------------------------------------------------- */
+/* TABS */
 #tabs{display:flex;border-bottom:1px solid #ddd;background:#fff}
-.tab-btn{flex:1;text-align:center;padding:.7rem 0;cursor:pointer;
-         font-weight:600;background:#fff;transition:var(--trans)}
+.tab-btn{flex:1;text-align:center;padding:.7rem 0;cursor:pointer;font-weight:600;background:#fff;transition:var(--trans)}
 .tab-btn.active{color:var(--primary);border-bottom:3px solid var(--primary)}
 #panels{flex:1;overflow-y:auto;padding:1rem}
 .panel{display:none}.panel.active{display:block}
 
-/* CARDS --------------------------------------------------- */
-.order-card{
-  width:100%;max-width:380px;margin:0 auto 1rem;               /* quadrado/coluna */
-  background:#fff;border-radius:var(--radius);box-shadow:var(--shadow);
-  overflow:hidden;display:flex;flex-direction:column
-}
-.badge{
-  align-self:flex-start;margin-left:.5rem;padding:.1rem .55rem;border-radius:999px;
-  font-size:.75rem;font-weight:600;color:#fff
-}
+/* CARDS */
+.order-card{width:100%;max-width:380px;margin:0 auto 1rem;background:#fff;border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden;display:flex;flex-direction:column}
+.badge{align-self:flex-start;margin-left:.5rem;padding:.1rem .55rem;border-radius:999px;font-size:.75rem;font-weight:600;color:#fff}
 .badge.NEW{background:var(--primary)}
 .badge.DISPATCHED{background:var(--warning)}
 .badge.CONCLUDED{background:var(--success)}
-
-.order-header{display:flex;justify-content:space-between;align-items:center;
-              padding:.9rem 1rem;cursor:pointer}
+.order-header{display:flex;justify-content:space-between;align-items:center;padding:.9rem 1rem;cursor:pointer}
 .order-header h3{font-size:1rem}
 .order-header small{color:#555}
-
-.order-body{padding:0 1rem 1rem 1rem;font-size:.9rem;color:#555;display:none}
+.order-body{padding:0 1rem 1rem;font-size:.9rem;color:#555;display:none}
 .order-body.open{display:block}
 .order-body div{margin-top:.4rem}
-
 .order-actions{margin-top:.8rem;display:flex;gap:.5rem}
-.order-actions button{flex:1;padding:.55rem;border:none;border-radius:6px;
-                      font-weight:600;color:#fff;cursor:pointer;font-size:.82rem}
-.dispatch{background:var(--warning)}.finish{background:var(--success)}
+.order-actions button{flex:1;padding:.55rem;border:none;border-radius:6px;font-weight:600;color:#fff;cursor:pointer;font-size:.82rem}
+.dispatch{background:var(--warning)}
+.finish{background:var(--success)}
 .order-actions button:disabled{opacity:.6;cursor:not-allowed}
 
-/* LOGIN --------------------------------------------------- */
-#login-box{max-width:320px;margin:auto;padding:2rem;background:#fff;
-           border-radius:var(--radius);box-shadow:var(--shadow)}
+/* LOGIN */
+#login-box{max-width:320px;margin:auto;padding:2rem;background:#fff;border-radius:var(--radius);box-shadow:var(--shadow)}
 #login-box h2{text-align:center;margin-bottom:1.4rem;color:#444}
-#login-box input{width:100%;padding:.8rem;margin-bottom:1rem;
-                 border:1px solid #ccc;border-radius:6px}
-#login-box button{width:100%;padding:.8rem;border:none;border-radius:6px;
-                  background:var(--primary);color:#fff;font-weight:600;cursor:pointer;transition:var(--trans)}
+#login-box input{width:100%;padding:.8rem;margin-bottom:1rem;border:1px solid #ccc;border-radius:6px}
+#login-box button{width:100%;padding:.8rem;border:none;border-radius:6px;background:var(--primary);color:#fff;font-weight:600;cursor:pointer;transition:var(--trans)}
 #login-box button:hover{background:var(--primary-dark)}
 
-/* TOAST --------------------------------------------------- */
+/* TOAST */
 .toast{position:fixed;left:50%;bottom:1rem;transform:translateX(-50%);
        background:#333;color:#fff;padding:.6rem 1.2rem;border-radius:var(--radius);
        opacity:0;pointer-events:none;transition:opacity .3s}
@@ -110,45 +94,47 @@ body{background:var(--bg);min-height:100vh;display:flex;flex-direction:column}
 /* ================================================================
    1. ESTADO & CONFIG
 =================================================================*/
-const state = {
-  accessToken : null,
-  active      : {},   // { orderId : details }
-  finished    : {}
-};
+const state = { accessToken:null, active:{}, finished:{} };
+
 const CONFIG = {
-  clientId     :'e6415912-782e-4bd9-b6ea-af48c81ae323',
-  clientSecret :'137o75y57ug8fm55ubfoxlwjpl0xm25jxj18ne5mser23mbprj5nfncvfnr82utnzx73ij4h449o298370rjwpycppazsfyh2s0l'
+  clientId:'e6415912-782e-4bd9-b6ea-af48c81ae323',
+  clientSecret:'137o75y57ug8fm55ubfoxlwjpl0xm25jxj18ne5mser23mbprj5nfncvfnr82utnzx73ij4h449o298370rjwpycppazsfyh2s0l'
 };
+
 const channel = new BroadcastChannel('dispatchChannel');
 
 /* ================================================================
-   2. HELPERS UI / TOAST / TABS
+   2. HELPERS UI
 =================================================================*/
 const qs = s=>document.querySelector(s);
 function showToast(msg,type='info'){
-  const t = qs('#toast'); t.textContent=msg;
-  t.style.background = type==='error'? 'var(--danger)' : '#333';
-  t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2300);
+  const t=qs('#toast');t.textContent=msg;
+  t.style.background = type==='error' ? 'var(--danger)' : '#333';
+  t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2300);
 }
-function toggleTab(tab){
-  qs('#tab-active').classList.toggle('active',tab==='active');
-  qs('#tab-finished').classList.toggle('active',tab==='finished');
-  qs('#panel-active').classList.toggle('active',tab==='active');
-  qs('#panel-finished').classList.toggle('active',tab==='finished');
+function toggleTab(t){
+  qs('#tab-active').classList.toggle('active',t==='active');
+  qs('#tab-finished').classList.toggle('active',t==='finished');
+  qs('#panel-active').classList.toggle('active',t==='active');
+  qs('#panel-finished').classList.toggle('active',t==='finished');
 }
 
 /* ================================================================
-   3. TOKEN (mesmo do admin)
+   3. TOKEN + PROXY
 =================================================================*/
 async function fetchOwnToken(){
-  const payload={path:'/authentication/v1.0/oauth/token',method:'POST',
+  const payload={
+    path:'/authentication/v1.0/oauth/token',method:'POST',
     headers:{'Content-Type':'application/x-www-form-urlencoded'},
     body:`grantType=client_credentials&clientId=${CONFIG.clientId}&clientSecret=${CONFIG.clientSecret}`,
-    isAuth:true};
-  const r=await fetch('/.netlify/functions/ifood-proxy',
-    {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
-  if(!r.ok)throw new Error('auth'+r.status);return (await r.json()).accessToken;
+    isAuth:true
+  };
+  const r=await fetch('/.netlify/functions/ifood-proxy',{
+    method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+  if(!r.ok)throw new Error('auth '+r.status);
+  return (await r.json()).accessToken;
 }
+
 async function ensureToken(){
   if(state.accessToken) return;
   const got=await new Promise(res=>{
@@ -156,9 +142,25 @@ async function ensureToken(){
         channel.removeEventListener('message',listener);res(true)}};
     channel.addEventListener('message',listener);
     channel.postMessage({type:'token-request'});
-    setTimeout(()=>{channel.removeEventListener('message',listener);res(false)},1500);
+    setTimeout(()=>{channel.removeEventListener('message',listener);res(false)},1200);
   });
-  if(got) return; state.accessToken=await fetchOwnToken();
+  if(got) return;
+  state.accessToken=await fetchOwnToken();
+}
+
+async function makeAuthorizedRequest(path,method='GET',body=null){
+  await ensureToken();
+  const attempt=async ()=>{
+    const headers={'Content-Type':'application/json','Authorization':`Bearer ${state.accessToken}`};
+    const payload={path,method,headers,body};
+    return fetch('/.netlify/functions/ifood-proxy',{
+      method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+  };
+  let r=await attempt();
+  if(r.status===401){state.accessToken=await fetchOwnToken();r=await attempt();}
+  if(!r.ok)throw new Error('HTTP '+r.status);
+  const txt=await r.text();
+  return txt?JSON.parse(txt):{};
 }
 
 /* ================================================================
@@ -170,24 +172,21 @@ function saveLocal(){
 }
 function loadLocal(){
   try{
-    state.active   = JSON.parse(localStorage.getItem('mbActive'))   || {};
-    state.finished = JSON.parse(localStorage.getItem('mbFinished')) || {};
+    state.active=JSON.parse(localStorage.getItem('mbActive'))||{};
+    state.finished=JSON.parse(localStorage.getItem('mbFinished'))||{};
   }catch{state.active={};state.finished={};}
 }
 
 /* ================================================================
-   5. CARD RENDER
+   5. RENDERIZAÇÃO
 =================================================================*/
-function fmtMoney(v){ return 'R$ '+v.toFixed(2).replace('.',','); }
+function fmtMoney(v){return 'R$ '+v.toFixed(2).replace('.',',');}
 
 function createCard(det){
-  const card=document.createElement('div');card.className='order-card';card.dataset.id=det.id;
-  card.innerHTML=`
+  const c=document.createElement('div');c.className='order-card';c.dataset.id=det.id;
+  c.innerHTML=`
     <div class="order-header">
-      <div>
-        <h3>#${det.displayId}</h3>
-        <small>${det.customer}</small>
-      </div>
+      <div><h3>#${det.displayId}</h3><small>${det.customer}</small></div>
       <span class="badge ${det.status}">${det.status==='NEW'?'Novo':det.status==='DISPATCHED'?'Despachado':'Finalizado'}</span>
     </div>
     <div class="order-body">
@@ -196,17 +195,15 @@ function createCard(det){
       <div><b>Pagamento:</b> ${det.payment}</div>
       <div class="order-actions"></div>
     </div>`;
-  const body = card.querySelector('.order-body');
-  card.querySelector('.order-header').onclick = ()=>body.classList.toggle('open');
-  return card;
+  const body=c.querySelector('.order-body');
+  c.querySelector('.order-header').onclick=()=>body.classList.toggle('open');
+  return c;
 }
-function updateCardStatus(card,status){
+function updateBadge(card,status){
   const b=card.querySelector('.badge');
   b.className='badge '+status;
-  b.textContent = status==='DISPATCHED'?'Despachado':'Finalizado';
+  b.textContent=status==='DISPATCHED'?'Despachado':'Finalizado';
 }
-
-/* -------- Active -------- */
 function renderActive(det){
   const card=createCard(det);
   const acts=card.querySelector('.order-actions');
@@ -225,11 +222,10 @@ function renderActive(det){
   });
   qs('#panel-active').prepend(card);
 }
-/* -------- Finished ------- */
 function renderFinished(det){
   const card=createCard({...det,status:'CONCLUDED'});
   card.querySelector('.order-actions').remove();
-  updateCardStatus(card,'CONCLUDED');
+  updateBadge(card,'CONCLUDED');
   qs('#panel-finished').prepend(card);
 }
 function renderAll(){
@@ -244,10 +240,9 @@ function renderAll(){
 =================================================================*/
 function onDispatch(id,card){
   card.querySelector('.dispatch').disabled=true;
-  // só envia pedido ao admin; ele fará a chamada na API
   channel.postMessage({type:'dispatch-request',orderId:id});
   state.active[id].status='DISPATCHED';
-  updateCardStatus(card,'DISPATCHED');
+  updateBadge(card,'DISPATCHED');
   card.querySelector('.dispatch').remove();
   saveLocal();
 }
@@ -255,21 +250,38 @@ function onFinishLocal(id,card){
   const det=state.active[id];det.status='CONCLUDED';
   state.finished[id]=det;delete state.active[id];
   card.remove();renderFinished(det);saveLocal();
-  channel.postMessage({type:'conclude-request',orderId:id}); // admin decide chamar API
+  channel.postMessage({type:'conclude-request',orderId:id});
 }
 
 /* ================================================================
-   7. RECEPÇÃO DE MENSAGENS (admin → motoboy)
+   7. DETALHES DO PEDIDO
+=================================================================*/
+async function fetchOrderDetails(id){
+  const o=await makeAuthorizedRequest(`/order/v1.0/orders/${id}`,'GET');
+  const cents = o.pricing?.totalPrice ?? o.totalPrice ?? 0;
+  return {
+    id,
+    displayId:o.displayId||o.orderDisplayId||id.slice(0,8),
+    customer:o.customer?.name || `${o.customer?.firstName||''} ${o.customer?.lastName||''}`.trim() || '—',
+    address:o.deliveryAddress?.formattedAddress ||
+            `${o.deliveryAddress?.streetName||''}, ${o.deliveryAddress?.number||''} - ${o.deliveryAddress?.neighborhood||''}`,
+    total:cents/100,
+    payment:o.payments?.[0]?.methodName || o.payments?.[0]?.method || '—',
+    status:'NEW'
+  };
+}
+
+/* ================================================================
+   8. CANAL (mensagens admin → motoboy)
 =================================================================*/
 channel.addEventListener('message',async e=>{
   const d=e.data;
   if(d?.type==='assign' && d.user===localStorage.getItem('motoboyUser')){
     for(const id of d.orders){
-      if(state.active[id]||state.finished[id]) continue;
+      if(state.active[id]||state.finished[id])continue;
       try{
-        await ensureToken();
-        const info=await fetchOrderDetails(id);
-        state.active[id]=info; renderActive(info); saveLocal();
+        const det=await fetchOrderDetails(id);
+        state.active[id]=det;renderActive(det);saveLocal();
       }catch(err){console.error(err);}
     }
   }
@@ -279,7 +291,7 @@ channel.addEventListener('message',async e=>{
       if(status==='DISPATCHED'){
         state.active[orderId].status='DISPATCHED';
         const c=qs(`.order-card[data-id="${orderId}"]`);
-        if(c){updateCardStatus(c,'DISPATCHED');c.querySelector('.dispatch')?.remove();}
+        if(c){updateBadge(c,'DISPATCHED');c.querySelector('.dispatch')?.remove();}
       }
       if(status==='CONCLUDED') onFinishLocal(orderId,qs(`.order-card[data-id="${orderId}"]`));
       saveLocal();
@@ -288,26 +300,7 @@ channel.addEventListener('message',async e=>{
 });
 
 /* ================================================================
-   8. DETALHES DO PEDIDO (mesmos campos do admin)
-=================================================================*/
-async function fetchOrderDetails(id){
-  const o=await ensureToken().then(()=>fetch(`/order/v1.0/orders/${id}`,{
-      headers:{Authorization:`Bearer ${state.accessToken}`}})).then(r=>r.json());
-  // normaliza para o motoboy
-  return {
-    id,
-    displayId : o.displayId || o.orderDisplayId || id.slice(0,8),
-    customer  : o.customer?.name || `${o.customer?.firstName||''} ${o.customer?.lastName||''}`.trim() || '—',
-    address   : o.deliveryAddress?.formattedAddress ||
-                `${o.deliveryAddress?.streetName||''}, ${o.deliveryAddress?.number||''} - ${o.deliveryAddress?.neighborhood||''}`,
-    total     : ((o.pricing?.totalPrice ?? o.totalPrice ?? 0)/100),
-    payment   : o.payments?.[0]?.methodName || o.payments?.[0]?.method || '—',
-    status    : 'NEW'
-  };
-}
-
-/* ================================================================
-   9. LOGIN / SESSÃO
+   9. LOGIN / UI
 =================================================================*/
 const loginBox=qs('#login-box'),loginBtn=qs('#login-btn'),logoutBtn=qs('#logout-btn');
 async function enterUI(){
@@ -319,7 +312,7 @@ async function enterUI(){
 async function doLogin(user){
   localStorage.setItem('motoboyUser',user);
   await ensureToken();
-  enterUI(); loadLocal(); renderAll();
+  enterUI();loadLocal();renderAll();
   channel.postMessage({type:'motoboy-online',user});
 }
 loginBtn.onclick=async ()=>{
@@ -330,16 +323,14 @@ loginBtn.onclick=async ()=>{
 };
 logoutBtn.onclick=()=>{localStorage.clear();location.reload()};
 
-/* auto-login ----------------------------------------------------- */
 window.addEventListener('load',()=>{
-  const u=localStorage.getItem('motoboyUser');
-  if(u){doLogin(u)}
+  const u=localStorage.getItem('motoboyUser');if(u)doLogin(u);
 });
 
 /* ================================================================
-   10. ABA
+   10. TABS
 =================================================================*/
-qs('#tab-active').onclick  =()=>toggleTab('active');
+qs('#tab-active').onclick =()=>toggleTab('active');
 qs('#tab-finished').onclick=()=>toggleTab('finished');
 </script>
 </body>
