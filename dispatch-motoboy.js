@@ -15,6 +15,22 @@ dispatchChannel.addEventListener('message', async (ev) => {
   }
 });
 /* ─────────── FIM DO BLOCO ───────────────────────────────────── */
+
+/* ─────────── NOVO BLOCO: admin executa o “Despachar” real ─────────── */
+dispatchChannel.addEventListener('message', ev => {
+  if (ev.data?.type === 'dispatch-request') {
+    const { orderId } = ev.data;
+
+    // Garante que o card esteja expandido
+    const card = document.querySelector(`.order-card[data-order-id="${orderId}"]`);
+    card?.querySelector('.order-header')?.click();
+
+    // Clica no botão DESPACHAR do modal / card
+    card?.querySelector('.action-button.dispatch')?.click();
+  }
+});
+/* ─────────── FIM DO BLOCO ─────────────────────────────────────────── */
+
 let selectedOrders = new Set();
 
 // 1. Preenche a aba “Despachar para Motoboy” automaticamente
