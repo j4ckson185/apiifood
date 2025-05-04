@@ -2,7 +2,11 @@
 // Substitui BroadcastChannel por canal real-time no Firestore
 // Suporta tanto a página Admin (envio) quanto a motoboy.html (recepção)
 
-import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+import {
+  initializeApp,
+  getApps,
+  getApp
+} from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
 import {
   getFirestore,
   collection,
@@ -13,7 +17,7 @@ import {
   getDoc
 } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-// 1) Firebase Config e Inicialização comum
+// 1) Firebase Config
 const firebaseConfig = {
   apiKey: "AIzaSyBuRHTtuKgpQE_qAdMIbT9_9qbjh4cbLI8",
   authDomain: "apiifood-e0d35.firebaseapp.com",
@@ -22,8 +26,13 @@ const firebaseConfig = {
   messagingSenderId: "905864103175",
   appId: "1:905864103175:web:a198383d3a66a7d2cd31a2"
 };
-const app = initializeApp(firebaseConfig);
-const db  = getFirestore(app);
+
+// Só inicializa se ainda não houver nenhum app DEFAULT
+const app = !getApps().length
+  ? initializeApp(firebaseConfig)
+  : getApp();
+
+const db = getFirestore(app);
 
 // 2) Stubs de funções de UI — adapte ao seu HTML/JS real
 function switchMainTab(tabName) {
