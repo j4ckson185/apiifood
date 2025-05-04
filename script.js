@@ -314,25 +314,99 @@ function saveProcessedIds() {
 }
 
 // ─── Configuração e estado ────────────────────────────────
-const UNIFIED_POLLING_INTERVAL = CONFIG.pollingInterval;
+const UNIFIED_POLLING_INTERVAL = CONFIG.pollingInterval;  // ex.: 30_000 ms
 let pollingTimeoutId = null;
 let lastPoll = 0;
 state.isPolling = false;
 
-// ─── unifiedPolling() SEM auto-agendamento ─────────────────
+// ─── unifiedPolling(): TODO o seu trabalho de polling, SEM setTimeout interno ─────────
 async function unifiedPolling() {
-  if (!state.isPolling || !state.accessToken) return;
+  if (!state.isPolling) {
+    console.log('[POLL] unifiedPolling abortado porque isPolling = false');
+    return;
+  }
+  if (!state.accessToken) {
+    console.log('[POLL] unifiedPolling abortado porque não há accessToken');
+    return;
+  }
+
   console.log(`🔄 Polling unificado em ${new Date().toISOString()}`);
 
   try {
-    // ... seu corpo de polling (iFood events, disputes, webhook, status da loja etc.)
+    // 1) Eventos iFood API
+    console.log('[POLL] 1) Buscando eventos iFood...');
+    const events = await makeAuthorizedRequest('/events/v1.0/events:polling', 'GET');
+    console.log(`[POLL]  → ${Array.isArray(events) ? events.length : 0} eventos recebidos`);
+    if (Array.isArray(events) && events.length) {
+      for (const e of events) {
+        await handleEvent(e);
+      }
+      console.log(`[POLL]  → Reconhecendo ${events.length} eventos`);
+      await makeAuthorizedRequest(
+        '/events/v1.0/events/acknowledgment',
+        'POST',
+        events.map(ev => ({ id: ev.id }))
+      );
+    }
+
+    // 2) Disputas (fallback)
+    console.log('[POLL] 2) Polling de novas disputas (fallback)...');
+    await pollForNewDisputesOnce();
+
+    // 3) Webhook Netlify
+    console.log('[POLL] 3) Buscando eventos via webhook Netlify...');
+    try {
+      const res = await fetch('/.netlify/functions/ifood-webhook-events', { method: 'GET' });
+      if (res.ok) {
+        const { eventos } = await res.json();
+        console.log(`[POLL]  → ${eventos?.length || 0} eventos via webhook`);
+        if (eventos?.length) {
+          for (const ev of eventos) await handleEvent(ev);
+        }
+      } else {
+        console.warn('[POLL]  → Webhook retornou status não-OK:', res.status);
+      }
+    } catch (err) {
+      console.error('[POLL] Erro no fetch do webhook:', err);
+    }
+
+    // 4) Status da loja
+    console.log('[POLL] 4) Buscando status da loja...');
+    if (window.currentMerchantId) {
+      const status = await fetchStoreStatus(window.currentMerchantId);
+      console.log('[POLL]  → store status:', status);
+      if (status) displayStoreStatus(status);
+    }
+
+    // 5) Disputas expiradas
+    console.log('[POLL] 5) Checando disputas expiradas...');
+    if (typeof checkExpiredDisputes === 'function') checkExpiredDisputes();
+
+    // 6) Atualiza todos os pedidos a cada 3 ciclos (~3×intervalo)
+    state.pollingCounter = (state.pollingCounter || 0) + 1;
+    console.log(`[POLL] 6) pollingCounter = ${state.pollingCounter}`);
+    if (state.pollingCounter >= 3) {
+      console.log('[POLL]  → Atualizando TODOS os pedidos visíveis');
+      await updateAllVisibleOrders();
+      state.pollingCounter = 0;
+    }
+
+    // 7) A cada 4 ciclos (~4×intervalo), verifica pedidos concluídos
+    state.completedCheckCounter = (state.completedCheckCounter || 0) + 1;
+    console.log(`[POLL] 7) completedCheckCounter = ${state.completedCheckCounter}`);
+    if (state.completedCheckCounter >= 4) {
+      console.log('[POLL]  → Checando por pedidos concluídos');
+      await checkForCompletedOrders();
+      state.completedCheckCounter = 0;
+    }
+
   } catch (err) {
     console.error('❌ Erro no polling unificado:', err);
   }
-  // **Não faça setTimeout aqui!**
+  // **Nenhum** setTimeout aqui!
 }
 
-// ─── doUnifiedPolling(): chama unifiedPolling e agenda o próximo ─────────
+// ─── doUnifiedPolling(): chama unifiedPolling() e agenda o próximo ─────────
 async function doUnifiedPolling() {
   clearTimeout(pollingTimeoutId);
   lastPoll = Date.now();
@@ -348,10 +422,10 @@ function startPolling() {
 
   const elapsed = Date.now() - lastPoll;
   if (elapsed >= UNIFIED_POLLING_INTERVAL) {
-    // intervalo expirou → dispara agora
+    // intervalo já expirou → dispara imediatamente
     doUnifiedPolling();
   } else {
-    // agenda só o restante
+    // agenda apenas o restante
     pollingTimeoutId = setTimeout(doUnifiedPolling, UNIFIED_POLLING_INTERVAL - elapsed);
   }
 }
@@ -368,7 +442,7 @@ document.addEventListener('visibilitychange', () => {
   document.hidden ? stopPolling() : startPolling();
 });
 
-// ─── Inicialização única em DOMContentLoaded ─────────────────
+// ─── Inicialização em DOMContentLoaded ───────────────────────
 document.addEventListener('DOMContentLoaded', () => {
   startPolling();
 });
