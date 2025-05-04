@@ -444,17 +444,28 @@ async function fetchOrderDetails(id){
   return { id, displayId, customer, address, total, payment, status:'NEW' };
 }
 
+// dentro de motoboy (4).html
 async function doDispatch(id, card, btn) {
-  const user = localStorage.getItem('motoboyUser');
-  const ref  = doc(db, 'dispatchs', user, 'orders', id);
+  const user  = localStorage.getItem('motoboyUser');
+  const ref   = doc(db, 'dispatchs', user, 'orders', id);
   const batch = writeBatch(db);
-  batch.set(ref, { orderId: id, assignedAt: serverTimestamp() });
+
+  batch.set(
+    ref,
+    {
+      orderId:      id,
+      assignedAt:   serverTimestamp(),
+      status:       'DISPATCHED',      // flag que o admin vai escutar
+      dispatchedAt: serverTimestamp()  // opcional – log
+    },
+    { merge: true }                    // mantém outros campos
+  );
+
   await batch.commit();
 
-  // não chamar mais a API do iFood aqui!
   toast('Pedido marcado como despachado (aguardando ação do Admin)', 'success');
 
-  // atualiza UI local
+  // ↓ mesmas linhas que você já tinha para refletir na UI local
   state.active[id].status = 'DISPATCHED';
   setStatus(card, 'DISPATCHED');
   btn.remove();
