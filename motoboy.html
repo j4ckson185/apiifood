@@ -9,116 +9,75 @@
 <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet"/>
 
 <style>
-/* RESET BÁSICO ---------------------------------------------------- */
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
-  --bg           : #f5f5f5;
-  --primary      : #4285f4;
-  --primary-dark : #2962d3;
-  --success      : #28a745;
-  --danger       : #c33;
-  --shadow       : 0 2px 6px rgb(0 0 0 /.1);
-  --radius       : 8px;
-  --trans        : .2s;
-  font-family    : system-ui, sans-serif;
-  color-scheme   : light;
+  --bg:#f5f5f5;--primary:#4285f4;--primary-dark:#2962d3;
+  --success:#28a745;--danger:#c33;--shadow:0 2px 6px rgb(0 0 0 /.1);
+  --radius:8px;--trans:.2s;font-family:system-ui,sans-serif
 }
 body{background:var(--bg);min-height:100vh;display:flex;flex-direction:column}
+.hidden{display:none !important;}          /*  ← voltou  */
 
-/* BARRA SUPERIOR -------------------------------------------------- */
-#topbar{
-  background:#fff;box-shadow:var(--shadow);padding:.75rem 1rem;
-  display:flex;justify-content:space-between;align-items:center;
-}
+/* topbar ------------------------------------------------- */
+#topbar{background:#fff;box-shadow:var(--shadow);padding:.75rem 1rem;
+        display:flex;justify-content:space-between;align-items:center}
 #topbar h1{font-size:1.1rem;font-weight:600;color:#444}
 #logout-btn{background:none;border:none;color:var(--danger);font-size:.9rem;cursor:pointer}
 #logout-btn i{margin-right:.3rem}
 
-/* ABA / TABS ------------------------------------------------------ */
+/* abas --------------------------------------------------- */
 #tabs{display:flex;border-bottom:1px solid #ddd;background:#fff}
-.tab-btn{
-  flex:1;text-align:center;padding:.7rem 0;cursor:pointer;
-  font-weight:600;background:#fff;transition:var(--trans);
-}
+.tab-btn{flex:1;text-align:center;padding:.7rem 0;cursor:pointer;font-weight:600;background:#fff;transition:var(--trans)}
 .tab-btn.active{color:var(--primary);border-bottom:3px solid var(--primary)}
 #panels{flex:1;overflow-y:auto;padding:1rem}
-.panel{display:none}
-.panel.active{display:block}
+.panel{display:none}.panel.active{display:block}
 
-/* CARDS DE PEDIDO ------------------------------------------------- */
-.order-card{
-  background:#fff;border-left:4px solid var(--primary);
-  border-radius:var(--radius);box-shadow:var(--shadow);margin-bottom:1rem;
-}
-.order-summary{
-  display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;
-  padding:1rem;cursor:pointer;
-}
+/* cards -------------------------------------------------- */
+.order-card{background:#fff;border-left:4px solid var(--primary);
+            border-radius:var(--radius);box-shadow:var(--shadow);margin-bottom:1rem}
+.order-summary{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;padding:1rem;cursor:pointer}
 .order-summary .left{display:flex;flex-direction:column;gap:.3rem}
 .order-summary .display-id{font-weight:700;font-size:1.1rem}
 .order-summary .client{color:#555}
-.badge{
-  padding:.2rem .5rem;border-radius:999px;font-size:.75rem;font-weight:600;
-  color:#fff;min-width:80px;text-align:center
-}
-.badge.NEW{background:var(--primary)}
-.badge.DISPATCHED{background:#f0ad4e}
-.badge.CONCLUDED{background:var(--success)}
+.badge{padding:.2rem .5rem;border-radius:999px;font-size:.75rem;font-weight:600;color:#fff;min-width:80px;text-align:center}
+.badge.NEW{background:var(--primary)}.badge.DISPATCHED{background:#f0ad4e}.badge.CONCLUDED{background:var(--success)}
 .order-actions{margin-top:.6rem;display:flex;gap:.5rem}
-.order-actions button{
-  flex:1;padding:.5rem;border:none;border-radius:6px;font-weight:600;
-  color:#fff;cursor:pointer;transition:var(--trans);font-size:.85rem
-}
-.order-actions .dispatch{background:#f0ad4e}
-.order-actions .finish{background:var(--success)}
+.order-actions button{flex:1;padding:.5rem;border:none;border-radius:6px;font-weight:600;color:#fff;cursor:pointer;transition:var(--trans);font-size:.85rem}
+.order-actions .dispatch{background:#f0ad4e}.order-actions .finish{background:var(--success)}
 .order-actions button:disabled{opacity:.6;cursor:not-allowed}
-.order-details{padding:0 1rem 1rem 1rem;color:#555;font-size:.9rem;line-height:1.4}
-.order-details.hidden{display:none}
+.order-details{padding:0 1rem 1rem;color:#555;font-size:.9rem;line-height:1.4}.order-details.hidden{display:none}
 
-/* LOGIN ----------------------------------------------------------- */
-#login-box{
-  max-width:320px;margin:auto;padding:2rem;background:#fff;border-radius:var(--radius);box-shadow:var(--shadow);
-}
+/* login -------------------------------------------------- */
+#login-box{max-width:320px;margin:auto;padding:2rem;background:#fff;border-radius:var(--radius);box-shadow:var(--shadow)}
 #login-box h2{text-align:center;margin-bottom:1.5rem;color:#444}
-#login-box input{
-  width:100%;padding:.8rem;margin-bottom:1rem;border:1px solid #ccc;border-radius:6px
-}
-#login-box button{
-  width:100%;padding:.8rem;border:none;border-radius:6px;background:var(--primary);color:#fff;font-weight:600;cursor:pointer;transition:var(--trans)
-}
+#login-box input{width:100%;padding:.8rem;margin-bottom:1rem;border:1px solid #ccc;border-radius:6px}
+#login-box button{width:100%;padding:.8rem;border:none;border-radius:6px;background:var(--primary);color:#fff;font-weight:600;cursor:pointer;transition:var(--trans)}
 #login-box button:hover{background:var(--primary-dark)}
 
-/* TOAST ----------------------------------------------------------- */
-.toast{
-  position:fixed;left:50%;bottom:1rem;transform:translateX(-50%);
-  background:#333;color:#fff;padding:.6rem 1.2rem;border-radius:var(--radius);
-  opacity:0;pointer-events:none;transition:opacity .3s;
-}
+/* toast -------------------------------------------------- */
+.toast{position:fixed;left:50%;bottom:1rem;transform:translateX(-50%);
+       background:#333;color:#fff;padding:.6rem 1.2rem;border-radius:var(--radius);
+       opacity:0;pointer-events:none;transition:opacity .3s}
 .toast.show{opacity:1}
-
-/* MOBILE SAFE ----------------------------------------------------- */
-@media(max-width:480px){
-  .order-summary{gap:.5rem}
-  .order-actions button{font-size:.75rem}
-}
+@media(max-width:480px){.order-summary{gap:.5rem}.order-actions button{font-size:.75rem}}
 </style>
 </head>
 <body>
 
 <!-- TOPBAR (aparece após login) ----------------------------------->
-<header id="topbar" class="hidden">
+<header id="topbar" class="hidden"><!--  ✅ mantém hidden -->
   <h1>Central do Motoboy</h1>
   <button id="logout-btn"><i class="fas fa-sign-out-alt"></i>Sair</button>
 </header>
 
 <!-- TABS ----------------------------------------------------------->
-<nav id="tabs" class="hidden">
+<nav id="tabs"   class="hidden"><!--  ✅ mantém hidden -->
   <div id="tab-active"   class="tab-btn active">Em andamento</div>
   <div id="tab-finished" class="tab-btn">Finalizados</div>
 </nav>
 
 <!-- PAINÉIS -------------------------------------------------------->
-<main id="panels" class="hidden">
+<main id="panels" class="hidden"><!--  ✅ mantém hidden -->
   <section id="panel-active"   class="panel active"></section>
   <section id="panel-finished" class="panel"></section>
 </main>
