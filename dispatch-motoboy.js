@@ -74,6 +74,27 @@ function saveLocal() {
 
 // 3) ADMINISTRADOR
 const selectedOrders = new Set();
+// --- NOVO BLOCO ----------------------------------------------
+function listenCourierUpdates(user){
+  const ordersCol = collection(db, 'dispatchs', user, 'orders');
+
+  onSnapshot(ordersCol, snap => {
+    snap.docChanges().forEach(change => {
+      const data = change.doc.data();
+      if (data.status !== 'DISPATCHED') return;   // só nos interessa isso
+
+      const id  = change.doc.id;                  // = orderId
+      const btn = document.querySelector(
+        `.order-card[data-order-id="${id}"] .dispatch`
+      );
+
+      // se o pedido ainda estiver na coluna “Em Preparo”,
+      // disparamos o mesmo clique que o operador faria
+      if (btn) btn.click();
+    });
+  });
+}
+// --------------------------------------------------------------
 
 function refreshDispatchableOrders() {
   const container = document.getElementById("dispatch-orders");
@@ -121,6 +142,7 @@ async function sendToMotoboy(user, orderIds) {
     });
   });
   await batch.commit();
+  listenCourierUpdates(user);   // começa a escutar aquele motoboy
 }
 
 // 4) MOTOBOY
