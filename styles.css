@@ -1410,3 +1410,31 @@ main {
     color: #666;
     font-style: italic;
 }
+
+/* === realce de seleção na aba Motoboys ==================== */
+#dispatch-section .order-card-light{
+    cursor:pointer;                 /* mostra mãozinha */
+    position:relative;
+}
+
+#dispatch-section .order-card-light.selected{
+    background-color: var(--medium-gray);
+    box-shadow: 0 0 0 3px var(--primary-color) inset;
+}
+
+/* check-mark de confirmação (opcional) */
+#dispatch-section .order-card-light.selected::after{
+    content:"\f00c";                /* Font-Awesome check */
+    font-family:"Font Awesome 6 Free";
+    font-weight:900;
+    color:#fff;
+    background:var(--primary-color);
+    width:22px;height:22px;
+    border-radius:50%;
+    position:absolute;
+    top:8px;right:8px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:0.75rem;
+}
