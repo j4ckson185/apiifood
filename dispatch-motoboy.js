@@ -151,8 +151,27 @@ document.addEventListener("DOMContentLoaded", () => {
     refreshDispatchableOrders();
   }
 
-  // Motoboy
-  if (localStorage.getItem("motoboyUser")) {
-    startMotoboyListener();
+import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+
+// … seus imports e init do Firebase/App/Auth/Firestore …
+
+// 1) DOMContentLoaded – só para o **Admin**:
+document.addEventListener("DOMContentLoaded", () => {
+  // …toda a sua lógica de montagem do dashboard Admin…
+  // **remova** isto daqui:
+  // if (localStorage.getItem("motoboyUser")) {
+  //   startMotoboyListener();
+  // }
+});  // <-- este é o `});` que fecha o listener do DOMContentLoaded
+
+// 2) onAuthStateChanged – para o **Motoboy**, só após o anon‐login completar:
+onAuthStateChanged(auth, user => {
+  if (!user) {
+    console.warn("Aguardando autenticação...");
+    return;
+  }
+  const motoboyUser = localStorage.getItem("motoboyUser");
+  if (motoboyUser) {
+    startMotoboyListener(motoboyUser);
   }
 });
