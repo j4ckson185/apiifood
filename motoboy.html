@@ -4,85 +4,99 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>Central do Motoboy</title>
-
-<!-- Ícones --------------------------------------------------------->
 <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet"/>
 
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
   --bg:#f5f5f5;--primary:#4285f4;--primary-dark:#2962d3;
-  --success:#28a745;--danger:#c33;--shadow:0 2px 6px rgb(0 0 0 /.1);
-  --radius:8px;--trans:.2s;font-family:system-ui,sans-serif
+  --success:#28a745;--warning:#f0ad4e;--danger:#c33;
+  --shadow:0 2px 6px rgb(0 0 0 /.1);--radius:10px;--trans:.2s;
+  font-family:system-ui,sans-serif
 }
 body{background:var(--bg);min-height:100vh;display:flex;flex-direction:column}
-.hidden{display:none !important;}          /*  ← voltou  */
+.hidden{display:none !important}
 
-/* topbar ------------------------------------------------- */
+/* TOPBAR -------------------------------------------------- */
 #topbar{background:#fff;box-shadow:var(--shadow);padding:.75rem 1rem;
         display:flex;justify-content:space-between;align-items:center}
 #topbar h1{font-size:1.1rem;font-weight:600;color:#444}
-#logout-btn{background:none;border:none;color:var(--danger);font-size:.9rem;cursor:pointer}
+#logout-btn{background:none;border:none;color:var(--danger);
+            font-size:.9rem;cursor:pointer}
 #logout-btn i{margin-right:.3rem}
 
-/* abas --------------------------------------------------- */
+/* TABS ---------------------------------------------------- */
 #tabs{display:flex;border-bottom:1px solid #ddd;background:#fff}
-.tab-btn{flex:1;text-align:center;padding:.7rem 0;cursor:pointer;font-weight:600;background:#fff;transition:var(--trans)}
+.tab-btn{flex:1;text-align:center;padding:.7rem 0;cursor:pointer;
+         font-weight:600;background:#fff;transition:var(--trans)}
 .tab-btn.active{color:var(--primary);border-bottom:3px solid var(--primary)}
 #panels{flex:1;overflow-y:auto;padding:1rem}
 .panel{display:none}.panel.active{display:block}
 
-/* cards -------------------------------------------------- */
-.order-card{background:#fff;border-left:4px solid var(--primary);
-            border-radius:var(--radius);box-shadow:var(--shadow);margin-bottom:1rem}
-.order-summary{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;padding:1rem;cursor:pointer}
-.order-summary .left{display:flex;flex-direction:column;gap:.3rem}
-.order-summary .display-id{font-weight:700;font-size:1.1rem}
-.order-summary .client{color:#555}
-.badge{padding:.2rem .5rem;border-radius:999px;font-size:.75rem;font-weight:600;color:#fff;min-width:80px;text-align:center}
-.badge.NEW{background:var(--primary)}.badge.DISPATCHED{background:#f0ad4e}.badge.CONCLUDED{background:var(--success)}
-.order-actions{margin-top:.6rem;display:flex;gap:.5rem}
-.order-actions button{flex:1;padding:.5rem;border:none;border-radius:6px;font-weight:600;color:#fff;cursor:pointer;transition:var(--trans);font-size:.85rem}
-.order-actions .dispatch{background:#f0ad4e}.order-actions .finish{background:var(--success)}
-.order-actions button:disabled{opacity:.6;cursor:not-allowed}
-.order-details{padding:0 1rem 1rem;color:#555;font-size:.9rem;line-height:1.4}.order-details.hidden{display:none}
+/* CARDS --------------------------------------------------- */
+.order-card{
+  width:100%;max-width:380px;margin:0 auto 1rem;               /* quadrado/coluna */
+  background:#fff;border-radius:var(--radius);box-shadow:var(--shadow);
+  overflow:hidden;display:flex;flex-direction:column
+}
+.badge{
+  align-self:flex-start;margin-left:.5rem;padding:.1rem .55rem;border-radius:999px;
+  font-size:.75rem;font-weight:600;color:#fff
+}
+.badge.NEW{background:var(--primary)}
+.badge.DISPATCHED{background:var(--warning)}
+.badge.CONCLUDED{background:var(--success)}
 
-/* login -------------------------------------------------- */
-#login-box{max-width:320px;margin:auto;padding:2rem;background:#fff;border-radius:var(--radius);box-shadow:var(--shadow)}
-#login-box h2{text-align:center;margin-bottom:1.5rem;color:#444}
-#login-box input{width:100%;padding:.8rem;margin-bottom:1rem;border:1px solid #ccc;border-radius:6px}
-#login-box button{width:100%;padding:.8rem;border:none;border-radius:6px;background:var(--primary);color:#fff;font-weight:600;cursor:pointer;transition:var(--trans)}
+.order-header{display:flex;justify-content:space-between;align-items:center;
+              padding:.9rem 1rem;cursor:pointer}
+.order-header h3{font-size:1rem}
+.order-header small{color:#555}
+
+.order-body{padding:0 1rem 1rem 1rem;font-size:.9rem;color:#555;display:none}
+.order-body.open{display:block}
+.order-body div{margin-top:.4rem}
+
+.order-actions{margin-top:.8rem;display:flex;gap:.5rem}
+.order-actions button{flex:1;padding:.55rem;border:none;border-radius:6px;
+                      font-weight:600;color:#fff;cursor:pointer;font-size:.82rem}
+.dispatch{background:var(--warning)}.finish{background:var(--success)}
+.order-actions button:disabled{opacity:.6;cursor:not-allowed}
+
+/* LOGIN --------------------------------------------------- */
+#login-box{max-width:320px;margin:auto;padding:2rem;background:#fff;
+           border-radius:var(--radius);box-shadow:var(--shadow)}
+#login-box h2{text-align:center;margin-bottom:1.4rem;color:#444}
+#login-box input{width:100%;padding:.8rem;margin-bottom:1rem;
+                 border:1px solid #ccc;border-radius:6px}
+#login-box button{width:100%;padding:.8rem;border:none;border-radius:6px;
+                  background:var(--primary);color:#fff;font-weight:600;cursor:pointer;transition:var(--trans)}
 #login-box button:hover{background:var(--primary-dark)}
 
-/* toast -------------------------------------------------- */
+/* TOAST --------------------------------------------------- */
 .toast{position:fixed;left:50%;bottom:1rem;transform:translateX(-50%);
        background:#333;color:#fff;padding:.6rem 1.2rem;border-radius:var(--radius);
        opacity:0;pointer-events:none;transition:opacity .3s}
 .toast.show{opacity:1}
-@media(max-width:480px){.order-summary{gap:.5rem}.order-actions button{font-size:.75rem}}
+@media(max-width:480px){.order-header h3{font-size:.95rem}}
 </style>
 </head>
 <body>
 
-<!-- TOPBAR (aparece após login) ----------------------------------->
-<header id="topbar" class="hidden"><!--  ✅ mantém hidden -->
+<header id="topbar" class="hidden">
   <h1>Central do Motoboy</h1>
   <button id="logout-btn"><i class="fas fa-sign-out-alt"></i>Sair</button>
 </header>
 
-<!-- TABS ----------------------------------------------------------->
-<nav id="tabs"   class="hidden"><!--  ✅ mantém hidden -->
+<nav id="tabs" class="hidden">
   <div id="tab-active"   class="tab-btn active">Em andamento</div>
   <div id="tab-finished" class="tab-btn">Finalizados</div>
 </nav>
 
-<!-- PAINÉIS -------------------------------------------------------->
-<main id="panels" class="hidden"><!--  ✅ mantém hidden -->
+<main id="panels" class="hidden">
   <section id="panel-active"   class="panel active"></section>
   <section id="panel-finished" class="panel"></section>
 </main>
 
-<!-- LOGIN --------------------------------------------------------->
 <div id="login-box">
   <h2><i class="fas fa-user-shield"></i> Login Motoboy</h2>
   <input id="user" type="text" placeholder="Usuário" autocomplete="username"/>
@@ -90,7 +104,6 @@ body{background:var(--bg);min-height:100vh;display:flex;flex-direction:column}
   <button id="login-btn">Entrar</button>
 </div>
 
-<!-- TOAST --------------------------------------------------------->
 <div id="toast" class="toast"></div>
 
 <script>
@@ -99,31 +112,24 @@ body{background:var(--bg);min-height:100vh;display:flex;flex-direction:column}
 =================================================================*/
 const state = {
   accessToken : null,
-  active      : {},          // { orderId : details }
-  finished    : {}           // { orderId : details }
+  active      : {},   // { orderId : details }
+  finished    : {}
 };
-
 const CONFIG = {
-  pollingInterval : 30000,
-  clientId        : 'e6415912-782e-4bd9-b6ea-af48c81ae323',
-  clientSecret    : '137o75y57ug8fm55ubfoxlwjpl0xm25jxj18ne5mser23mbprj5nfncvfnr82utnzx73ij4h449o298370rjwpycppazsfyh2s0l'
+  clientId     :'e6415912-782e-4bd9-b6ea-af48c81ae323',
+  clientSecret :'137o75y57ug8fm55ubfoxlwjpl0xm25jxj18ne5mser23mbprj5nfncvfnr82utnzx73ij4h449o298370rjwpycppazsfyh2s0l'
 };
-
 const channel = new BroadcastChannel('dispatchChannel');
 
 /* ================================================================
-   2. UI HELPERS
+   2. HELPERS UI / TOAST / TABS
 =================================================================*/
 const qs = s=>document.querySelector(s);
-const toastEl = qs('#toast');
-
 function showToast(msg,type='info'){
-  toastEl.textContent = msg;
-  toastEl.style.background = type==='error'? 'var(--danger)' : '#333';
-  toastEl.classList.add('show');
-  setTimeout(()=>toastEl.classList.remove('show'),2500);
+  const t = qs('#toast'); t.textContent=msg;
+  t.style.background = type==='error'? 'var(--danger)' : '#333';
+  t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2300);
 }
-
 function toggleTab(tab){
   qs('#tab-active').classList.toggle('active',tab==='active');
   qs('#tab-finished').classList.toggle('active',tab==='finished');
@@ -132,261 +138,209 @@ function toggleTab(tab){
 }
 
 /* ================================================================
-   3. TOKEN HELPERS
+   3. TOKEN (mesmo do admin)
 =================================================================*/
 async function fetchOwnToken(){
-  const payload = {
-    path   : '/authentication/v1.0/oauth/token',
-    method : 'POST',
-    headers: { 'Content-Type':'application/x-www-form-urlencoded' },
-    body   : `grantType=client_credentials&clientId=${CONFIG.clientId}&clientSecret=${CONFIG.clientSecret}`,
-    isAuth : true
-  };
-  const r = await fetch('/.netlify/functions/ifood-proxy',{
-    method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)
-  });
-  if(!r.ok) throw new Error('Auth '+r.status);
-  return (await r.json()).accessToken;
+  const payload={path:'/authentication/v1.0/oauth/token',method:'POST',
+    headers:{'Content-Type':'application/x-www-form-urlencoded'},
+    body:`grantType=client_credentials&clientId=${CONFIG.clientId}&clientSecret=${CONFIG.clientSecret}`,
+    isAuth:true};
+  const r=await fetch('/.netlify/functions/ifood-proxy',
+    {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+  if(!r.ok)throw new Error('auth'+r.status);return (await r.json()).accessToken;
 }
-
 async function ensureToken(){
   if(state.accessToken) return;
-
-  const got = await new Promise(res=>{
-    const listener = e=>{
-      if(e.data?.type==='token'){
-        state.accessToken = e.data.token;
-        channel.removeEventListener('message',listener);
-        res(true);
-      }
-    };
+  const got=await new Promise(res=>{
+    const listener=e=>{if(e.data?.type==='token'){state.accessToken=e.data.token;
+        channel.removeEventListener('message',listener);res(true)}};
     channel.addEventListener('message',listener);
     channel.postMessage({type:'token-request'});
-    setTimeout(()=>{channel.removeEventListener('message',listener);res(false)},2000);
+    setTimeout(()=>{channel.removeEventListener('message',listener);res(false)},1500);
   });
-  if(got) return;
-  state.accessToken = await fetchOwnToken();
+  if(got) return; state.accessToken=await fetchOwnToken();
 }
 
 /* ================================================================
-   4. AUTHORIZED REQUEST
-=================================================================*/
-async function makeAuthorizedRequest(path,method='GET',body=null){
-  const attempt = async ()=>{
-    const headers = {'Content-Type':'application/json','Authorization':`Bearer ${state.accessToken}`};
-    const payload = {path,method,headers,body};
-    return fetch('/.netlify/functions/ifood-proxy',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
-  };
-  await ensureToken();
-  let resp = await attempt();
-  if(resp.status===401){
-    state.accessToken = await fetchOwnToken();
-    resp = await attempt();
-  }
-  if(!resp.ok) throw new Error(resp.status);
-  const txt = await resp.text();
-  return txt? JSON.parse(txt):{};
-}
-
-/* ================================================================
-   5. PERSISTÊNCIA LOCAL
+   4. PERSISTÊNCIA LOCAL
 =================================================================*/
 function saveLocal(){
-  localStorage.setItem('motoboyActive',JSON.stringify(state.active));
-  localStorage.setItem('motoboyFinished',JSON.stringify(state.finished));
+  localStorage.setItem('mbActive',JSON.stringify(state.active));
+  localStorage.setItem('mbFinished',JSON.stringify(state.finished));
 }
 function loadLocal(){
   try{
-    state.active   = JSON.parse(localStorage.getItem('motoboyActive'))   || {};
-    state.finished = JSON.parse(localStorage.getItem('motoboyFinished')) || {};
-  }catch{ state.active={};state.finished={}; }
+    state.active   = JSON.parse(localStorage.getItem('mbActive'))   || {};
+    state.finished = JSON.parse(localStorage.getItem('mbFinished')) || {};
+  }catch{state.active={};state.finished={};}
 }
 
 /* ================================================================
-   6. RENDERIZAÇÃO DE CARDS
+   5. CARD RENDER
 =================================================================*/
-function renderAll(){
-  qs('#panel-active').innerHTML   = '';
-  qs('#panel-finished').innerHTML = '';
-  Object.values(state.active  ).forEach(renderCardActive);
-  Object.values(state.finished).forEach(renderCardFinished);
-}
+function fmtMoney(v){ return 'R$ '+v.toFixed(2).replace('.',','); }
 
-function createCardSkeleton(det){
-  const card = document.createElement('div');
-  card.className='order-card';
-  card.dataset.orderId = det.id;
-  card.innerHTML = `
-    <div class="order-summary">
-      <div class="left">
-        <span class="display-id">#${det.displayId||det.id.slice(0,8)}</span>
-        <span class="client">${det.customer?.name||'—'}</span>
+function createCard(det){
+  const card=document.createElement('div');card.className='order-card';card.dataset.id=det.id;
+  card.innerHTML=`
+    <div class="order-header">
+      <div>
+        <h3>#${det.displayId}</h3>
+        <small>${det.customer}</small>
       </div>
       <span class="badge ${det.status}">${det.status==='NEW'?'Novo':det.status==='DISPATCHED'?'Despachado':'Finalizado'}</span>
     </div>
-    <div class="order-details hidden">
-       <div><b>Endereço:</b> ${det.deliveryAddress?.street||'—'} ${det.deliveryAddress?.number||''}</div>
-       <div><b>Valor:</b> R$ ${(det.totalPrice/100).toFixed(2)}</div>
-       <div><b>Pagamento:</b> ${det.payments?.[0]?.method||'—'}</div>
-       <div class="order-actions"></div>
+    <div class="order-body">
+      <div><b>Endereço:</b> ${det.address}</div>
+      <div><b>Valor:</b> ${fmtMoney(det.total)}</div>
+      <div><b>Pagamento:</b> ${det.payment}</div>
+      <div class="order-actions"></div>
     </div>`;
-  const details = card.querySelector('.order-details');
-  card.querySelector('.order-summary').onclick = ()=>details.classList.toggle('hidden');
+  const body = card.querySelector('.order-body');
+  card.querySelector('.order-header').onclick = ()=>body.classList.toggle('open');
   return card;
 }
+function updateCardStatus(card,status){
+  const b=card.querySelector('.badge');
+  b.className='badge '+status;
+  b.textContent = status==='DISPATCHED'?'Despachado':'Finalizado';
+}
 
-function renderCardActive(det){
-  const card = createCardSkeleton(det);
-  const act  = card.querySelector('.order-actions');
-
+/* -------- Active -------- */
+function renderActive(det){
+  const card=createCard(det);
+  const acts=card.querySelector('.order-actions');
   if(det.status==='NEW'){
-    act.innerHTML = `<button class="dispatch"><i class="fas fa-location-arrow"></i> Despachar</button>
-                     <button class="finish"><i class="fas fa-check"></i> Finalizar</button>`;
+    acts.innerHTML=`<button class="dispatch"><i class="fas fa-location-arrow"></i> Despachar</button>
+                    <button class="finish"><i class="fas fa-check"></i> Finalizar</button>`;
   }else if(det.status==='DISPATCHED'){
-    act.innerHTML = `<button class="finish"><i class="fas fa-check"></i> Finalizar</button>`;
+    acts.innerHTML=`<button class="finish"><i class="fas fa-check"></i> Finalizar</button>`;
   }
-
-  act.querySelectorAll('button').forEach(btn=>btn.onclick = e=>{
-    e.stopPropagation();
-    if(btn.classList.contains('dispatch')) onDispatch(det.id,card);
-    if(btn.classList.contains('finish'))   onFinishLocal(det.id,card);
+  acts.querySelectorAll('button').forEach(btn=>{
+    btn.onclick=e=>{
+      e.stopPropagation();
+      if(btn.classList.contains('dispatch')) onDispatch(det.id,card);
+      if(btn.classList.contains('finish'))   onFinishLocal(det.id,card);
+    };
   });
-
   qs('#panel-active').prepend(card);
 }
-
-function renderCardFinished(det){
-  const card = createCardSkeleton(det);
-  card.querySelector('.badge').textContent = 'Finalizado';
+/* -------- Finished ------- */
+function renderFinished(det){
+  const card=createCard({...det,status:'CONCLUDED'});
+  card.querySelector('.order-actions').remove();
+  updateCardStatus(card,'CONCLUDED');
   qs('#panel-finished').prepend(card);
-  card.querySelector('.order-actions').remove(); // sem botões
+}
+function renderAll(){
+  qs('#panel-active').innerHTML='';
+  qs('#panel-finished').innerHTML='';
+  Object.values(state.active).forEach(renderActive);
+  Object.values(state.finished).forEach(renderFinished);
 }
 
 /* ================================================================
-   7. AÇÕES DOS BOTÕES
+   6. BOTÕES
 =================================================================*/
-async function onDispatch(orderId,card){
-  try{
-    const btn = card.querySelector('.dispatch'); btn.disabled=true;
-    await makeAuthorizedRequest(`/order/v1.0/orders/${orderId}/dispatch`,'POST');
-    state.active[orderId].status = 'DISPATCHED';
-    card.querySelector('.badge').className='badge DISPATCHED';
-    card.querySelector('.badge').textContent='Despachado';
-    btn.remove();                               // Some botão Despachar
-    saveLocal();
-    channel.postMessage({type:'status-update',orderId,status:'DISPATCHED'});
-  }catch(err){
-    console.error(err);showToast('Falha ao despachar','error');
-  }
-}
-
-function onFinishLocal(orderId,card){
-  // apenas UI/local – não chama API
-  const det = state.active[orderId];
-  det.status = 'CONCLUDED';
-  state.finished[orderId] = det;
-  delete state.active[orderId];
-  card.remove();
-  renderCardFinished(det);
+function onDispatch(id,card){
+  card.querySelector('.dispatch').disabled=true;
+  // só envia pedido ao admin; ele fará a chamada na API
+  channel.postMessage({type:'dispatch-request',orderId:id});
+  state.active[id].status='DISPATCHED';
+  updateCardStatus(card,'DISPATCHED');
+  card.querySelector('.dispatch').remove();
   saveLocal();
-  channel.postMessage({type:'status-update',orderId,status:'CONCLUDED'});
+}
+function onFinishLocal(id,card){
+  const det=state.active[id];det.status='CONCLUDED';
+  state.finished[id]=det;delete state.active[id];
+  card.remove();renderFinished(det);saveLocal();
+  channel.postMessage({type:'conclude-request',orderId:id}); // admin decide chamar API
 }
 
 /* ================================================================
-   8. COMUNICAÇÃO COM ADMIN
+   7. RECEPÇÃO DE MENSAGENS (admin → motoboy)
 =================================================================*/
 channel.addEventListener('message',async e=>{
-  const d = e.data;
+  const d=e.data;
   if(d?.type==='assign' && d.user===localStorage.getItem('motoboyUser')){
-      for(const id of d.orders){
-        if(state.active[id]||state.finished[id]) continue;
-        try{
-          const det = await makeAuthorizedRequest(`/order/v1.0/orders/${id}`,'GET');
-          det.id = id;           // garantia
-          det.status = 'NEW';
-          state.active[id]=det;
-          renderCardActive(det);
-          saveLocal();
-        }catch(err){
-          console.error(err);
-        }
-      }
+    for(const id of d.orders){
+      if(state.active[id]||state.finished[id]) continue;
+      try{
+        await ensureToken();
+        const info=await fetchOrderDetails(id);
+        state.active[id]=info; renderActive(info); saveLocal();
+      }catch(err){console.error(err);}
+    }
   }
   if(d?.type==='status-update'){
-      const {orderId,status} = d;
-      if(state.active[orderId]){
-        if(status==='CONCLUDED') onFinishLocal(orderId,qs(`[data-order-id="${orderId}"]`));
-        if(status==='DISPATCHED'){
-          state.active[orderId].status='DISPATCHED';
-          const card = qs(`[data-order-id="${orderId}"]`);
-          if(card){
-            card.querySelector('.badge').className='badge DISPATCHED';
-            card.querySelector('.badge').textContent='Despachado';
-            const dispBtn = card.querySelector('.dispatch');
-            if(dispBtn) dispBtn.remove();
-          }
-          saveLocal();
-        }
+    const {orderId,status}=d;
+    if(state.active[orderId]){
+      if(status==='DISPATCHED'){
+        state.active[orderId].status='DISPATCHED';
+        const c=qs(`.order-card[data-id="${orderId}"]`);
+        if(c){updateCardStatus(c,'DISPATCHED');c.querySelector('.dispatch')?.remove();}
       }
+      if(status==='CONCLUDED') onFinishLocal(orderId,qs(`.order-card[data-id="${orderId}"]`));
+      saveLocal();
+    }
   }
 });
 
 /* ================================================================
-   9. LOGIN E SESSÃO
+   8. DETALHES DO PEDIDO (mesmos campos do admin)
 =================================================================*/
-const loginBox = qs('#login-box');
-const loginBtn = qs('#login-btn');
-const logoutBtn= qs('#logout-btn');
-const userInp  = qs('#user');
-const passInp  = qs('#pass');
+async function fetchOrderDetails(id){
+  const o=await ensureToken().then(()=>fetch(`/order/v1.0/orders/${id}`,{
+      headers:{Authorization:`Bearer ${state.accessToken}`}})).then(r=>r.json());
+  // normaliza para o motoboy
+  return {
+    id,
+    displayId : o.displayId || o.orderDisplayId || id.slice(0,8),
+    customer  : o.customer?.name || `${o.customer?.firstName||''} ${o.customer?.lastName||''}`.trim() || '—',
+    address   : o.deliveryAddress?.formattedAddress ||
+                `${o.deliveryAddress?.streetName||''}, ${o.deliveryAddress?.number||''} - ${o.deliveryAddress?.neighborhood||''}`,
+    total     : ((o.pricing?.totalPrice ?? o.totalPrice ?? 0)/100),
+    payment   : o.payments?.[0]?.methodName || o.payments?.[0]?.method || '—',
+    status    : 'NEW'
+  };
+}
 
-async function doLogin(username){
-  localStorage.setItem('motoboyUser',username);
+/* ================================================================
+   9. LOGIN / SESSÃO
+=================================================================*/
+const loginBox=qs('#login-box'),loginBtn=qs('#login-btn'),logoutBtn=qs('#logout-btn');
+async function enterUI(){
   loginBox.classList.add('hidden');
   qs('#topbar').classList.remove('hidden');
   qs('#tabs').classList.remove('hidden');
   qs('#panels').classList.remove('hidden');
-  channel.postMessage({type:'motoboy-online',user:username});
+}
+async function doLogin(user){
+  localStorage.setItem('motoboyUser',user);
   await ensureToken();
-  requestExistingAssignments(username);
-  loadLocal();renderAll();
+  enterUI(); loadLocal(); renderAll();
+  channel.postMessage({type:'motoboy-online',user});
 }
-
-function requestExistingAssignments(user){
-  channel.postMessage({type:'ask-existing',user});
-}
-
-loginBtn.onclick = async ()=>{
-  const u=userInp.value.trim().toLowerCase();
-  const p=passInp.value;
-  if(u==='boaz'&&p==='boaz123'){
-     await doLogin(u);
-  }else{
-     showToast('Usuário ou senha inválidos','error');
-  }
+loginBtn.onclick=async ()=>{
+  const u=qs('#user').value.trim().toLowerCase();
+  const p=qs('#pass').value;
+  if(u==='boaz'&&p==='boaz123') await doLogin(u);
+  else showToast('Usuário ou senha inválidos','error');
 };
+logoutBtn.onclick=()=>{localStorage.clear();location.reload()};
 
-logoutBtn.onclick = ()=>{
-  localStorage.clear();
-  location.reload();
-};
-
-/* auto-login ----------------------------------------------- */
-window.addEventListener('load',async ()=>{
-  const u = localStorage.getItem('motoboyUser');
-  if(u){ await doLogin(u); }
+/* auto-login ----------------------------------------------------- */
+window.addEventListener('load',()=>{
+  const u=localStorage.getItem('motoboyUser');
+  if(u){doLogin(u)}
 });
 
 /* ================================================================
-   10. TABS CLICK
+   10. ABA
 =================================================================*/
-qs('#tab-active').onclick   = ()=>toggleTab('active');
-qs('#tab-finished').onclick = ()=>toggleTab('finished');
-
-/* ================================================================
-   11. POLLING OPCIONAL (keep fresh)
-=================================================================*/
-setInterval(()=>channel.postMessage({type:'ping'}),CONFIG.pollingInterval);
+qs('#tab-active').onclick  =()=>toggleTab('active');
+qs('#tab-finished').onclick=()=>toggleTab('finished');
 </script>
 </body>
 </html>
