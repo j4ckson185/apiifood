@@ -1,401 +1,402 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Central do Motoboy</title>
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Central do Motoboy</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
 
-<!-- ==========  CSS  ========== -->
 <style>
+
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+
 :root{
-  --bg:#f5f5f5;--primary:#4285f4;--primary-dark:#2962d3;
-  --success:#28a745;--warning:#f0ad4e;--danger:#c33;
-  --shadow:0 2px 6px rgb(0 0 0 /.1);--radius:10px;
-  font-family:system-ui,sans-serif
+
+--bg:#f5f5f5;--primary:#4285f4;--primary-dark:#2962d3;
+
+--success:#28a745;--warning:#f0ad4e;--danger:#c33;
+
+--shadow:0 2px 6px rgb(0 0 0 /.1);--radius:10px;
+
+font-family:system-ui,sans-serif
+
 }
+
 body{background:var(--bg);min-height:100vh;display:flex;flex-direction:column}
+
 .hidden{display:none !important}
 
 /* TOPBAR */
+
 #topbar{background:#fff;box-shadow:var(--shadow);padding:.75rem 1rem;
-        display:flex;justify-content:space-between;align-items:center}
+
+display:flex;justify-content:space-between;align-items:center}
+
 #topbar h1{font-size:1.1rem;font-weight:600;color:#444}
+
 #logout-btn{background:none;border:none;color:var(--danger);font-size:.9rem;cursor:pointer}
+
 #logout-btn i{margin-right:.3rem}
 
 /* TABS */
+
 #tabs{display:flex;border-bottom:1px solid #ddd;background:#fff}
+
 .tab-btn{flex:1;text-align:center;padding:.7rem 0;cursor:pointer;font-weight:600}
+
 .tab-btn.active{color:var(--primary);border-bottom:3px solid var(--primary)}
+
 #panels{flex:1;overflow-y:auto;padding:1rem}
+
 .panel{display:none}.panel.active{display:block}
 
 /* CARDS */
+
 .order-card{width:100%;max-width:380px;margin:0 auto 1rem;
-            background:#fff;border-radius:var(--radius);box-shadow:var(--shadow)}
+
+background:#fff;border-radius:var(--radius);box-shadow:var(--shadow)}
+
 .badge{align-self:flex-start;margin-left:.5rem;padding:.1rem .6rem;border-radius:999px;
-       font-size:.75rem;font-weight:600;color:#fff}
+
+font-size:.75rem;font-weight:600;color:#fff}
+
 .badge.NEW{background:var(--primary)}
+
 .badge.DISPATCHED{background:var(--warning)}
+
 .badge.CONCLUDED{background:var(--success)}
+
 .order-header{display:flex;justify-content:space-between;align-items:center;
-              padding:.9rem 1rem;cursor:pointer}
+
+padding:.9rem 1rem;cursor:pointer}
+
 .order-header h3{font-size:1rem}
+
 .order-header small{color:#555}
+
 .order-body{padding:0 1rem 1rem;font-size:.9rem;color:#555;display:none}
+
 .order-body.open{display:block}
+
 .order-body div{margin-top:.45rem}
+
 .order-actions{margin-top:.8rem;display:flex;gap:.5rem}
+
 .order-actions button{flex:1;padding:.55rem;border:none;border-radius:6px;
-                      font-weight:600;color:#fff;cursor:pointer;font-size:.82rem}
+
+font-weight:600;color:#fff;cursor:pointer;font-size:.82rem}
+
 .dispatch{background:var(--warning)}
+
 .finish{background:var(--success)}
+
 .order-actions button:disabled{opacity:.6;cursor:not-allowed}
 
 /* LOGIN */
+
 #login-box{max-width:320px;margin:auto;padding:2rem;background:#fff;
-           border-radius:var(--radius);box-shadow:var(--shadow)}
+
+border-radius:var(--radius);box-shadow:var(--shadow)}
+
 #login-box h2{text-align:center;margin-bottom:1.4rem;color:#444}
+
 #login-box input{width:100%;padding:.8rem;margin-bottom:1rem;border:1px solid #ccc;border-radius:6px}
+
 #login-box button{width:100%;padding:.8rem;border:none;border-radius:6px;
-                  background:var(--primary);color:#fff;font-weight:600;cursor:pointer}
+
+background:var(--primary);color:#fff;font-weight:600;cursor:pointer}
+
 #login-box button:hover{background:var(--primary-dark)}
 
 /* TOAST */
+
 .toast{position:fixed;left:50%;bottom:1rem;transform:translateX(-50%);
-       background:#333;color:#fff;padding:.6rem 1.2rem;border-radius:var(--radius);
-       opacity:0;pointer-events:none;transition:opacity .3s}
+
+background:#333;color:#fff;padding:.6rem 1.2rem;border-radius:var(--radius);
+
+opacity:0;pointer-events:none;transition:opacity .3s}
+
 .toast.show{opacity:1}
 
 @media(max-width:480px){.order-header h3{font-size:.95rem}}
+
 </style>
+
+  <!-- ① Inicialização do Firebase (exporta `db`) -->
+  <script type="module" src="./firebase-init.js"></script>
 </head>
 <body>
 
-<!-- ==========  INTERFACE  ========== -->
-<header id="topbar" class="hidden">
-  <h1>Central do Motoboy</h1>
-  <button id="logout-btn"><i class="fas fa-sign-out-alt"></i>Sair</button>
-</header>
+  <!-- ===== INTERFACE ===== -->
+  <header id="topbar" class="hidden">
+    <h1>Central do Motoboy</h1>
+    <button id="logout-btn"><i class="fas fa-sign-out-alt"></i>Sair</button>
+  </header>
 
-<nav id="tabs" class="hidden">
-  <div id="tab-active"   class="tab-btn active">Em andamento</div>
-  <div id="tab-finished" class="tab-btn">Finalizados</div>
-</nav>
+  <nav id="tabs" class="hidden">
+    <div id="tab-active"   class="tab-btn active">Em andamento</div>
+    <div id="tab-finished" class="tab-btn">Finalizados</div>
+  </nav>
 
-<main id="panels" class="hidden">
-  <section id="panel-active"   class="panel active"></section>
-  <section id="panel-finished" class="panel"></section>
-</main>
+  <main id="panels" class="hidden">
+    <section id="panel-active"   class="panel active"></section>
+    <section id="panel-finished" class="panel"></section>
+  </main>
 
-<!-- ==========  LOGIN  ========== -->
-<div id="login-box">
-  <h2><i class="fas fa-user-shield"></i> Login Motoboy</h2>
-  <input id="user" type="text" placeholder="Usuário" autocomplete="username">
-  <input id="pass" type="password" placeholder="Senha" autocomplete="current-password">
-  <button id="login-btn">Entrar</button>
-</div>
+  <!-- ===== LOGIN ===== -->
+  <div id="login-box">
+    <h2><i class="fas fa-user-shield"></i> Login Motoboy</h2>
+    <input id="user" type="text" placeholder="Usuário" autocomplete="username">
+    <input id="pass" type="password" placeholder="Senha" autocomplete="current-password">
+    <button id="login-btn">Entrar</button>
+  </div>
 
-<!-- ==========  TOAST  ========== -->
-<div id="toast" class="toast"></div>
+  <!-- ===== TOAST ===== -->
+  <div id="toast" class="toast"></div>
 
-<!-- ==========  JAVASCRIPT  ========== -->
-<script>
-/* ----------------------------------------------------------------
-   1. ESTADO & CONFIG
----------------------------------------------------------------- */
-const state = { accessToken:null, active:{}, finished:{} };
-const CONFIG = {
-  clientId:'e6415912-782e-4bd9-b6ea-af48c81ae323',
-  clientSecret:'137o75y57ug8fm55ubfoxlwjpl0xm25jxj18ne5mser23mbprj5nfncvfnr82utnzx73ij4h449o298370rjwpycppazsfyh2s0l'
-};
-const channel = new BroadcastChannel('dispatchChannel');
+  <!-- ===== LÓGICA CLIENTE ===== -->
+  <script type="module">
+    import { db } from "./firebase-init.js";
+    import {
+      collection,
+      onSnapshot
+    } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-/* ----------------------------------------------------------------
-   2. UI HELPERS
----------------------------------------------------------------- */
-const $ = s=>document.querySelector(s);
-function toast(msg,type='info'){
-  const t=$('#toast');t.textContent=msg;
-  t.style.background=type==='error'?'var(--danger)':'#333';
-  t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2300);
-}
-function money(v){return 'R$ '+v.toFixed(2).replace('.',',');}
-function badgeText(s){return s==='NEW'?'Novo':s==='DISPATCHED'?'Despachado':'Finalizado';}
-function toggleTab(tab){
-  const act=tab==='active';
-  $('#tab-active').classList.toggle('active',act);
-  $('#tab-finished').classList.toggle('active',!act);
-  $('#panel-active').classList.toggle('active',act);
-  $('#panel-finished').classList.toggle('active',!act);
-}
-
-/* ----------------------------------------------------------------
-   3. TOKEN & PROXY (para buscar detalhes)
----------------------------------------------------------------- */
-async function fetchOwnToken(){
-  const payload={
-    path:'/authentication/v1.0/oauth/token',method:'POST',
-    headers:{'Content-Type':'application/x-www-form-urlencoded'},
-    body:`grantType=client_credentials&clientId=${CONFIG.clientId}&clientSecret=${CONFIG.clientSecret}`,
-    isAuth:true
-  };
-  const r=await fetch('/.netlify/functions/ifood-proxy',{
-    method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
-  if(!r.ok)throw new Error('auth '+r.status);
-  return (await r.json()).accessToken;
-}
-async function ensureToken(){
-  if(state.accessToken) return;
-  state.accessToken = await fetchOwnToken();
-}
-async function makeRequest(path,method='GET',body=null){
-  await ensureToken();
-  const headers={'Content-Type':'application/json','Authorization':`Bearer ${state.accessToken}`};
-  const resp=await fetch('/.netlify/functions/ifood-proxy',{
-    method:'POST',
-    headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({path,method,headers,body})
-  });
-  if(!resp.ok) throw new Error('HTTP '+resp.status);
-  const txt=await resp.text();return txt?JSON.parse(txt):{};
-}
-
-/************ BUSCA PEDIDOS “READY_FOR_DISPATCH” ************/
-async function fetchDispatched() {
-  /* A API exige POST em /order/v1.0/orders:search                *
-   * e devolve lista em resp.content                              */
-  const body = {
-    page : 1,
-    size : 50,
-    filters : {
-      orderStage : ['READY_FOR_DISPATCH']   // status após “Despachar”
-    }
-  };
-  const resp = await makeRequest(
-    '/order/v1.0/orders:search',
-    'POST',
-    JSON.stringify(body)
-  );
-  return resp.content || [];
-}
-
-/* ----------------------------------------------------------------
-   4. PERSISTÊNCIA
----------------------------------------------------------------- */
-function saveLocal(){
-  localStorage.setItem('mbActive',JSON.stringify(state.active));
-  localStorage.setItem('mbFinished',JSON.stringify(state.finished));
-}
-function loadLocal(){
-  try{
-    state.active  = JSON.parse(localStorage.getItem('mbActive'))   || {};
-    state.finished= JSON.parse(localStorage.getItem('mbFinished')) || {};
-  }catch{state.active={};state.finished={};}
-}
-
-/* ----------------------------------------------------------------
-   5. RENDERIZAÇÃO
----------------------------------------------------------------- */
-function createCard(det){
-  const c=document.createElement('div');c.className='order-card';c.dataset.id=det.id;
-  c.innerHTML=`
-    <div class="order-header">
-      <div><h3>#${det.displayId}</h3><small>${det.customer}</small></div>
-      <span class="badge ${det.status}">${badgeText(det.status)}</span>
-    </div>
-    <div class="order-body">
-      <div><b>Endereço:</b> ${det.address}</div>
-      <div><b>Valor:</b> ${money(det.total)}</div>
-      <div><b>Pagamento:</b> ${det.payment}</div>
-      <div class="order-actions"></div>
-    </div>`;
-  c.querySelector('.order-header').onclick=()=>c.querySelector('.order-body').classList.toggle('open');
-  return c;
-}
-function setStatus(card,s){
-  const b=card.querySelector('.badge');b.className='badge '+s;b.textContent=badgeText(s);
-}
-
-function renderActive(det){
-  const card=createCard(det);
-  const acts=card.querySelector('.order-actions');
-  acts.innerHTML=det.status==='NEW'
-    ? `<button class="dispatch"><i class="fas fa-location-arrow"></i> Despachar</button>
-       <button class="finish"><i class="fas fa-check"></i> Finalizar</button>`
-    : `<button class="finish"><i class="fas fa-check"></i> Finalizar</button>`;
-  acts.querySelectorAll('button').forEach(btn=>{
-    btn.onclick=e=>{
-      e.stopPropagation();
-      if(btn.classList.contains('dispatch')) doDispatch(det.id,card,btn);
-      else                                   doFinish(det.id,card);
+    // 1) Estado e helpers de UI
+    const state = { accessToken:null, active:{}, finished:{} };
+    const CONFIG = {
+      clientId: 'e6415912-782e-4bd9-b6ea-af48c81ae323',
+      clientSecret: '137o75y57ug8fm55ubfoxlwjpl0xm25jxj18ne5mser23mbprj5nfncvfnr82utnzx73ij4h449o298370rjwpycppazsfyh2s0l'
     };
-  });
-  $('#panel-active').prepend(card);
-}
-function renderFinished(det){
-  const card=createCard({...det,status:'CONCLUDED'});
-  card.querySelector('.order-actions').remove();
-  setStatus(card,'CONCLUDED');
-  $('#panel-finished').prepend(card);
-}
-function renderAll(){
-  $('#panel-active').innerHTML='';
-  $('#panel-finished').innerHTML='';
-  Object.values(state.active).forEach(renderActive);
-  Object.values(state.finished).forEach(renderFinished);
-}
+    const $ = s => document.querySelector(s);
+    function toast(msg,type='info'){
+      const t=$('#toast');
+      t.textContent=msg;
+      t.style.background= type==='error' ? 'var(--danger)' : '#333';
+      t.classList.add('show');
+      setTimeout(()=>t.classList.remove('show'),2300);
+    }
+    function badgeText(s){
+      return s==='NEW'?'Novo': s==='DISPATCHED'?'Despachado':'Finalizado';
+    }
+    function toggleTab(tab){
+      const act = tab==='active';
+      $('#tab-active').classList.toggle('active',act);
+      $('#tab-finished').classList.toggle('active',!act);
+      $('#panel-active').classList.toggle('active',act);
+      $('#panel-finished').classList.toggle('active',!act);
+    }
 
-/* ----------------------------------------------------------------
-   6. BOTÕES
----------------------------------------------------------------- */
-function doDispatch(id,card,btn){
-  btn.disabled=true;
-  channel.postMessage({type:'dispatch-request',orderId:id});
-  state.active[id].status='DISPATCHED';
-  setStatus(card,'DISPATCHED');
-  btn.remove();
-  saveLocal();
-  // se admin não confirmar em 3 s, volta para NEW
-  setTimeout(()=>{
-    if(state.active[id]?.status==='NEW'){
+    // 2) Autenticação + proxy Netlify
+    async function fetchOwnToken(){
+      const payload = {
+        path:'/authentication/v1.0/oauth/token', method:'POST',
+        headers:{'Content-Type':'application/x-www-form-urlencoded'},
+        body:`grantType=client_credentials&clientId=${CONFIG.clientId}&clientSecret=${CONFIG.clientSecret}`,
+        isAuth:true
+      };
+      const r = await fetch('/.netlify/functions/ifood-proxy',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify(payload)
+      });
+      if(!r.ok) throw new Error('auth '+r.status);
+      return (await r.json()).accessToken;
+    }
+    async function ensureToken(){
+      if(state.accessToken) return;
+      state.accessToken = await fetchOwnToken();
+    }
+    async function makeRequest(path,method='GET',body=null){
+      await ensureToken();
+      const headers = {
+        'Content-Type':'application/json',
+        'Authorization':`Bearer ${state.accessToken}`
+      };
+      const r = await fetch('/.netlify/functions/ifood-proxy',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({path,method,headers,body})
+      });
+      if(!r.ok) throw new Error('HTTP '+r.status);
+      const txt = await r.text();
+      return txt ? JSON.parse(txt) : {};
+    }
+
+    // 3) Monta e renderiza cards
+    function createCard(det){
+      const c = document.createElement('div');
+      c.className = 'order-card';
+      c.dataset.id = det.id;
+      c.innerHTML = `
+        <div class="order-header">
+          <div>
+            <h3>#${det.displayId}</h3>
+            <small>${det.customer}</small>
+          </div>
+          <span class="badge ${det.status}">${badgeText(det.status)}</span>
+        </div>
+        <div class="order-body">
+          <div><b>Endereço:</b> ${det.address}</div>
+          <div><b>Valor:</b> R$ ${det.total.toFixed(2).replace('.',',')}</div>
+          <div><b>Pagamento:</b> ${det.payment}</div>
+          <div class="order-actions"></div>
+        </div>`;
+      c.querySelector('.order-header')
+       .onclick = ()=>c.querySelector('.order-body').classList.toggle('open');
+      return c;
+    }
+    function setStatus(card,s){
+      const b = card.querySelector('.badge');
+      b.className = 'badge '+s;
+      b.textContent = badgeText(s);
+    }
+    function renderActive(det){
+      const card = createCard(det);
+      const acts = card.querySelector('.order-actions');
+      acts.innerHTML = det.status==='NEW'
+        ? `<button class="dispatch"><i class="fas fa-location-arrow"></i> Despachar</button>
+           <button class="finish"><i class="fas fa-check"></i> Finalizar</button>`
+        : `<button class="finish"><i class="fas fa-check"></i> Finalizar</button>`;
+      acts.querySelectorAll('button').forEach(btn=>{
+        btn.onclick = e=>{
+          e.stopPropagation();
+          if(btn.classList.contains('dispatch')) doDispatch(det.id,card,btn);
+          else                                 doFinish(det.id,card);
+        };
+      });
+      $('#panel-active').prepend(card);
+    }
+    function renderFinished(det){
+      const card = createCard({...det,status:'CONCLUDED'});
+      card.querySelector('.order-actions').remove();
+      setStatus(card,'CONCLUDED');
+      $('#panel-finished').prepend(card);
+    }
+    function renderAll(){
+      $('#panel-active').innerHTML   = '';
+      $('#panel-finished').innerHTML = '';
+      Object.values(state.active).forEach(renderActive);
+      Object.values(state.finished).forEach(renderFinished);
+    }
+
+    // 4) Ações de Despachar / Finalizar
+    function doDispatch(id,card,btn){
+      btn.disabled = true;
+      // atualiza localmente
+      state.active[id].status = 'DISPATCHED';
+      setStatus(card,'DISPATCHED');
+      btn.remove();
+      saveLocal();
+      toast('Pedido despachado','info');
+      // NOTA: não chamamos mais BroadcastChannel, 
+      // nem avisamos o admin — é unidirecional Firestore→motoboy
+    }
+    function doFinish(id,card){
+      const det = state.active[id];
+      det.status = 'CONCLUDED';
+      state.finished[id] = det;
+      delete state.active[id];
+      card.remove();
+      renderFinished(det);
+      saveLocal();
+      toast('Pedido finalizado','success');
+    }
+
+    // 5) Storage local
+    function saveLocal(){
+      localStorage.setItem('mbActive',  JSON.stringify(state.active));
+      localStorage.setItem('mbFinished',JSON.stringify(state.finished));
+    }
+    function loadLocal(){
+      try {
+        state.active   = JSON.parse(localStorage.getItem('mbActive'))   || {};
+        state.finished = JSON.parse(localStorage.getItem('mbFinished')) || {};
+      } catch {
+        state.active = {}; state.finished = {};
+      }
+    }
+
+    // 6) Buscar detalhes de um pedido via proxy
+    async function fetchOrderDetails(id){
+      const o = await makeRequest(`/order/v1.0/orders/${id}`);
+      // … mesma lógica que você já tinha para extrair endereço, total, payment…
+      const addr = o.delivery?.deliveryAddress || {};
+      const address = addr.formattedAddress
+        || `${addr.streetName||''}, ${addr.streetNumber||''}${addr.complement?' - '+addr.complement:''}`;
+      let raw = o.pricing?.orderAmount
+             ?? o.pricing?.totalPrice
+             ?? o.pricing?.price?.value
+             ?? 0;
+      if(raw>100) raw /= 100;
+      const payObj = o.payments?.methods?.[0] || {};
+      const payment = payObj.methodName || payObj.methodType || payObj.method || '—';
+      return {
+        id,
+        displayId: o.displayId || o.orderDisplayId || id.slice(0,8),
+        customer: o.customer?.name 
+                  || `${o.customer?.firstName||''} ${o.customer?.lastName||''}`.trim() 
+                  || '—',
+        address,
+        total: raw,
+        payment,
+        status:'NEW'
+      };
+    }
+
+    // 7) Listener Firestore (substitui BroadcastChannel & polling)
+    function startMotoboyListener() {
+      const motoboyUser = localStorage.getItem('motoboyUser');
+      if (!motoboyUser) return;
+      const ordersCol = collection(db, "dispatchs", motoboyUser, "orders");
+      onSnapshot(ordersCol, snapshot => {
+        snapshot.docChanges().forEach(async change => {
+          if (change.type === "added") {
+            const orderId = change.doc.id;
+            if (!state.active[orderId] && !state.finished[orderId]) {
+              const det = await fetchOrderDetails(orderId);
+              state.active[orderId] = det;
+              renderActive(det);
+              saveLocal();
+            }
+          }
+        });
+      });
+    }
+
+    // 8) Login / Logout
+    function enterUI(){
+      $('#login-box').classList.add('hidden');
+      $('#topbar').classList.remove('hidden');
+      $('#tabs').classList.remove('hidden');
+      $('#panels').classList.remove('hidden');
+    }
+    function doLogin(u){
+      localStorage.setItem('motoboyUser',u);
+      enterUI();
+      loadLocal();
       renderAll();
-      toast('Despacho não confirmado, tente novamente.','error');
+      startMotoboyListener();
     }
-  },3000);
-}
-function doFinish(id,card){
-  const det=state.active[id];det.status='CONCLUDED';
-  state.finished[id]=det;delete state.active[id];
-  card.remove();renderFinished(det);saveLocal();
-  channel.postMessage({type:'status-update',orderId:id,status:'CONCLUDED'});
-}
+    $('#login-btn').onclick = ()=>{
+      const u = $('#user').value.trim().toLowerCase();
+      const p = $('#pass').value;
+      if(u==='boaz' && p==='boaz123') doLogin(u);
+      else toast('Usuário ou senha inválidos','error');
+    };
+    $('#logout-btn').onclick = ()=>{
+      localStorage.clear();
+      location.reload();
+    };
+    window.addEventListener('load',()=>{
+      const u=localStorage.getItem('motoboyUser');
+      if(u) doLogin(u);
+    });
 
-/* ----------------------------------------------------------------
-   7. DETALHES DO PEDIDO (endereço, valor e pagamento iguais ao admin)
----------------------------------------------------------------- */
-async function fetchOrderDetails(id){
-  const o = await makeRequest(`/order/v1.0/orders/${id}`,'GET');
+    // 9) Tabs
+    $('#tab-active').onclick   = ()=>toggleTab('active');
+    $('#tab-finished').onclick = ()=>toggleTab('finished');
 
-  // Endereço no mesmo padrão usado no admin
-  const addr = o.delivery?.deliveryAddress ?? {};
-  const address =
-        addr.formattedAddress ||
-        `${addr.streetName||''}, ${addr.streetNumber||''}${addr.complement ? ' - '+addr.complement : ''}`;
-
-  /* Valor total — usa a mesma regra do admin */
-  let raw = o.pricing?.orderAmount ??                       // iFood mais recente
-            o.pricing?.totalPrice  ??                       // fallback
-            o.pricing?.price?.value ??                     // fallback
-            null;
-
-  // Se não veio nada em pricing, soma todos os métodos de pagamento
-  if (raw == null && o.payments?.methods?.length) {
-    raw = o.payments.methods.reduce((s,m)=>
-      s + (m.value > 100 ? m.value*100 : m.value*100) ,0);
-  }
-
-  const total = (raw > 100 ? raw/100 : raw) || 0;
-
-
-  // Forma de pagamento (mesma estrutura do admin)
-  const payObj = o.payments?.methods?.[0] || {};
-  const payment = payObj.methodName || payObj.methodType || payObj.method || '—';
-
-  return {
-    id,
-    displayId : o.displayId || o.orderDisplayId || id.slice(0,8),
-    customer  : o.customer?.name ||
-                `${o.customer?.firstName||''} ${o.customer?.lastName||''}`.trim() || '—',
-    address,
-    total,
-    payment,
-    status    : 'NEW'
-  };
-}
-
-/* ----------------------------------------------------------------
-   8. BROADCAST CHANNEL
----------------------------------------------------------------- */
-channel.addEventListener('message',async e=>{
-  const d=e.data;
-
-  /* ----- ADMIN atribuiu pedidos ----- */
-  if(d?.type==='assign' && d.user===localStorage.getItem('motoboyUser')){
-    for(const id of d.orders){
-      if(state.active[id]||state.finished[id]) continue;
-      try{
-        const det=await fetchOrderDetails(id);
-        state.active[id]=det;renderActive(det);saveLocal();
-      }catch(err){console.error(err);}
-    }
-  }
-
-  /* ----- Admin confirmou status ----- */
-  if(d?.type==='status-update'){
-    const {orderId,status}=d;
-    if(status==='DISPATCHED' && state.active[orderId]){
-      state.active[orderId].status='DISPATCHED';
-      const card=$(`.order-card[data-id="${orderId}"]`);
-      if(card){setStatus(card,'DISPATCHED');card.querySelector('.dispatch')?.remove();}
-      saveLocal();
-    }
-    if(status==='CONCLUDED' && state.active[orderId]){
-      doFinish(orderId,$(`.order-card[data-id="${orderId}"]`));
-    }
-  }
-});
-
-/* ----------------------------------------------------------------
-   9. LOGIN
----------------------------------------------------------------- */
-function enterUI(){
-  $('#login-box').classList.add('hidden');
-  $('#topbar').classList.remove('hidden');
-  $('#tabs').classList.remove('hidden');
-  $('#panels').classList.remove('hidden');
-}
-
-  // A cada 30 s busca pedidos prontos e adiciona os que ainda não temos
-setInterval(async () => {
-  try {
-    if (!state.accessToken) return;
-    const list = await fetchDispatched();
-    for (const o of list) {
-      const id = o.id || o.orderId;
-      if (state.active[id] || state.finished[id]) continue;
-      const full = await fetchOrderDetails(id);
-      state.active[id] = full;
-      renderActive(full);
-      saveLocal();
-    }
-  } catch (err) {
-    // Qualquer erro (latência, 4xx, 5xx) é logado mas não bloqueia o loop
-    console.warn('[sync] erro ignorado:', err.message);
-  }
-}, 30000);
-
-function doLogin(u){
-  localStorage.setItem('motoboyUser',u);
-  enterUI();loadLocal();renderAll();
-  channel.postMessage({type:'motoboy-online',user:u});
-}
-$('#login-btn').onclick=()=>{
-  const u=$('#user').value.trim().toLowerCase();
-  const p=$('#pass').value;
-  if(u==='boaz'&&p==='boaz123') doLogin(u);
-  else toast('Usuário ou senha inválidos','error');
-};
-$('#logout-btn').onclick=()=>{localStorage.clear();location.reload()};
-window.addEventListener('load',()=>{const u=localStorage.getItem('motoboyUser');if(u)doLogin(u);});
-
-/* ----------------------------------------------------------------
-   10. TABS
----------------------------------------------------------------- */
-$('#tab-active').onclick =()=>toggleTab('active');
-$('#tab-finished').onclick=()=>toggleTab('finished');
-</script>
+  </script>
 </body>
 </html>
