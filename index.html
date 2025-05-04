@@ -6,6 +6,23 @@
     <title>Cabana Delivery</title>
     <link rel="stylesheet" href="styles.css">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+
+<!-- CONFIGURAÇÕES FIREBASE -->
+<script type="module">
+  import { initializeApp }   from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+  import { getFirestore }    from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyBuRHTtuKgpQE_qAdMIbT9_9qbjh4cbLI8",
+    authDomain: "apiifood-e0d35.firebaseapp.com",
+    projectId: "apiifood-e0d35",
+    storageBucket: "apiifood-e0d35.firebasestorage.app",
+    messagingSenderId: "905864103175",
+    appId: "1:905864103175:web:a198383d3a66a7d2cd31a2"
+  };
+  const app = initializeApp(firebaseConfig);
+  window.db = getFirestore(app);
+</script>
 </head>
 <body>
     <!-- Sidebar navigation -->
@@ -354,7 +371,7 @@
     <script src="scheduled-order-modal.js"></script>
     <script src="takeout-orders.js"></script>
 
-        <!-- NOVO script que cuida da atribuição para motoboys -->
-    <script src="dispatch-motoboy.js"></script>
+    <script type="module" src="firebase-init.js"></script>
+    <script type="module" src="dispatch-motoboy.js"></script>
 </body>
 </html>
